@@ -12,11 +12,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: {},
         password: {},
+        token: {},
+        user: {},
       },
       authorize: async (credentials) => {
         try {
-          const { email, password } = await loginSchema.parseAsync(credentials)
+          // If token and user are provided (from our custom login flow), use them
+          if (credentials.token && credentials.user) {
+            const user = credentials.user as any
+            return {
+              id: user.id || '1',
+              email: credentials.email as string,
+              name: user.name || credentials.email,
+              token: credentials.token,
+              ...user
+            } as any
+          }
 
+          // Fallback to original flow for backward compatibility
+          const { email, password } = await loginSchema.parseAsync(credentials)
           const user = await getUserFromDb(email, password)
 
           if (!user) {

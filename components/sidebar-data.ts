@@ -27,9 +27,14 @@ export const data = {
       isActive: true,
       items: [
         {
+          title: "Manage Users",
+          url: "/users",
+          circleColor: "bg-blue-600",
+        },
+        {
           title: "Users Setup",
           url: "/users-list",
-          circleColor: "bg-blue-600",
+          circleColor: "bg-purple-600",
         },
         {
           title: "User Role",

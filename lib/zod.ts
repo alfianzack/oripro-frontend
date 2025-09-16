@@ -3,11 +3,11 @@ import { z } from "zod";
 // Password Schema Base
 const passwordField = z
   .string({ required_error: "Password is required" })
-  .min(8, { message: "Password must be more than 8 characters" })
-  .max(15, { message: "Password must be less than 15 characters" })
-  .regex(/[a-zA-Z]/, { message: "Contain at least one letter." })
-  .regex(/[0-9]/, { message: "Contain at least one number." })
-  .regex(/[^a-zA-Z0-9]/, { message: "Contain at least one special character." })
+  //.min(8, { message: "Password must be more than 8 characters" })
+  //.max(15, { message: "Password must be less than 15 characters" })
+  //.regex(/[a-zA-Z]/, { message: "Contain at least one letter." })
+  //.regex(/[0-9]/, { message: "Contain at least one number." })
+  //.regex(/[^a-zA-Z0-9]/, { message: "Contain at least one special character." })
   .trim();
 
 // Email schema base

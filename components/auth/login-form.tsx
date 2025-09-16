@@ -33,8 +33,8 @@ const LoginForm = () => {
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'wowdash@gmail.com',
-      password: 'Pa$$w0rd!',
+      email: 'superadmin@example.com',
+      password: 'superadmin123',
     },
   })
 
@@ -51,19 +51,30 @@ const LoginForm = () => {
 
         if (res?.error) {
           toast.error(res.error)
-        } else {
+        } else if (res?.success && res?.token) {
+          // Store token in localStorage for future API calls
+          localStorage.setItem('auth_token', res.token)
+          localStorage.setItem('user_data', JSON.stringify(res.user))
+          
+          // Use NextAuth signIn with custom credentials
           await signIn('credentials', {
             redirect: true,
             email: values.email,
             password: values.password,
+            token: res.token,
+            user: res.user,
             callbackUrl: '/dashboard',
           })
-          toast.success('Login successful!')
+          toast.success('Login berhasil!')
+        } else {
+          toast.error('Login gagal. Silakan coba lagi.')
         }
       } catch (error) {
-        toast.error('Something went wrong. Please try again.')
+        console.error('Login error:', error)
+        toast.error('Terjadi kesalahan. Silakan coba lagi.')
       } finally {
         setLoading(false)
+        setIsSubmitting(false)
       }
     });
   }
