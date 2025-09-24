@@ -2,80 +2,79 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, usersApi } from '@/lib/api'
+import { Role, rolesApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
-import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
-import UsersTable from '@/components/table/users-table'
-import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
+import { Home, ShieldCheck, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
+import RolesTable from '@/components/table/roles-table'
+import RoleDetailDialog from '@/components/dialogs/role-detail-dialog'
 import toast from 'react-hot-toast'
 
-export default function UsersPage() {
+export default function RolesPage() {
   const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [filteredRoles, setFilteredRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  const loadUsers = async () => {
+  const loadRoles = async () => {
     setLoading(true)
     try {
-      const response = await usersApi.getUsers()
+      const response = await rolesApi.getRoles()
       
       if (response.success && response.data) {
-        setUsers(response.data)
-        setFilteredUsers(response.data)
+        setRoles(response.data)
+        setFilteredRoles(response.data)
       } else {
-        toast.error(response.error || 'Gagal memuat data users')
+        toast.error(response.error || 'Gagal memuat data roles')
       }
     } catch (error) {
-      console.error('Load users error:', error)
-      toast.error('Terjadi kesalahan saat memuat data users')
+      console.error('Load roles error:', error)
+      toast.error('Terjadi kesalahan saat memuat data roles')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadUsers()
+    loadRoles()
   }, [])
 
   useEffect(() => {
     if (searchTerm.trim()) {
-      const filtered = users.filter(user =>
-        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = roles.filter(role =>
+        role.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-      setFilteredUsers(filtered)
+      setFilteredRoles(filtered)
     } else {
-      setFilteredUsers(users)
+      setFilteredRoles(roles)
     }
-  }, [searchTerm, users])
+  }, [searchTerm, roles])
 
-  const handleEdit = (user: User) => {
-    router.push(`/users/edit/${user.id}`)
+  const handleEdit = (role: Role) => {
+    router.push(`/roles/edit/${role.id}`)
   }
 
-  const handleView = (user: User) => {
-    setSelectedUser(user)
+  const handleView = (role: Role) => {
+    setSelectedRole(role)
     setDetailDialogOpen(true)
   }
 
   const handleRefresh = () => {
-    loadUsers()
+    loadRoles()
   }
 
   const getStats = () => {
-    const total = users.length
-    const superAdmin = users.filter(user => user.role?.level >= 100).length
-    const admin = users.filter(user => user.role?.level >= 50 && user.role?.level < 100).length
-    const manager = users.filter(user => user.role?.level >= 20 && user.role?.level < 50).length
-    const staff = users.filter(user => user.role?.level >= 10 && user.role?.level < 20).length
-    const user = users.filter(user => (user.role?.level || 0) < 10).length
+    const total = roles.length
+    const superAdmin = roles.filter(role => role.level >= 100).length
+    const admin = roles.filter(role => role.level >= 50 && role.level < 100).length
+    const manager = roles.filter(role => role.level >= 20 && role.level < 50).length
+    const staff = roles.filter(role => role.level >= 10 && role.level < 20).length
+    const user = roles.filter(role => role.level < 10).length
 
     return { total, superAdmin, admin, manager, staff, user }
   }
@@ -96,8 +95,8 @@ export default function UsersPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage className="flex items-center gap-2">
-              <UsersRound className="h-4 w-4" />
-              Users
+              <ShieldCheck className="h-4 w-4" />
+              Roles
             </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
@@ -106,14 +105,14 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Roles</h1>
           <p className="text-muted-foreground">
-            Kelola pengguna dan akses sistem
+            Kelola role dan level akses pengguna
           </p>
         </div>
-        <Button onClick={() => router.push('/users/create')}>
+        <Button onClick={() => router.push('/roles/create')}>
           <Plus className="mr-2 h-4 w-4" />
-          Tambah User
+          Tambah Role
         </Button>
       </div>
 
@@ -121,13 +120,13 @@ export default function UsersPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <UsersRound className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Roles</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              Semua pengguna terdaftar
+              Semua role terdaftar
             </p>
           </CardContent>
         </Card>
@@ -197,12 +196,12 @@ export default function UsersPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Daftar Users</CardTitle>
+            <CardTitle>Daftar Roles</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Cari user..."
+                  placeholder="Cari role..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 w-64"
@@ -219,12 +218,12 @@ export default function UsersPage() {
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span>Memuat data users...</span>
+                <span>Memuat data roles...</span>
               </div>
             </div>
           ) : (
-            <UsersTable
-              users={filteredUsers}
+            <RolesTable
+              roles={filteredRoles}
               onEdit={handleEdit}
               onView={handleView}
               onRefresh={handleRefresh}
@@ -235,10 +234,10 @@ export default function UsersPage() {
       </Card>
 
       {/* Detail Dialog */}
-      <UserDetailDialog
+      <RoleDetailDialog
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
-        user={selectedUser}
+        role={selectedRole}
       />
     </div>
   )

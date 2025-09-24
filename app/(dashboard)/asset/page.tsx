@@ -2,82 +2,83 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, usersApi } from '@/lib/api'
+import { Asset, assetsApi, ASSET_TYPE_LABELS } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
-import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
-import UsersTable from '@/components/table/users-table'
-import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
+import { Home, Boxes, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
+import AssetsTable from '@/components/table/assets-table'
+import AssetDetailDialog from '@/components/dialogs/asset-detail-dialog'
 import toast from 'react-hot-toast'
 
-export default function UsersPage() {
+export default function AssetsPage() {
   const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [filteredAssets, setFilteredAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
-  const loadUsers = async () => {
+  const loadAssets = async () => {
     setLoading(true)
     try {
-      const response = await usersApi.getUsers()
+      const response = await assetsApi.getAssets()
       
       if (response.success && response.data) {
-        setUsers(response.data)
-        setFilteredUsers(response.data)
+        setAssets(response.data)
+        setFilteredAssets(response.data)
       } else {
-        toast.error(response.error || 'Gagal memuat data users')
+        toast.error(response.error || 'Gagal memuat data assets')
       }
     } catch (error) {
-      console.error('Load users error:', error)
-      toast.error('Terjadi kesalahan saat memuat data users')
+      console.error('Load assets error:', error)
+      toast.error('Terjadi kesalahan saat memuat data assets')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadUsers()
+    loadAssets()
   }, [])
 
   useEffect(() => {
     if (searchTerm.trim()) {
-      const filtered = users.filter(user =>
-        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = assets.filter(asset =>
+        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        asset.code.toLowerCase().includes(searchTerm.toLowerCase())
       )
-      setFilteredUsers(filtered)
+      setFilteredAssets(filtered)
     } else {
-      setFilteredUsers(users)
+      setFilteredAssets(assets)
     }
-  }, [searchTerm, users])
+  }, [searchTerm, assets])
 
-  const handleEdit = (user: User) => {
-    router.push(`/users/edit/${user.id}`)
+  const handleEdit = (asset: Asset) => {
+    router.push(`/asset/edit/${asset.id}`)
   }
 
-  const handleView = (user: User) => {
-    setSelectedUser(user)
+  const handleView = (asset: Asset) => {
+    setSelectedAsset(asset)
     setDetailDialogOpen(true)
   }
 
   const handleRefresh = () => {
-    loadUsers()
+    loadAssets()
   }
 
   const getStats = () => {
-    const total = users.length
-    const superAdmin = users.filter(user => user.role?.level >= 100).length
-    const admin = users.filter(user => user.role?.level >= 50 && user.role?.level < 100).length
-    const manager = users.filter(user => user.role?.level >= 20 && user.role?.level < 50).length
-    const staff = users.filter(user => user.role?.level >= 10 && user.role?.level < 20).length
-    const user = users.filter(user => (user.role?.level || 0) < 10).length
+    const total = assets.length
+    const estate = assets.filter(asset => asset.asset_type === 1).length
+    const office = assets.filter(asset => asset.asset_type === 2).length
+    const warehouse = assets.filter(asset => asset.asset_type === 3).length
+    const residence = assets.filter(asset => asset.asset_type === 6).length
+    const mall = assets.filter(asset => asset.asset_type === 7).length
+    const other = assets.filter(asset => ![1, 2, 3, 6, 7].includes(asset.asset_type)).length
 
-    return { total, superAdmin, admin, manager, staff, user }
+    return { total, estate, office, warehouse, residence, mall, other }
   }
 
   const stats = getStats()
@@ -96,8 +97,8 @@ export default function UsersPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage className="flex items-center gap-2">
-              <UsersRound className="h-4 w-4" />
-              Users
+              <Boxes className="h-4 w-4" />
+              Assets
             </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
@@ -106,88 +107,100 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Assets</h1>
           <p className="text-muted-foreground">
-            Kelola pengguna dan akses sistem
+            Kelola data aset dan properti
           </p>
         </div>
-        <Button onClick={() => router.push('/users/create')}>
+        <Button onClick={() => router.push('/asset/create')}>
           <Plus className="mr-2 h-4 w-4" />
-          Tambah User
+          Tambah Asset
         </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <UsersRound className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+            <Boxes className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              Semua pengguna terdaftar
+              Semua aset terdaftar
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Super Admin</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.superAdmin}</div>
-            <p className="text-xs text-muted-foreground">
-              Level 100+
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Admin</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.admin}</div>
-            <p className="text-xs text-muted-foreground">
-              Level 50-99
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Manager</CardTitle>
+            <CardTitle className="text-sm font-medium">Estate</CardTitle>
             <div className="h-4 w-4 rounded-full bg-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.manager}</div>
+            <div className="text-2xl font-bold">{stats.estate}</div>
             <p className="text-xs text-muted-foreground">
-              Level 20-49
+              Properti Estate
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Staff</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-yellow-500" />
+            <CardTitle className="text-sm font-medium">Office</CardTitle>
+            <div className="h-4 w-4 rounded-full bg-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.staff}</div>
+            <div className="text-2xl font-bold">{stats.office}</div>
             <p className="text-xs text-muted-foreground">
-              Level 10-19
+              Gedung Kantor
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">User</CardTitle>
+            <CardTitle className="text-sm font-medium">Warehouse</CardTitle>
+            <div className="h-4 w-4 rounded-full bg-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.warehouse}</div>
+            <p className="text-xs text-muted-foreground">
+              Gudang
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Residence</CardTitle>
+            <div className="h-4 w-4 rounded-full bg-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.residence}</div>
+            <p className="text-xs text-muted-foreground">
+              Perumahan
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Mall</CardTitle>
+            <div className="h-4 w-4 rounded-full bg-pink-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.mall}</div>
+            <p className="text-xs text-muted-foreground">
+              Pusat Perbelanjaan
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lainnya</CardTitle>
             <div className="h-4 w-4 rounded-full bg-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.user}</div>
+            <div className="text-2xl font-bold">{stats.other}</div>
             <p className="text-xs text-muted-foreground">
-              Level 0-9
+              Jenis Lain
             </p>
           </CardContent>
         </Card>
@@ -197,12 +210,12 @@ export default function UsersPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Daftar Users</CardTitle>
+            <CardTitle>Daftar Assets</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Cari user..."
+                  placeholder="Cari asset..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 w-64"
@@ -219,12 +232,12 @@ export default function UsersPage() {
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-6 w-6 animate-spin" />
-                <span>Memuat data users...</span>
+                <span>Memuat data assets...</span>
               </div>
             </div>
           ) : (
-            <UsersTable
-              users={filteredUsers}
+            <AssetsTable
+              assets={filteredAssets}
               onEdit={handleEdit}
               onView={handleView}
               onRefresh={handleRefresh}
@@ -235,10 +248,10 @@ export default function UsersPage() {
       </Card>
 
       {/* Detail Dialog */}
-      <UserDetailDialog
+      <AssetDetailDialog
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
-        user={selectedUser}
+        asset={selectedAsset}
       />
     </div>
   )

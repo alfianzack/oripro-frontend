@@ -32,13 +32,8 @@ export const data = {
           circleColor: "bg-blue-600",
         },
         {
-          title: "Users Setup",
-          url: "/users-list",
-          circleColor: "bg-purple-600",
-        },
-        {
-          title: "User Role",
-          url: "/users-role",
+          title: "Manage Roles",
+          url: "/roles",
           circleColor: "bg-yellow-600",
         },
       ],
@@ -50,14 +45,20 @@ export const data = {
       isActive: true,
     },
     {
+      title: "Unit",
+      url: "/unit",
+      icon: Building2,
+      isActive: true,
+    },
+    {
       title: "Worker",
       url: "/worker",
       icon: UsersRound,
       isActive: true,
     },
     {
-      title: "Tenant",
-      url: "/tenant",
+      title: "Tenants",
+      url: "/tenants",
       icon: Building2,
       isActive: true,
     },
@@ -67,6 +68,11 @@ export const data = {
       icon: Settings,
       isActive: true,
       items: [
+        {
+          title: "Menu Management",
+          url: "/menus",
+          circleColor: "bg-purple-600",
+        },
         {
           title: "Company",
           url: "/company",

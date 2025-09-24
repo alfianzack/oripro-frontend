@@ -6,8 +6,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { useTheme } from 'next-themes'
 
-import LogoDark from '@/public/assets/images/logo.png'
-import LogoWhite from '@/public/assets/images/logo-light.png'
+import LogoDark from '@/public/assets/images/logo_oripro.jpg'
+import LogoWhite from '@/public/assets/images/logo_oripro.jpg'
 import LogoIcon from '@/public/assets/images/logo-icon.png'
 import { cn } from '@/lib/utils'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
