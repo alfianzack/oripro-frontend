@@ -167,19 +167,16 @@ export interface Role {
   id: string
   name: string
   level: number
-  menuPermissions?: RoleMenuPermission[]
 }
 
 export interface CreateRoleData {
   name: string
   level: number
-  menuPermissions?: CreateRoleMenuPermissionData[]
 }
 
 export interface UpdateRoleData {
   name?: string
   level?: number
-  menuPermissions?: CreateRoleMenuPermissionData[]
 }
 
 // Users API interface
@@ -188,6 +185,7 @@ export interface User {
   email: string
   name?: string
   role_id?: string
+  status?: string
   role?: {
     id: string
     name: string
@@ -204,6 +202,7 @@ export interface CreateUserData {
   password: string
   name?: string
   roleId?: string
+  status?: string
 }
 
 export interface UpdateUserData {
@@ -211,6 +210,7 @@ export interface UpdateUserData {
   password?: string
   name?: string
   roleId?: string
+  status?: string
 }
 
 // Roles-specific API functions
@@ -233,14 +233,6 @@ export const rolesApi = {
 
   async deleteRole(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/roles/${id}`)
-  },
-
-  async getRoleMenuPermissions(roleId: string): Promise<ApiResponse<RoleMenuPermission[]>> {
-    return apiClient.get<RoleMenuPermission[]>(`/api/roles/${roleId}/menu-permissions`)
-  },
-
-  async setRoleMenuPermissions(roleId: string, permissions: CreateRoleMenuPermissionData[]): Promise<ApiResponse<void>> {
-    return apiClient.put<void>(`/api/roles/${roleId}/menu-permissions`, { permissions })
   },
 }
 
@@ -505,19 +497,41 @@ export const tenantsApi = {
   },
 }
 
-// Menu interface
+// Menus-specific API functions
+export const menusApi = {
+  async getMenus(): Promise<ApiResponse<Menu[]>> {
+    return apiClient.get<Menu[]>('/api/menus')
+  },
+
+  async getMenu(id: string): Promise<ApiResponse<Menu>> {
+    return apiClient.get<Menu>(`/api/menus/${id}`)
+  },
+
+  async createMenu(data: CreateMenuData): Promise<ApiResponse<Menu>> {
+    return apiClient.post<Menu>('/api/menus', data)
+  },
+
+  async updateMenu(id: string, data: UpdateMenuData): Promise<ApiResponse<Menu>> {
+    return apiClient.put<Menu>(`/api/menus/${id}`, data)
+  },
+
+  async deleteMenu(id: string): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(`/api/menus/${id}`)
+  },
+}
+
+// Menu API interface
 export interface Menu {
   id: string
   title: string
-  url: string
+  url?: string
   icon?: string
   parent_id?: string
   order: number
   is_active: boolean
-  circle_color?: string
   can_view: boolean
-  can_create: boolean
-  can_update: boolean
+  can_add: boolean
+  can_edit: boolean
   can_delete: boolean
   can_confirm: boolean
   created_at: string
@@ -525,42 +539,20 @@ export interface Menu {
   created_by?: string
   updated_by?: string
   children?: Menu[]
-  parent?: Menu
-}
-
-// Role Menu Permission interface
-export interface RoleMenuPermission {
-  id: string
-  role_id: string
-  menu_id: string
-  can_view: boolean
-  can_create: boolean
-  can_update: boolean
-  can_delete: boolean
-  can_confirm: boolean
-  created_at: string
-  updated_at: string
-  menu?: Menu
-  role?: Role
-}
-
-export interface CreateRoleMenuPermissionData {
-  menu_id: string
-  can_view: boolean
-  can_create: boolean
-  can_update: boolean
-  can_delete: boolean
-  can_confirm: boolean
 }
 
 export interface CreateMenuData {
   title: string
-  url: string
+  url?: string
   icon?: string
   parent_id?: string
   order?: number
   is_active?: boolean
-  circle_color?: string
+  can_view?: boolean
+  can_add?: boolean
+  can_edit?: boolean
+  can_delete?: boolean
+  can_confirm?: boolean
 }
 
 export interface UpdateMenuData {
@@ -570,10 +562,22 @@ export interface UpdateMenuData {
   parent_id?: string
   order?: number
   is_active?: boolean
-  circle_color?: string
+  can_view?: boolean
+  can_add?: boolean
+  can_edit?: boolean
+  can_delete?: boolean
+  can_confirm?: boolean
 }
 
-// Menu Access interface (legacy)
+export interface CreateRoleMenuPermissionData {
+  menu_id: string
+  can_view: boolean
+  can_create: boolean
+  can_update: boolean
+  can_delete: boolean
+}
+
+// Menu Access interface
 export interface MenuAccess {
   id: string
   name: string
@@ -675,52 +679,3 @@ export const MENU_STRUCTURE: MenuAccess[] = [
     ]
   }
 ]
-
-// Menus-specific API functions
-export const menusApi = {
-  async getMenus(): Promise<ApiResponse<Menu[]>> {
-    try {
-      return await apiClient.get<Menu[]>('/api/menus/with-permissions')
-    } catch (error) {
-      console.warn('Failed to get menus with permissions, falling back to regular endpoint')
-      return await apiClient.get<Menu[]>('/api/menus')
-    }
-  },
-
-  async getMenusFlat(): Promise<ApiResponse<Menu[]>> {
-    return apiClient.get<Menu[]>('/api/menus/flat')
-  },
-
-  async getParentMenus(): Promise<ApiResponse<Menu[]>> {
-    try {
-      return await apiClient.get<Menu[]>('/api/menus/parents')
-    } catch (error) {
-      console.warn('Failed to get parent menus, using fallback')
-      return { success: true, data: [] }
-    }
-  },
-
-  async getMenu(id: string): Promise<ApiResponse<Menu>> {
-    return apiClient.get<Menu>(`/api/menus/${id}`)
-  },
-
-  async getMenuChildren(id: string): Promise<ApiResponse<Menu[]>> {
-    return apiClient.get<Menu[]>(`/api/menus/${id}/children`)
-  },
-
-  async createMenu(data: CreateMenuData): Promise<ApiResponse<Menu>> {
-    return apiClient.post<Menu>('/api/menus', data)
-  },
-
-  async updateMenu(id: string, data: UpdateMenuData): Promise<ApiResponse<Menu>> {
-    return apiClient.put<Menu>(`/api/menus/${id}`, data)
-  },
-
-  async updateMenuOrder(menuOrders: { id: string; order: number }[]): Promise<ApiResponse<void>> {
-    return apiClient.put<void>('/api/menus/order', { menuOrders })
-  },
-
-  async deleteMenu(id: string): Promise<ApiResponse<void>> {
-    return apiClient.delete<void>(`/api/menus/${id}`)
-  },
-}

@@ -273,62 +273,6 @@ export default function RoleForm({ role, onSubmit, loading = false }: RoleFormPr
         </CardContent>
       </Card>
 
-      {/* Level Information */}
-      {formData.level && !errors.level && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              Informasi Level
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <Badge variant={levelBadge.variant} className="text-sm">
-                {levelBadge.label}
-              </Badge>
-              <div>
-                <p className="font-medium">Level {currentLevel}</p>
-                <p className="text-sm text-muted-foreground">
-                  {levelBadge.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className={`p-3 border rounded ${currentLevel >= 100 ? 'bg-red-50 border-red-200' : 'bg-gray-50'}`}>
-                <p className="text-sm font-medium">Super Admin</p>
-                <p className="text-xs text-muted-foreground">Level 100+</p>
-                <Badge variant={currentLevel >= 100 ? "destructive" : "outline"} className="text-xs mt-1">
-                  {currentLevel >= 100 ? "Aktif" : "Tidak Aktif"}
-                </Badge>
-              </div>
-              <div className={`p-3 border rounded ${currentLevel >= 50 && currentLevel < 100 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
-                <p className="text-sm font-medium">Admin</p>
-                <p className="text-xs text-muted-foreground">Level 50-99</p>
-                <Badge variant={currentLevel >= 50 && currentLevel < 100 ? "default" : "outline"} className="text-xs mt-1">
-                  {currentLevel >= 50 && currentLevel < 100 ? "Aktif" : "Tidak Aktif"}
-                </Badge>
-              </div>
-              <div className={`p-3 border rounded ${currentLevel >= 20 && currentLevel < 50 ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
-                <p className="text-sm font-medium">Manager</p>
-                <p className="text-xs text-muted-foreground">Level 20-49</p>
-                <Badge variant={currentLevel >= 20 && currentLevel < 50 ? "secondary" : "outline"} className="text-xs mt-1">
-                  {currentLevel >= 20 && currentLevel < 50 ? "Aktif" : "Tidak Aktif"}
-                </Badge>
-              </div>
-              <div className={`p-3 border rounded ${currentLevel >= 10 && currentLevel < 20 ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50'}`}>
-                <p className="text-sm font-medium">Staff</p>
-                <p className="text-xs text-muted-foreground">Level 10-19</p>
-                <Badge variant={currentLevel >= 10 && currentLevel < 20 ? "outline" : "outline"} className="text-xs mt-1">
-                  {currentLevel >= 10 && currentLevel < 20 ? "Aktif" : "Tidak Aktif"}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Menu Access Selection */}
       <MenuAccessSelector
         menus={menus}

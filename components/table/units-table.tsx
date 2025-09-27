@@ -119,6 +119,7 @@ export default function UnitsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>No</TableHead>
               <TableHead>Nama Unit</TableHead>
               <TableHead>Asset</TableHead>
               <TableHead>Ukuran (m²)</TableHead>
@@ -144,6 +145,7 @@ export default function UnitsTable({
                 const isLast = index === units.length - 1;
                 return (
                 <TableRow key={unit.id}>
+                  <TableCell className="font-medium">{String(index + 1)}</TableCell>
                   <TableCell className="font-medium">
                     {unit.name || '-'}
                   </TableCell>

@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { Toaster } from "react-hot-toast";
-import { Toaster as SonnerToaster } from "sonner";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
@@ -51,6 +50,8 @@ export default async function RootLayout({
         </LoadingProvider>
         <Toaster
           position="top-right"
+          limit={1}
+          gutter={8}
           toastOptions={{
             duration: 4000,
             style: {
@@ -73,7 +74,6 @@ export default async function RootLayout({
             },
           }}
         />
-        <SonnerToaster position="top-right" richColors />
       </body>
     </html>
   );

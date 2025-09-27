@@ -133,6 +133,7 @@ export default function AssetsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>No</TableHead>
               <TableHead>Nama</TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Tipe Asset</TableHead>
@@ -155,6 +156,7 @@ export default function AssetsTable({
                 const isLast = index === assets.length - 1;
                 return (
                 <TableRow key={asset.id}>
+                  <TableCell className="font-medium">{String(index + 1)}</TableCell>
                   <TableCell className="font-medium">
                     {asset.name || '-'}
                   </TableCell>

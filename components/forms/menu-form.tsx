@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Menu, CreateMenuData, UpdateMenuData, menusApi } from '@/lib/api'
+import { useMenus } from '@/hooks/useMenus'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,103 +31,32 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
     order: 0,
     is_active: true,
     circle_color: '',
+    can_view: false,
+    can_create: false,
+    can_update: false,
+    can_delete: false,
+    can_confirm: false,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [parentMenus, setParentMenus] = useState<Menu[]>([])
-  const [loadingParents, setLoadingParents] = useState(false)
+  
+  // Use the useMenus hook to get all menus
+  const { menus: allMenus, loading: menusLoading } = useMenus()
 
-  // Load parent menus
+  // Filter parent menus from all menus (menus without parent_id)
   useEffect(() => {
-    const loadParentMenus = async () => {
-      setLoadingParents(true)
-      try {
-        const response = await menusApi.getParentMenus()
-        if (response.success && response.data) {
-          const menuData = Array.isArray(response.data) ? response.data : []
-          setParentMenus(menuData)
-        } else {
-          // Use mock data for testing
-          const mockParentMenus = [
-            {
-              id: '1',
-              title: 'Dashboard',
-              url: '/',
-              icon: 'House',
-              parent_id: undefined,
-              order: 1,
-              is_active: true,
-              can_view: true,
-              can_create: false,
-              can_update: false,
-              can_delete: false,
-              can_confirm: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '2',
-              title: 'Users',
-              url: '/users',
-              icon: 'UsersRound',
-              parent_id: undefined,
-              order: 2,
-              is_active: true,
-              can_view: true,
-              can_create: true,
-              can_update: true,
-              can_delete: true,
-              can_confirm: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '5',
-              title: 'Assets',
-              url: '/assets',
-              icon: 'Boxes',
-              parent_id: undefined,
-              order: 3,
-              is_active: true,
-              can_view: true,
-              can_create: true,
-              can_update: true,
-              can_delete: false,
-              can_confirm: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ]
-          setParentMenus(mockParentMenus)
-        }
-      } catch (error) {
-        console.error('Failed to load parent menus:', error)
-        // Use mock data as fallback
-        const mockParentMenus = [
-          {
-            id: '1',
-            title: 'Dashboard',
-            url: '/',
-            icon: 'House',
-            parent_id: undefined,
-            order: 1,
-            is_active: true,
-            can_view: true,
-            can_create: false,
-            can_update: false,
-            can_delete: false,
-            can_confirm: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ]
-        setParentMenus(mockParentMenus)
-      } finally {
-        setLoadingParents(false)
-      }
+    if (allMenus && allMenus.length > 0) {
+      console.log('All menus loaded:', allMenus)
+      // Filter menus that don't have a parent (parent_id is null or undefined)
+      const parentMenusList = allMenus.filter(menu => 
+        !menu.parent_id && menu.is_active
+      )
+      console.log('Parent menus filtered:', parentMenusList)
+      setParentMenus(parentMenusList)
+    } else {
+      console.log('No menus loaded yet or empty array')
     }
-
-    loadParentMenus()
-  }, [])
+  }, [allMenus])
 
   // Initialize form data when menu prop changes
   useEffect(() => {
@@ -139,6 +69,11 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
         order: menu.order || 0,
         is_active: menu.is_active ?? true,
         circle_color: menu.circle_color || '',
+        can_view: menu.can_view ?? false,
+        can_create: menu.can_create ?? false,
+        can_update: menu.can_update ?? false,
+        can_delete: menu.can_delete ?? false,
+        can_confirm: menu.can_confirm ?? false,
       })
     }
   }, [menu])
@@ -181,6 +116,11 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
       order: formData.order,
       is_active: formData.is_active,
       circle_color: formData.circle_color.trim() || undefined,
+      can_view: formData.can_view,
+      can_create: formData.can_create,
+      can_update: formData.can_update,
+      can_delete: formData.can_delete,
+      can_confirm: formData.can_confirm,
     }
 
     try {
@@ -252,20 +192,33 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
               <Select
                 value={formData.parent_id || undefined}
                 onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? '' : value)}
-                disabled={loadingParents}
+                disabled={menusLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih menu parent (opsional)" />
+                  <SelectValue placeholder={
+                    menusLoading 
+                      ? "Memuat menu..." 
+                      : "Pilih menu parent (opsional)"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Tidak ada parent</SelectItem>
-                  {parentMenus.map((parent) => (
-                    <SelectItem key={parent.id} value={parent.id}>
-                      {parent.title}
+                  {parentMenus.length > 0 ? (
+                    parentMenus.map((parent) => (
+                      <SelectItem key={parent.id} value={parent.id}>
+                        {parent.title}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      {menusLoading ? "Memuat..." : "Tidak ada menu parent tersedia"}
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
+              {menusLoading && (
+                <p className="text-sm text-muted-foreground">Memuat daftar menu...</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -301,6 +254,65 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
               onCheckedChange={(checked) => handleInputChange('is_active', checked)}
             />
             <Label htmlFor="is_active">Menu Aktif</Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Permission Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Permission Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="can_view"
+                checked={formData.can_view}
+                onCheckedChange={(checked) => handleInputChange('can_view', checked)}
+              />
+              <Label htmlFor="can_view">Can View</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="can_create"
+                checked={formData.can_create}
+                onCheckedChange={(checked) => handleInputChange('can_create', checked)}
+              />
+              <Label htmlFor="can_create">Can Create</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="can_update"
+                checked={formData.can_update}
+                onCheckedChange={(checked) => handleInputChange('can_update', checked)}
+              />
+              <Label htmlFor="can_update">Can Update</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="can_delete"
+                checked={formData.can_delete}
+                onCheckedChange={(checked) => handleInputChange('can_delete', checked)}
+              />
+              <Label htmlFor="can_delete">Can Delete</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="can_confirm"
+                checked={formData.can_confirm}
+                onCheckedChange={(checked) => handleInputChange('can_confirm', checked)}
+              />
+              <Label htmlFor="can_confirm">Can Confirm</Label>
+            </div>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Pilih permission yang dapat diakses oleh role untuk menu ini. Permission yang tidak dipilih akan disembunyikan dari user dengan role tersebut.
           </div>
         </CardContent>
       </Card>

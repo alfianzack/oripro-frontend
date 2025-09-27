@@ -69,7 +69,7 @@ export const data = {
       isActive: true,
       items: [
         {
-          title: "Menu Management",
+          title: "Manage Menus",
           url: "/menus",
           circleColor: "bg-purple-600",
         },

@@ -107,6 +107,36 @@ export default function UsersTable({
     }
   }
 
+  const getStatusBadgeVariant = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'default'
+      case 'inactive':
+        return 'secondary'
+      case 'pending':
+        return 'outline'
+      case 'suspended':
+        return 'destructive'
+      default:
+        return 'outline'
+    }
+  }
+
+  const getStatusDisplayText = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'Aktif'
+      case 'inactive':
+        return 'Tidak Aktif'
+      case 'pending':
+        return 'Menunggu'
+      case 'suspended':
+        return 'Diblokir'
+      default:
+        return status || 'Tidak Diketahui'
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -126,9 +156,11 @@ export default function UsersTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>No</TableHead>
               <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Dibuat</TableHead>
               <TableHead>Diperbarui</TableHead>
               <TableHead className="w-[70px]">Aksi</TableHead>
@@ -137,7 +169,7 @@ export default function UsersTable({
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Tidak ada data user
                 </TableCell>
               </TableRow>
@@ -146,6 +178,7 @@ export default function UsersTable({
                 const isLast = index === users.length - 1;
                 return (
                 <TableRow key={user.id}>
+                  <TableCell className="font-medium">{String(index + 1)}</TableCell>
                   <TableCell className="font-medium">
                     {user.name || '-'}
                   </TableCell>
@@ -153,6 +186,11 @@ export default function UsersTable({
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.role?.name)}>
                       {user.role?.name || 'No Role'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(user.status)}>
+                      {getStatusDisplayText(user.status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">

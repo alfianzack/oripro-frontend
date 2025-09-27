@@ -37,6 +37,11 @@ const iconMap: Record<string, React.ComponentType<any>> = {
 export default function MenuAccessComponent({ menuAccess, onChange }: MenuAccessProps) {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
   const [localMenuAccess, setLocalMenuAccess] = useState<MenuAccess[]>(menuAccess)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
     setLocalMenuAccess(menuAccess)
@@ -156,13 +161,13 @@ export default function MenuAccessComponent({ menuAccess, onChange }: MenuAccess
     return countTotal(localMenuAccess)
   }
 
-  const renderMenu = (menu: MenuAccess, level: number = 0) => {
+  const renderMenu = (menu: MenuAccess, level: number = 0, index: number = 0) => {
     const IconComponent = menu.icon ? iconMap[menu.icon] : null
     const hasChildren = menu.children && menu.children.length > 0
     const isExpanded = expandedMenus.has(menu.id)
 
     return (
-      <div key={menu.id} className="space-y-2">
+      <div key={`menu-${menu.id}-${index}`} className="space-y-2">
         <div 
           className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
             menu.hasAccess 
@@ -215,17 +220,17 @@ export default function MenuAccessComponent({ menuAccess, onChange }: MenuAccess
 
         {hasChildren && isExpanded && (
           <div className="space-y-2">
-            {menu.children!.map(child => renderChildMenu(child, menu.id, level + 1))}
+            {menu.children!.map((child, index) => renderChildMenu(child, menu.id, level + 1, index))}
           </div>
         )}
       </div>
     )
   }
 
-  const renderChildMenu = (child: MenuAccess, parentId: string, level: number) => {
+  const renderChildMenu = (child: MenuAccess, parentId: string, level: number, index: number) => {
     return (
       <div 
-        key={child.id}
+        key={`${parentId}-${child.id}-${index}`}
         className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
           child.hasAccess 
             ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' 
@@ -258,6 +263,37 @@ export default function MenuAccessComponent({ menuAccess, onChange }: MenuAccess
     )
   }
 
+  // Prevent hydration mismatch by not rendering until hydrated
+  if (!isHydrated) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Menu Access Control</CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">
+                Loading...
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            Pilih menu yang dapat diakses oleh role ini. Menu yang tidak dipilih akan disembunyikan dari user dengan role ini.
+          </div>
+          <Separator />
+          <div className="space-y-2">
+            <div className="animate-pulse">
+              <div className="h-12 bg-gray-200 rounded-lg"></div>
+              <div className="h-12 bg-gray-200 rounded-lg"></div>
+              <div className="h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -286,7 +322,7 @@ export default function MenuAccessComponent({ menuAccess, onChange }: MenuAccess
         <Separator />
         
         <div className="space-y-2">
-          {localMenuAccess.map(menu => renderMenu(menu))}
+          {localMenuAccess.map((menu, index) => renderMenu(menu, 0, index))}
         </div>
       </CardContent>
     </Card>

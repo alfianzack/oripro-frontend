@@ -184,6 +184,7 @@ export default function MenuAccessSelector({
           {/* Expand/Collapse Button */}
           {hasChildren && (
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => toggleMenuExpansion(menu.id)}
@@ -278,7 +279,9 @@ export default function MenuAccessSelector({
         {/* Menu List */}
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {Array.isArray(menusWithPermissions) && menusWithPermissions.length > 0 ? (
-            menusWithPermissions.map(menu => renderMenu(menu))
+            menusWithPermissions
+              .filter(menu => !menu.parent_id) // Only show parent menus initially
+              .map(menu => renderMenu(menu))
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               {loading ? 'Memuat menu...' : 'Tidak ada menu yang tersedia'}

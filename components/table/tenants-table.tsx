@@ -122,6 +122,7 @@ export default function TenantsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>No</TableHead>
               <TableHead>Kode</TableHead>
               <TableHead>Nama Tenant</TableHead>
               <TableHead>User</TableHead>
@@ -146,6 +147,7 @@ export default function TenantsTable({
                 const contractStatus = getContractStatus(tenant.contract_end_at);
                 return (
                 <TableRow key={tenant.id}>
+                  <TableCell className="font-medium">{String(index + 1)}</TableCell>
                   <TableCell className="font-mono text-sm">
                     {tenant.code}
                   </TableCell>

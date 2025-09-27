@@ -110,6 +110,7 @@ export default function RolesTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>No</TableHead>
               <TableHead>Nama Role</TableHead>
               <TableHead>Level</TableHead>
               <TableHead>Status</TableHead>
@@ -129,6 +130,7 @@ export default function RolesTable({
                 const levelBadge = getLevelBadge(role.level);
                 return (
                 <TableRow key={role.id}>
+                  <TableCell className="font-medium">{String(index + 1)}</TableCell>
                   <TableCell className="font-medium">
                     {role.name}
                   </TableCell>
