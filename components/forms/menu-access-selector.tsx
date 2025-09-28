@@ -1,17 +1,17 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Menu, CreateRoleMenuPermissionData } from '@/lib/api'
+import { Menu, CreateRoleMenuPermissionData, menusApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ChevronDown, ChevronRight, Eye, Plus, Edit, Trash2, CheckCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eye, Plus, Edit, Trash2, CheckCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { showToast } from '@/lib/toast'
 
 interface MenuAccessSelectorProps {
-  menus: Menu[]
   selectedPermissions: CreateRoleMenuPermissionData[]
   onPermissionsChange: (permissions: CreateRoleMenuPermissionData[]) => void
   loading?: boolean
@@ -29,24 +29,51 @@ interface MenuWithPermissions extends Menu {
 }
 
 export default function MenuAccessSelector({
-  menus,
   selectedPermissions,
   onPermissionsChange,
   loading = false
 }: MenuAccessSelectorProps) {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
   const [menusWithPermissions, setMenusWithPermissions] = useState<MenuWithPermissions[]>([])
+  const [menus, setMenus] = useState<Menu[]>([])
+  const [isLoadingMenus, setIsLoadingMenus] = useState(true)
+
+  // Load menus from API
+  useEffect(() => {
+    const loadMenus = async () => {
+      try {
+        setIsLoadingMenus(true)
+        const response = await menusApi.getMenus()
+        if (response.success && response.data) {
+          setMenus(response.data)
+        } else {
+          showToast.error(response.error || 'Gagal memuat data menu')
+        }
+      } catch (error) {
+        console.error('Load menus error:', error)
+        showToast.error('Terjadi kesalahan saat memuat data menu')
+      } finally {
+        setIsLoadingMenus(false)
+      }
+    }
+
+    loadMenus()
+  }, [])
 
   // Initialize menus with permissions
   useEffect(() => {
-    const initializeMenus = (menuList: Menu[]): MenuWithPermissions[] => {
+    const buildHierarchy = (menuList: Menu[]): MenuWithPermissions[] => {
       // Ensure menuList is an array
       if (!Array.isArray(menuList)) {
         console.warn('MenuAccessSelector: menus prop is not an array', menuList)
         return []
       }
+
+      // Create a map for quick lookup
+      const menuMap = new Map<string, MenuWithPermissions>()
       
-      return menuList.map(menu => {
+      // First pass: create all menu objects with permissions
+      menuList.forEach(menu => {
         const existingPermission = selectedPermissions.find(p => p.menu_id === menu.id)
         const permissions = existingPermission || {
           menu_id: menu.id,
@@ -57,7 +84,7 @@ export default function MenuAccessSelector({
           can_confirm: false
         }
 
-        return {
+        const menuWithPermissions: MenuWithPermissions = {
           ...menu,
           permissions: {
             can_view: permissions.can_view,
@@ -66,12 +93,49 @@ export default function MenuAccessSelector({
             can_delete: permissions.can_delete,
             can_confirm: permissions.can_confirm
           },
-          children: menu.children ? initializeMenus(menu.children) : undefined
+          children: []
+        }
+
+        menuMap.set(menu.id, menuWithPermissions)
+      })
+
+      // Second pass: build hierarchy
+      const rootMenus: MenuWithPermissions[] = []
+      
+      menuList.forEach(menu => {
+        const menuWithPermissions = menuMap.get(menu.id)!
+        
+        if (menu.parent_id) {
+          // This is a child menu
+          const parent = menuMap.get(menu.parent_id)
+          if (parent) {
+            if (!parent.children) {
+              parent.children = []
+            }
+            parent.children.push(menuWithPermissions)
+          }
+        } else {
+          // This is a root menu
+          rootMenus.push(menuWithPermissions)
         }
       })
+
+      // Sort children by order
+      const sortByOrder = (menus: MenuWithPermissions[]) => {
+        menus.sort((a, b) => a.order - b.order)
+        menus.forEach(menu => {
+          if (menu.children) {
+            sortByOrder(menu.children)
+          }
+        })
+      }
+
+      sortByOrder(rootMenus)
+      return rootMenus
     }
 
-    setMenusWithPermissions(initializeMenus(menus))
+    const hierarchicalMenus = buildHierarchy(menus)
+    setMenusWithPermissions(hierarchicalMenus)
   }, [menus, selectedPermissions])
 
   const updateMenuPermission = (menuId: string, permission: keyof MenuWithPermissions['permissions'], value: boolean) => {
@@ -174,12 +238,13 @@ export default function MenuAccessSelector({
     const hasChildren = menu.children && menu.children.length > 0
     const hasAnyPermission = Object.values(menu.permissions).some(Boolean)
 
+
     return (
       <div key={menu.id} className="space-y-2">
         <div className={cn(
           "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-          level > 0 && "ml-6 bg-gray-50",
-          hasAnyPermission && "bg-blue-50 border-blue-200"
+          level > 0 && "ml-6 bg-gray-50 dark:bg-gray-800",
+          hasAnyPermission && "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
         )}>
           {/* Expand/Collapse Button */}
           {hasChildren && (
@@ -188,7 +253,7 @@ export default function MenuAccessSelector({
               variant="ghost"
               size="sm"
               onClick={() => toggleMenuExpansion(menu.id)}
-              className="h-6 w-6 p-0"
+              className="h-6 w-6 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
@@ -197,6 +262,9 @@ export default function MenuAccessSelector({
               )}
             </Button>
           )}
+
+          {/* Spacer for menus without children */}
+          {!hasChildren && <div className="w-6" />}
 
           {/* Menu Info */}
           <div className="flex-1 min-w-0">
@@ -207,12 +275,19 @@ export default function MenuAccessSelector({
                   {menu.icon}
                 </Badge>
               )}
+              {menu.is_active === false && (
+                <Badge variant="secondary" className="text-xs">
+                  Inactive
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground truncate">{menu.url}</p>
+            {menu.url && (
+              <p className="text-xs text-muted-foreground truncate">{menu.url}</p>
+            )}
           </div>
 
           {/* Permission Checkboxes */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {Object.entries(menu.permissions).map(([permission, value]) => (
               <div key={permission} className="flex items-center gap-1">
                 <Checkbox
@@ -221,14 +296,14 @@ export default function MenuAccessSelector({
                   onCheckedChange={(checked) => 
                     updateMenuPermission(menu.id, permission as keyof MenuWithPermissions['permissions'], !!checked)
                   }
-                  disabled={loading}
+                  disabled={loading || isLoadingMenus}
                   className="h-4 w-4"
                 />
                 <label
                   htmlFor={`${menu.id}-${permission}`}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors",
-                    value ? getPermissionColor(permission) : "bg-gray-100 text-gray-600 border border-gray-200"
+                    value ? getPermissionColor(permission) : "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600"
                   )}
                 >
                   {getPermissionIcon(permission)}
@@ -254,9 +329,14 @@ export default function MenuAccessSelector({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <span>Akses Menu</span>
-          <Badge variant="outline" className="text-xs">
-            {selectedPermissions.filter(p => Object.values(p).some(Boolean)).length} menu dipilih
-          </Badge>
+          {!isLoadingMenus && (
+            <Badge variant="outline" className="text-xs">
+              {selectedPermissions.filter(p => Object.values(p).some(Boolean)).length} menu dipilih
+            </Badge>
+          )}
+          {isLoadingMenus && (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -277,14 +357,20 @@ export default function MenuAccessSelector({
         </div>
 
         {/* Menu List */}
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {Array.isArray(menusWithPermissions) && menusWithPermissions.length > 0 ? (
+        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+          {isLoadingMenus ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              Memuat menu...
+            </div>
+          ) : Array.isArray(menusWithPermissions) && menusWithPermissions.length > 0 ? (
             menusWithPermissions
               .filter(menu => !menu.parent_id) // Only show parent menus initially
+              .sort((a, b) => a.order - b.order) // Sort by order
               .map(menu => renderMenu(menu))
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              {loading ? 'Memuat menu...' : 'Tidak ada menu yang tersedia'}
+              Tidak ada menu yang tersedia
             </div>
           )}
         </div>

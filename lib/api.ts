@@ -575,6 +575,7 @@ export interface CreateRoleMenuPermissionData {
   can_create: boolean
   can_update: boolean
   can_delete: boolean
+  can_confirm: boolean
 }
 
 // Menu Access interface

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Role, CreateRoleData, UpdateRoleData, Menu, CreateRoleMenuPermissionData, menusApi } from '@/lib/api'
+import { Role, CreateRoleData, UpdateRoleData, CreateRoleMenuPermissionData } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,11 +23,9 @@ export default function RoleForm({ role, onSubmit, loading = false }: RoleFormPr
     level: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [menus, setMenus] = useState<Menu[]>([])
   const [menuPermissions, setMenuPermissions] = useState<CreateRoleMenuPermissionData[]>([])
-  const [menusLoading, setMenusLoading] = useState(false)
 
-  // Load menus on component mount
+  // Initialize form data when role prop changes
   useEffect(() => {
     const loadMenus = async () => {
       setMenusLoading(true)
@@ -275,10 +273,9 @@ export default function RoleForm({ role, onSubmit, loading = false }: RoleFormPr
 
       {/* Menu Access Selection */}
       <MenuAccessSelector
-        menus={menus}
         selectedPermissions={menuPermissions}
         onPermissionsChange={setMenuPermissions}
-        loading={menusLoading || loading}
+        loading={loading}
       />
 
       <Separator />

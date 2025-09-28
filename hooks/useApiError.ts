@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { ApiResponse } from '@/lib/api'
 import { handleUnauthorized } from '@/lib/auth-utils'
-import toast from 'react-hot-toast'
+import { showToast } from '@/lib/toast'
 
 /**
  * Custom hook for handling API errors consistently
@@ -17,12 +17,12 @@ export function useApiError() {
       
       // Show error message
       const errorMessage = customMessage || response.error || 'Terjadi kesalahan'
-      toast.error(errorMessage)
+      showToast.error(errorMessage)
     }
   }, [])
 
   const handleApiSuccess = useCallback((message: string) => {
-    toast.success(message)
+    showToast.success(message)
   }, [])
 
   const handleApiLoading = useCallback((loading: boolean, setLoading: (loading: boolean) => void) => {
@@ -51,12 +51,12 @@ export function useEnhancedApiError() {
       
       // Show error message for other errors
       const errorMessage = customMessage || response.error || 'Terjadi kesalahan'
-      toast.error(errorMessage)
+      showToast.error(errorMessage)
     }
   }, [])
 
   const handleApiSuccess = useCallback((message: string) => {
-    toast.success(message)
+    showToast.success(message)
   }, [])
 
   return {

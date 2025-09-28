@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef } from 'react'
 import { signIn } from 'next-auth/react'
-import toast from 'react-hot-toast'
+import { showToast } from '@/lib/toast'
 import Link from 'next/link'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -50,7 +50,7 @@ const LoginForm = () => {
         const res = await handleLoginAction(formData)
 
         if (res?.error) {
-          toast.error(res.error)
+          showToast.error(res.error)
         } else if (res?.success && res?.token) {
           // Store token in localStorage for future API calls
           localStorage.setItem('auth_token', res.token)
@@ -65,13 +65,13 @@ const LoginForm = () => {
             user: res.user,
             callbackUrl: '/dashboard',
           })
-          toast.success('Login berhasil!')
+          showToast.success('Login berhasil!')
         } else {
-          toast.error('Login gagal. Silakan coba lagi.')
+          showToast.error('Login gagal. Silakan coba lagi.')
         }
       } catch (error) {
         console.error('Login error:', error)
-        toast.error('Terjadi kesalahan. Silakan coba lagi.')
+        showToast.error('Terjadi kesalahan. Silakan coba lagi.')
       } finally {
         setLoading(false)
         setIsSubmitting(false)
