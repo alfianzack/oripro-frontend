@@ -12,28 +12,43 @@ const publicRoutes = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Skip middleware for static files and API routes
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/images") ||
-    pathname.startsWith("/manifest.json")
+    pathname.startsWith("/manifest.json") ||
+    pathname.startsWith("/public")
   ) {
     return NextResponse.next();
   }
 
+  // Check if it's a public route
+  const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
+  
+  if (isPublic) {
+    return NextResponse.next();
+  }
+
+  // For protected routes, check authentication
   let session = null;
+  let isAuthenticated = false;
 
   try {
     session = await auth();
+    isAuthenticated = !!session?.user;
   } catch (error) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+    console.log('Auth middleware error:', error);
+    isAuthenticated = false;
   }
 
-  const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
-
-  if (!session?.user && !isPublic) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+  // If not authenticated and not on public route, redirect to login
+  if (!isAuthenticated) {
+    const loginUrl = new URL("/auth/login", req.url);
+    // Add a query parameter to indicate redirect reason
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

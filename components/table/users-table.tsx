@@ -189,9 +189,14 @@ export default function UsersTable({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(user.status)}>
-                      {getStatusDisplayText(user.status)}
-                    </Badge>
+                      <span
+                          className={`px-3 py-1.5 rounded text-sm font-medium border ${user.status === "active"
+                              ? "bg-green-600/15 text-green-600 border-green-600"
+                              : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
+                              }`}
+                      >
+                          {getStatusDisplayText(user.status)}
+                      </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(user.created_at)}

@@ -74,6 +74,22 @@ export class ApiClient {
       }
 
       if (!response.ok) {
+        // Handle 401 Unauthorized specifically
+        if (response.status === 401) {
+          // Clear token and redirect to login
+          this.clearToken()
+          if (typeof window !== 'undefined') {
+            // Add a small delay to ensure token is cleared
+            setTimeout(() => {
+              window.location.href = '/auth/login'
+            }, 100)
+          }
+          return {
+            success: false,
+            error: 'Unauthorized. Redirecting to login...',
+          }
+        }
+        
         return {
           success: false,
           error: data.message || `HTTP ${response.status}`,
