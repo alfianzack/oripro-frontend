@@ -106,11 +106,11 @@ export default function AssetsTable({
   const getStatusLabel = (status: number) => {
     switch (status) {
       case 1:
-        return 'Active'
+        return 'Aktif'
       case 0:
-        return 'Inactive'
+        return 'Tidak Aktif'
       default:
-        return 'Unknown'
+        return 'Tidak Diketahui'
     }
   }
 
@@ -171,9 +171,14 @@ export default function AssetsTable({
                   </TableCell>
                   <TableCell>{asset.area ? `${asset.area} m²` : '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(asset.status)}>
-                      {getStatusLabel(asset.status)}
-                    </Badge>
+                      <span
+                          className={`px-3 py-1.5 rounded text-sm font-medium border ${asset.status === 1
+                              ? "bg-green-600/15 text-green-600 border-green-600"
+                              : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
+                              }`}
+                      >
+                          {getStatusLabel(asset.status)}
+                      </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(asset.created_at)}

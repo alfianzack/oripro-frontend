@@ -180,7 +180,7 @@ export const authApi = {
 
 // Role API interface
 export interface Role {
-  id: string
+  id: number
   name: string
   level: number
 }
@@ -272,6 +272,18 @@ export const usersApi = {
 
   async deleteUser(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/users/${id}`)
+  },
+
+  async getUserPermissions(): Promise<ApiResponse<{ permissions: any[] }>> {
+    return apiClient.get<{ permissions: any[] }>('/api/users/permissions')
+  },
+
+  async getUserMenus(): Promise<ApiResponse<{ menus: any[] }>> {
+    return apiClient.get<{ menus: any[] }>('/api/users/menus')
+  },
+
+  async getUserSidebar(): Promise<ApiResponse<{ navMain: any[] }>> {
+    return apiClient.get<{ navMain: any[] }>('/api/users/sidebar')
   },
 }
 
@@ -538,11 +550,11 @@ export const menusApi = {
 
 // Menu API interface
 export interface Menu {
-  id: string
+  id: number
   title: string
   url?: string
   icon?: string
-  parent_id?: string
+  parent_id?: number
   order: number
   is_active: boolean
   can_view: boolean
@@ -552,8 +564,8 @@ export interface Menu {
   can_confirm: boolean
   created_at: string
   updated_at: string
-  created_by?: string
-  updated_by?: string
+  created_by?: number
+  updated_by?: number
   children?: Menu[]
 }
 
@@ -561,7 +573,7 @@ export interface CreateMenuData {
   title: string
   url?: string
   icon?: string
-  parent_id?: string
+  parent_id?: number
   order?: number
   is_active?: boolean
   can_view?: boolean
@@ -575,7 +587,7 @@ export interface UpdateMenuData {
   title?: string
   url?: string
   icon?: string
-  parent_id?: string
+  parent_id?: number
   order?: number
   is_active?: boolean
   can_view?: boolean
@@ -586,7 +598,7 @@ export interface UpdateMenuData {
 }
 
 export interface CreateRoleMenuPermissionData {
-  menu_id: string
+  menu_id: number
   can_view: boolean
   can_create: boolean
   can_update: boolean

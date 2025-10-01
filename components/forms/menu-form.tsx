@@ -27,7 +27,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
     title: '',
     url: '',
     icon: '',
-    parent_id: '',
+    parent_id: undefined as number | undefined,
     order: 0,
     is_active: true,
     circle_color: '',
@@ -65,7 +65,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
         title: menu.title || '',
         url: menu.url || '',
         icon: menu.icon || '',
-        parent_id: menu.parent_id || '',
+        parent_id: menu.parent_id || undefined,
         order: menu.order || 0,
         is_active: menu.is_active ?? true,
         circle_color: menu.circle_color || '',
@@ -112,7 +112,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
       title: formData.title.trim(),
       url: formData.url.trim(),
       icon: formData.icon.trim() || undefined,
-      parent_id: formData.parent_id || undefined,
+      parent_id: formData.parent_id,
       order: formData.order,
       is_active: formData.is_active,
       circle_color: formData.circle_color.trim() || undefined,
@@ -191,7 +191,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
               <Label htmlFor="parent_id">Menu Parent</Label>
               <Select
                 value={formData.parent_id || undefined}
-                onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? '' : value)}
+                onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? undefined : parseInt(value))}
                 disabled={menusLoading}
               >
                 <SelectTrigger>

@@ -33,7 +33,7 @@ export default function MenusTable({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
+  const [expandedMenus, setExpandedMenus] = useState<Set<number>>(new Set())
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -81,7 +81,7 @@ export default function MenusTable({
     }
   }
 
-  const toggleExpanded = (menuId: string) => {
+  const toggleExpanded = (menuId: number) => {
     setExpandedMenus(prev => {
       const newSet = new Set(prev)
       if (newSet.has(menuId)) {
@@ -147,9 +147,14 @@ export default function MenusTable({
           </TableCell>
           <TableCell>{menu.order || 0}</TableCell>
           <TableCell>
-            <Badge variant={getStatusBadgeVariant(menu.is_active)}>
-              {getStatusDisplayText(menu.is_active)}
-            </Badge>
+            <span
+                className={`px-3 py-1.5 rounded text-sm font-medium border ${menu.is_active
+                    ? "bg-green-600/15 text-green-600 border-green-600"
+                    : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
+                    }`}
+            >
+                {getStatusDisplayText(menu.is_active)}
+            </span>
           </TableCell>
           <TableCell className="text-sm text-muted-foreground">
             {formatDate(menu.created_at)}

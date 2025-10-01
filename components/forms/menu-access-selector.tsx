@@ -33,7 +33,7 @@ export default function MenuAccessSelector({
   onPermissionsChange,
   loading = false
 }: MenuAccessSelectorProps) {
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
+  const [expandedMenus, setExpandedMenus] = useState<Set<number>>(new Set())
   const [menusWithPermissions, setMenusWithPermissions] = useState<MenuWithPermissions[]>([])
   const [menus, setMenus] = useState<Menu[]>([])
   const [isLoadingMenus, setIsLoadingMenus] = useState(true)
@@ -138,7 +138,7 @@ export default function MenuAccessSelector({
     setMenusWithPermissions(hierarchicalMenus)
   }, [menus, selectedPermissions])
 
-  const updateMenuPermission = (menuId: string, permission: keyof MenuWithPermissions['permissions'], value: boolean) => {
+  const updateMenuPermission = (menuId: number, permission: keyof MenuWithPermissions['permissions'], value: boolean) => {
     const updateMenu = (menuList: MenuWithPermissions[]): MenuWithPermissions[] => {
       if (!Array.isArray(menuList)) {
         console.warn('updateMenuPermission: menuList is not an array', menuList)
@@ -190,7 +190,7 @@ export default function MenuAccessSelector({
     onPermissionsChange(allPermissions)
   }
 
-  const toggleMenuExpansion = (menuId: string) => {
+  const toggleMenuExpansion = (menuId: number) => {
     const newExpanded = new Set(expandedMenus)
     if (newExpanded.has(menuId)) {
       newExpanded.delete(menuId)
