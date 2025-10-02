@@ -254,8 +254,26 @@ export const rolesApi = {
 
 // Users-specific API functions
 export const usersApi = {
-  async getUsers(): Promise<ApiResponse<User[]>> {
-    return apiClient.get<User[]>('/api/users')
+  async getUsers(params?: {
+    name?: string
+    email?: string
+    role_id?: string
+    status?: string
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<User[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.email) queryParams.append('email', params.email)
+    if (params?.role_id) queryParams.append('role_id', params.role_id)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<User[]>(endpoint)
   },
 
   async getUser(id: string): Promise<ApiResponse<User>> {
@@ -299,6 +317,8 @@ export interface Asset {
   area: number
   longitude: number
   latitude: number
+  photos?: string[]
+  sketch?: string
   created_by?: string
   updated_by?: string
   created_at: string
@@ -356,19 +376,85 @@ export const ASSET_TYPE_LABELS = {
 
 // Assets-specific API functions
 export const assetsApi = {
-  async getAssets(): Promise<ApiResponse<Asset[]>> {
-    return apiClient.get<Asset[]>('/api/assets')
+  async getAssets(params?: {
+    name?: string
+    asset_type?: number
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<Asset[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.asset_type) queryParams.append('asset_type', params.asset_type.toString())
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/assets${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<Asset[]>(endpoint)
   },
 
   async getAsset(id: string): Promise<ApiResponse<Asset>> {
     return apiClient.get<Asset>(`/api/assets/${id}`)
   },
 
-  async createAsset(data: CreateAssetData): Promise<ApiResponse<Asset>> {
+  async createAsset(data: CreateAssetData | FormData): Promise<ApiResponse<Asset>> {
+    // If data is FormData, use direct fetch to avoid JSON serialization
+    if (data instanceof FormData) {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/assets`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: data,
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.message || `HTTP ${response.status}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: result,
+      };
+    }
+    
     return apiClient.post<Asset>('/api/assets', data)
   },
 
-  async updateAsset(id: string, data: UpdateAssetData): Promise<ApiResponse<Asset>> {
+  async updateAsset(id: string, data: UpdateAssetData | FormData): Promise<ApiResponse<Asset>> {
+    // If data is FormData, use direct fetch to avoid JSON serialization
+    if (data instanceof FormData) {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE_URL}/api/assets/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: data,
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.message || `HTTP ${response.status}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: result,
+      };
+    }
+    
     return apiClient.put<Asset>(`/api/assets/${id}`, data)
   },
 
@@ -425,8 +511,28 @@ export interface UpdateUnitData {
 
 // Units-specific API functions
 export const unitsApi = {
-  async getUnits(): Promise<ApiResponse<Unit[]>> {
-    return apiClient.get<Unit[]>('/api/units')
+  async getUnits(params?: {
+    name?: string
+    asset_id?: string
+    is_deleted?: boolean
+    size_min?: number
+    size_max?: number
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<Unit[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.asset_id) queryParams.append('asset_id', params.asset_id)
+    if (params?.is_deleted !== undefined) queryParams.append('is_deleted', params.is_deleted.toString())
+    if (params?.size_min) queryParams.append('size_min', params.size_min.toString())
+    if (params?.size_max) queryParams.append('size_max', params.size_max.toString())
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/units${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<Unit[]>(endpoint)
   },
 
   async getUnit(id: string): Promise<ApiResponse<Unit>> {
@@ -464,7 +570,8 @@ export interface Tenant {
   tenant_identifications?: string[]
   contract_documents?: string[]
   unit_ids?: string[]
-  categories?: number[]
+  units?: Unit[]
+  categories?: number[] | any[]
 }
 
 export interface CreateTenantData {
@@ -504,8 +611,22 @@ export const DURATION_UNIT_LABELS = {
 
 // Tenants-specific API functions
 export const tenantsApi = {
-  async getTenants(): Promise<ApiResponse<Tenant[]>> {
-    return apiClient.get<Tenant[]>('/api/tenants')
+  async getTenants(params?: {
+    name?: string
+    user_id?: string
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<Tenant[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.user_id) queryParams.append('user_id', params.user_id)
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/tenants${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<Tenant[]>(endpoint)
   },
 
   async getTenant(id: string): Promise<ApiResponse<Tenant>> {
@@ -522,6 +643,54 @@ export const tenantsApi = {
 
   async deleteTenant(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/tenants/${id}`)
+  },
+
+  async uploadTenantFile(file: File, type: 'identification' | 'contract'): Promise<ApiResponse<{url: string, filename: string, type: string}>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', type === 'identification' ? '1' : '2')
+    
+    // Use direct fetch with FormData to avoid JSON serialization
+    const token = localStorage.getItem('auth_token');
+    
+    if (!token) {
+      return {
+        success: false,
+        error: 'No authentication token found. Please login again.',
+      };
+    }
+    
+    console.log('Uploading file with token:', token.substring(0, 20) + '...');
+    
+    const response = await fetch(`${API_BASE_URL}/api/tenant-uploads`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.message || `HTTP ${response.status}`,
+      };
+    }
+
+    return {
+      success: true,
+      data: result,
+    };
+  },
+
+  async saveTenantAttachment(tenantId: string, url: string, attachmentType: number): Promise<ApiResponse<any>> {
+    return apiClient.post<any>(`/api/tenants/${tenantId}/attachments`, {
+      tenant_id: tenantId,
+      url,
+      attachment_type: attachmentType
+    })
   },
 }
 

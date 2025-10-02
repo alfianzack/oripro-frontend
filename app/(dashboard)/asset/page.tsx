@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Asset, assetsApi, ASSET_TYPE_LABELS } from '@/lib/api'
+import { Asset, assetsApi, ASSET_TYPE_LABELS, ASSET_TYPES } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, Boxes, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import AssetsTable from '@/components/table/assets-table'
 import AssetDetailDialog from '@/components/dialogs/asset-detail-dialog'
@@ -20,21 +21,47 @@ export default function AssetsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  
+  // Filter dan sorting states
+  const [assetTypeFilter, setAssetTypeFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('name')
+  const [sortOrder, setSortOrder] = useState<string>('asc')
 
   const loadAssets = async () => {
     setLoading(true)
     try {
-      const response = await assetsApi.getAssets()
+      // Prepare filter parameters
+      const filterParams: any = {}
+      if (searchTerm.trim()) {
+        filterParams.name = searchTerm.trim()
+      }
+      if (assetTypeFilter !== 'all') {
+        filterParams.asset_type = parseInt(assetTypeFilter)
+      }
+      if (sortBy && sortOrder) {
+        filterParams.order = `${sortBy}_${sortOrder}`
+      }
+      
+      const response = await assetsApi.getAssets(filterParams)
       
       if (response.success && response.data) {
-        setAssets(response.data)
-        setFilteredAssets(response.data)
+        // Handle new nested structure: response.data.data contains the array
+        const responseData = response.data as any
+        const assetsData = Array.isArray(responseData.data) ? responseData.data : []
+        setAssets(assetsData)
+        setFilteredAssets(assetsData)
       } else {
         toast.error(response.error || 'Gagal memuat data assets')
+        // Set empty array on error to prevent filter errors
+        setAssets([])
+        setFilteredAssets([])
       }
     } catch (error) {
       console.error('Load assets error:', error)
       toast.error('Terjadi kesalahan saat memuat data assets')
+      // Set empty array on error to prevent filter errors
+      setAssets([])
+      setFilteredAssets([])
     } finally {
       setLoading(false)
     }
@@ -44,17 +71,25 @@ export default function AssetsPage() {
     loadAssets()
   }, [])
 
+  // Reload data when filters change
   useEffect(() => {
-    if (searchTerm.trim()) {
-      const filtered = assets.filter(asset =>
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.code.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      setFilteredAssets(filtered)
-    } else {
-      setFilteredAssets(assets)
-    }
-  }, [searchTerm, assets])
+    loadAssets()
+  }, [searchTerm, assetTypeFilter, sortBy, sortOrder])
+
+  // Remove the old client-side filtering since we're using server-side filtering
+  // useEffect(() => {
+  //   if (Array.isArray(assets)) {
+  //     if (searchTerm.trim()) {
+  //       const filtered = assets.filter(asset =>
+  //         asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //         asset.code.toLowerCase().includes(searchTerm.toLowerCase())
+  //       )
+  //       setFilteredAssets(filtered)
+  //     } else {
+  //       setFilteredAssets(assets)
+  //     }
+  //   }
+  // }, [searchTerm, assets])
 
   const handleEdit = (asset: Asset) => {
     router.push(`/asset/edit/${asset.id}`)
@@ -70,6 +105,18 @@ export default function AssetsPage() {
   }
 
   const getStats = () => {
+    if (!Array.isArray(assets)) {
+      return {
+        total: 0,
+        estate: 0,
+        office: 0,
+        warehouse: 0,
+        residence: 0,
+        mall: 0,
+        other: 0
+      }
+    }
+    
     const total = assets.length
     const estate = assets.filter(asset => asset.asset_type === 1).length
     const office = assets.filter(asset => asset.asset_type === 2).length
@@ -119,7 +166,7 @@ export default function AssetsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 hidden">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
@@ -212,19 +259,73 @@ export default function AssetsPage() {
           <div className="flex items-center justify-between">
             <CardTitle>Daftar Assets</CardTitle>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari asset..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-64"
-                />
-              </div>
               <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
+          </div>
+          
+          {/* Filter Bar - Horizontal Layout */}
+          <div className="flex flex-wrap items-center gap-4 mt-4 p-4 bg-gray-50 rounded-lg border">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari asset..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            
+            <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Tipe Asset" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Tipe</SelectItem>
+                {Object.entries(ASSET_TYPE_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Urutkan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nama</SelectItem>
+                <SelectItem value="code">Kode</SelectItem>
+                <SelectItem value="asset_type">Tipe Asset</SelectItem>
+                <SelectItem value="area">Luas</SelectItem>
+                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Urutan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">A - Z</SelectItem>
+                <SelectItem value="desc">Z - A</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setSearchTerm('')
+                setAssetTypeFilter('all')
+                setSortBy('name')
+                setSortOrder('asc')
+              }}
+            >
+              Reset
+            </Button>
           </div>
         </CardHeader>
         <CardContent>

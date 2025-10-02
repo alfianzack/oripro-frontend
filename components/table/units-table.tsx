@@ -173,9 +173,14 @@ export default function UnitsTable({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(unit.is_deleted)}>
-                      {unit.is_deleted ? 'Dihapus' : 'Aktif'}
-                    </Badge>
+                    <span
+                          className={`px-3 py-1.5 rounded text-sm font-medium border ${!unit.is_deleted
+                              ? "bg-green-600/15 text-green-600 border-green-600"
+                              : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
+                              }`}
+                      >
+                          {unit.is_deleted ? 'Dihapus' : 'Aktif'}
+                      </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(unit.created_at)}

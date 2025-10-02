@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, usersApi } from '@/lib/api'
+import { User, usersApi, Role, rolesApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import UsersTable from '@/components/table/users-table'
 import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
@@ -20,11 +21,33 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  
+  // Filter dan sorting states
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('name')
+  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [roles, setRoles] = useState<Role[]>([])
 
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const response = await usersApi.getUsers()
+      // Prepare filter parameters
+      const filterParams: any = {}
+      if (searchTerm.trim()) {
+        filterParams.name = searchTerm.trim()
+      }
+      if (roleFilter !== 'all') {
+        filterParams.role_id = roleFilter
+      }
+      if (statusFilter !== 'all') {
+        filterParams.status = statusFilter
+      }
+      if (sortBy && sortOrder) {
+        filterParams.order = `${sortBy}_${sortOrder}`
+      }
+      
+      const response = await usersApi.getUsers(filterParams)
       
       if (response.success && response.data) {
         setUsers(response.data)
@@ -40,21 +63,39 @@ export default function UsersPage() {
     }
   }
 
-  useEffect(() => {
-    loadUsers()
-  }, [])
+  const loadRoles = async () => {
+    try {
+      const response = await rolesApi.getRoles()
+      if (response.success && response.data) {
+        setRoles(response.data)
+      }
+    } catch (error) {
+      console.error('Load roles error:', error)
+    }
+  }
 
   useEffect(() => {
-    if (searchTerm.trim()) {
-      const filtered = users.filter(user =>
-        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      setFilteredUsers(filtered)
-    } else {
-      setFilteredUsers(users)
-    }
-  }, [searchTerm, users])
+    loadUsers()
+    loadRoles()
+  }, [])
+
+  // Reload data when filters change
+  useEffect(() => {
+    loadUsers()
+  }, [searchTerm, roleFilter, statusFilter, sortBy, sortOrder])
+
+  // Remove the old client-side filtering since we're using server-side filtering
+  // useEffect(() => {
+  //   if (searchTerm.trim()) {
+  //     const filtered = users.filter(user =>
+  //       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  //     )
+  //     setFilteredUsers(filtered)
+  //   } else {
+  //     setFilteredUsers(users)
+  //   }
+  // }, [searchTerm, users])
 
   const handleEdit = (user: User) => {
     router.push(`/users/edit/${user.id}`)
@@ -118,7 +159,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 hidden">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -199,19 +240,84 @@ export default function UsersPage() {
           <div className="flex items-center justify-between">
             <CardTitle>Daftar Users</CardTitle>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari user..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-64"
-                />
-              </div>
               <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
+          </div>
+          
+          {/* Filter Bar - Horizontal Layout */}
+          <div className="flex flex-wrap items-center gap-4 mt-4 p-4 bg-gray-50 rounded-lg border">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari user..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Role</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id.toString()}>
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Tidak Aktif</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Urutkan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nama</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="role_id">Role</SelectItem>
+                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Urutan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">A - Z</SelectItem>
+                <SelectItem value="desc">Z - A</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setSearchTerm('')
+                setRoleFilter('all')
+                setStatusFilter('all')
+                setSortBy('name')
+                setSortOrder('asc')
+              }}
+            >
+              Reset
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
