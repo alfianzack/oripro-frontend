@@ -20,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Upload, Image, FileText, X } from 'lucide-react'
+import { Loader2, Upload, Image, FileText, X, MapPin } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import LeafletMapComponent from './leaflet-map-component'
 
 const assetSchema = z.object({
   name: z.string().min(1, 'Nama asset harus diisi'),
@@ -53,6 +54,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
   const [sketchPreview, setSketchPreview] = useState<string | null>(null)
   const [existingPhoto, setExistingPhoto] = useState<string | null>(null)
   const [existingSketch, setExistingSketch] = useState<string | null>(null)
+  const [showMapPicker, setShowMapPicker] = useState(true)
   
   const form = useForm<AssetFormData>({
     resolver: zodResolver(assetSchema) as any,
@@ -402,47 +404,84 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
           )}
         />
 
-        {/* Koordinat */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="longitude"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Longitude </FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    step="0.000001"
-                    placeholder="Masukkan longitude"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {/* Koordinat dengan Google Maps */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Lokasi Asset
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMapPicker(!showMapPicker)}
+            >
+              {showMapPicker ? 'Sembunyikan Peta' : 'Tampilkan Peta'}
+            </Button>
+          </div>
 
-          <FormField
-            control={form.control}
-            name="latitude"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Latitude </FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    step="0.000001"
-                    placeholder="Masukkan latitude"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {showMapPicker && (
+            <LeafletMapComponent
+              latitude={form.watch('latitude') || 0}
+              longitude={form.watch('longitude') || 0}
+              onLocationChange={(lat, lng, address) => {
+                form.setValue('latitude', lat)
+                form.setValue('longitude', lng)
+                if (address) {
+                  form.setValue('address', address)
+                }
+              }}
+              onAddressChange={(address) => {
+                form.setValue('address', address)
+              }}
+              height="400px"
+              className="border rounded-lg p-4"
+            />
+          )}
+
+          {/* Manual coordinate inputs (hidden by default, can be shown if needed) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="longitude"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Longitude</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.000001"
+                      placeholder="Masukkan longitude"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="latitude"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Latitude</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.000001"
+                      placeholder="Masukkan latitude"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         {/* Action Buttons */}
