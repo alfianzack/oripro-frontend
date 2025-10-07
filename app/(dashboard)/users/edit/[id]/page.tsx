@@ -36,7 +36,8 @@ export default function EditUserPage() {
         const response = await usersApi.getUser(userId)
         
         if (response.success && response.data) {
-          setUser(response.data)
+          const responseData = response.data as any
+          setUser(responseData.data)
         } else {
           toast.error('User tidak ditemukan')
           router.push('/users')

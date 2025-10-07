@@ -28,6 +28,8 @@ const userFormSchema = z.object({
   email: z.string().email('Email tidak valid'),
   password: z.string().min(6, 'Password minimal 6 karakter').optional().or(z.literal('')),
   name: z.string().min(1, 'Nama wajib diisi'),
+  phone: z.string().min(1, 'Nomor telepon wajib diisi'),
+  gender: z.string().min(1, 'Jenis kelamin wajib dipilih'),
   roleId: z.string().optional(),
   status: z.string().optional(),
 })
@@ -51,7 +53,9 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
       email: user?.email || '',
       password: '',
       name: user?.name || '',
-      roleId: user?.role_id || '',
+      phone: user?.phone || '',
+      gender: user?.gender ? (user.gender === 1 ? 'male' : 'female') : '',
+      roleId: user?.role_id ? user.role_id.toString() : '',
       status: user?.status || 'active',
     },
   })
@@ -65,20 +69,20 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
         if (response.success && response.data) {
           setRoles(response.data)
         } else {
-          // Fallback to mock data
-          setRoles([
-            { id: '1', name: 'Admin', level: 100 },
-            { id: '2', name: 'Manager', level: 50 },
-            { id: '3', name: 'Staff', level: 10 },
-          ])
+        // Fallback to mock data
+        setRoles([
+          { id: 1, name: 'Admin', level: 100 },
+          { id: 2, name: 'Manager', level: 50 },
+          { id: 3, name: 'Staff', level: 10 },
+        ])
         }
       } catch (error) {
         console.error('Failed to load roles:', error)
         // Fallback to mock data
         setRoles([
-          { id: '1', name: 'Admin', level: 100 },
-          { id: '2', name: 'Manager', level: 50 },
-          { id: '3', name: 'Staff', level: 10 },
+          { id: 1, name: 'Admin', level: 100 },
+          { id: 2, name: 'Manager', level: 50 },
+          { id: 3, name: 'Staff', level: 10 },
         ])
       } finally {
         setRolesLoading(false)
@@ -90,12 +94,19 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
 
   const handleSubmit = async (data: UserFormData) => {
     try {
+      // Keep gender as string for backend validation
+      const formData = {
+        ...data,
+        gender: data.gender, // Keep as string "male" or "female"
+        roleId: data.roleId || undefined,
+      }
+      
       // Remove empty password for update
       if (user && !data.password) {
-        const { password, ...updateData } = data
+        const { password, ...updateData } = formData
         await onSubmit(updateData)
       } else {
-        await onSubmit(data)
+        await onSubmit(formData)
       }
     } catch (error) {
       console.error('Form submission error:', error)
@@ -134,6 +145,48 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                     {...field} 
                   />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nomor Telepon <span className="text-red-500">*</span></FormLabel>
+                <FormControl>
+                  <Input 
+                    type="tel" 
+                    placeholder="Masukkan nomor telepon" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Jenis Kelamin <span className="text-red-500">*</span></FormLabel>
+                <Select onValueChange={(value) => field.onChange(value)} value={field.value?.toString()}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih jenis kelamin" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="male">Laki-laki</SelectItem>
+                    <SelectItem value="female">Perempuan</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -179,7 +232,7 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                   <SelectContent>
                     <SelectItem value="none">Tidak ada role</SelectItem>
                     {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
+                      <SelectItem key={role.id} value={role.id.toString()}>
                         {role.name}
                       </SelectItem>
                     ))}
