@@ -46,14 +46,20 @@ export default function TenantsPage() {
       const response = await tenantsApi.getTenants(filterParams)
       
       if (response.success && response.data) {
-        setTenants(response.data)
-        setFilteredTenants(response.data)
+        const responseData = response.data as any
+        const tenantsData = Array.isArray(responseData.data) ? responseData.data : []
+        setTenants(tenantsData)
+        setFilteredTenants(tenantsData)
       } else {
         toast.error(response.error || 'Gagal memuat data tenants')
+        setTenants([])
+        setFilteredTenants([])
       }
     } catch (error) {
       console.error('Load tenants error:', error)
       toast.error('Terjadi kesalahan saat memuat data tenants')
+      setTenants([])
+      setFilteredTenants([])
     } finally {
       setLoading(false)
     }
@@ -63,10 +69,14 @@ export default function TenantsPage() {
     try {
       const response = await usersApi.getUsers()
       if (response.success && response.data) {
-        setUsers(response.data)
+        const usersData = Array.isArray(response.data) ? response.data : []
+        setUsers(usersData)
+      } else {
+        setUsers([])
       }
     } catch (error) {
       console.error('Load users error:', error)
+      setUsers([])
     }
   }
 
@@ -109,6 +119,10 @@ export default function TenantsPage() {
   }
 
   const getStats = () => {
+    if (!Array.isArray(tenants)) {
+      return { total: 0, active: 0, expiring: 0, expired: 0 }
+    }
+    
     const total = tenants.length
     const active = tenants.filter(tenant => {
       const endDate = new Date(tenant.contract_end_at)
@@ -250,7 +264,7 @@ export default function TenantsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua User</SelectItem>
-                {users.map((user) => (
+                {Array.isArray(users) && users.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name || user.email}
                   </SelectItem>

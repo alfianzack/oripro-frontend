@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, CreateTenantData, UpdateTenantData, usersApi, unitsApi, tenantsApi, User, Unit, DURATION_UNITS, DURATION_UNIT_LABELS } from '@/lib/api'
+import { Tenant, CreateTenantData, UpdateTenantData, usersApi, unitsApi, tenantsApi, rolesApi, User, Unit, DURATION_UNITS, DURATION_UNIT_LABELS } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, X, Upload, File } from 'lucide-react'
+import { Loader2, Plus, X, Upload, File, Search, UserPlus, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface TenantFormProps {
@@ -48,43 +48,76 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     unit_ids: [] as string[],
     categories: [] as number[],
   })
+  const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('existing')
+  const [newUserData, setNewUserData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    gender: '',
+    role_id: ''
+  })
+  const [userSearchTerm, setUserSearchTerm] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [roles, setRoles] = useState<any[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [unitsLoading, setUnitsLoading] = useState(true)
+  const [rolesLoading, setRolesLoading] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [identificationFiles, setIdentificationFiles] = useState<File[]>([])
   const [contractFiles, setContractFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [existingIdentificationUrls, setExistingIdentificationUrls] = useState<string[]>([])
   const [existingContractUrls, setExistingContractUrls] = useState<string[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
 
-  // Load users and units
+  // Load users, units, and roles
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [usersResponse, unitsResponse] = await Promise.all([
+        const [usersResponse, unitsResponse, rolesResponse] = await Promise.all([
           usersApi.getUsers(),
-          unitsApi.getUnits()
+          unitsApi.getUnits(),
+          rolesApi.getRoles()
         ])
         
         if (usersResponse.success && usersResponse.data) {
-          setUsers(usersResponse.data)
+          const usersResponseData = usersResponse.data as any
+          const usersData = Array.isArray(usersResponseData.data) ? usersResponseData.data : []
+          setUsers(usersData)
         } else {
           toast.error('Gagal memuat data users')
+          setUsers([])
         }
         
         if (unitsResponse.success && unitsResponse.data) {
-          setUnits(unitsResponse.data)
+          const unitsResponseData = unitsResponse.data as any
+          const unitsData = Array.isArray(unitsResponseData.data) ? unitsResponseData.data : []
+          setUnits(unitsData)
         } else {
           toast.error('Gagal memuat data units')
+          setUnits([])
+        }
+        
+        if (rolesResponse.success && rolesResponse.data) {
+          const rolesResponseData = rolesResponse.data as any
+          const rolesData = Array.isArray(rolesResponseData.data) ? rolesResponseData.data : []
+          setRoles(rolesData)
+        } else {
+          toast.error('Gagal memuat data roles')
+          setRoles([])
         }
       } catch (error) {
         console.error('Load data error:', error)
         toast.error('Terjadi kesalahan saat memuat data')
+        setUsers([])
+        setUnits([])
+        setRoles([])
       } finally {
         setUsersLoading(false)
         setUnitsLoading(false)
+        setRolesLoading(false)
       }
     }
 
@@ -94,16 +127,13 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   // Initialize form data when tenant prop changes
   useEffect(() => {
     if (tenant) {
-      console.log('Tenant data:', tenant)
-      console.log('Tenant categories:', tenant.categories)
-      console.log('Tenant units:', tenant.units)
       
       // Check for null values in arrays
       if (tenant.units && Array.isArray(tenant.units)) {
-        console.log('Units with null check:', tenant.units.map(unit => unit == null ? 'NULL' : unit.id))
+        
       }
       if (tenant.categories && Array.isArray(tenant.categories)) {
-        console.log('Categories with null check:', tenant.categories.map(category => category == null ? 'NULL' : (category.id || category)))
+        
       }
       
       // Extract unit IDs from units array if it exists, otherwise use unit_ids
@@ -111,9 +141,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       
       // Extract category IDs from categories array if it exists, otherwise use categories as is
       const categoryIds = tenant.categories && Array.isArray(tenant.categories) ? tenant.categories.filter(category => category != null).map((category: any) => category.id || category) : []
-      
-      console.log('Extracted unitIds:', unitIds)
-      console.log('Extracted categoryIds:', categoryIds)
       
       setFormData({
         name: tenant.name || '',
@@ -139,7 +166,11 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     }
 
     if (!formData.user_id) {
+      if (userSelectionType === 'existing') {
       newErrors.user_id = 'User harus dipilih'
+      } else {
+        newErrors.user_id = 'User baru harus dibuat terlebih dahulu'
+      }
     }
 
     if (!formData.contract_begin_at) {
@@ -173,15 +204,17 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   const uploadFiles = async (files: File[], type: 'identification' | 'contract') => {
     const uploadPromises = files.map(async (file) => {
       try {
-        const result = await tenantsApi.uploadTenantFile(file, type)
         
-        if (!result.success) {
-          throw new Error(result.error || 'Upload failed')
+        const response = await tenantsApi.uploadTenantFile(file, type)
+        
+        if (response.success && response.data) {
+          // Handle both array and string response formats
+          const url = Array.isArray(response.data.url) ? response.data.url[0] : response.data.url
+          return url || ''
+        } else {
+          throw new Error(response.error || 'Upload failed')
         }
-        
-        return result.data?.url || ''
       } catch (error) {
-        console.error('Upload error:', error)
         throw error
       }
     })
@@ -224,9 +257,27 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         contract_documents: contractUrls,
       }
 
+      // Validate that URLs are arrays of strings
+      if (!Array.isArray(identificationUrls)) {
+        throw new Error('Identification URLs must be an array')
+      }
+      if (!Array.isArray(contractUrls)) {
+        throw new Error('Contract URLs must be an array')
+      }
+      
+      // Validate that all URLs are strings
+      const invalidIdentificationUrls = identificationUrls.filter(url => typeof url !== 'string')
+      const invalidContractUrls = contractUrls.filter(url => typeof url !== 'string')
+      
+      if (invalidIdentificationUrls.length > 0) {
+        throw new Error('All identification URLs must be strings')
+      }
+      if (invalidContractUrls.length > 0) {
+        throw new Error('All contract URLs must be strings')
+      }
+
       await onSubmit(submitData)
     } catch (error) {
-      console.error('Submit error:', error)
       toast.error('Gagal mengupload file. Silakan coba lagi.')
     } finally {
       setUploading(false)
@@ -241,19 +292,32 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     }
   }
 
-  const handleFileUpload = (files: FileList | null, type: 'identification' | 'contract') => {
-    if (!files) return
-
-    const fileArray = Array.from(files)
-    if (type === 'identification') {
-      setIdentificationFiles(prev => [...prev, ...fileArray])
-      if (errors.identificationFiles) {
-        setErrors(prev => ({ ...prev, identificationFiles: '' }))
+  const handleFileChange = (file: File | null, type: 'identification' | 'contract') => {
+    if (file) {
+      // Validasi tipe file
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Hanya file JPG, JPEG, PNG, PDF, DOC, dan DOCX yang diperbolehkan')
+        return
       }
-    } else {
-      setContractFiles(prev => [...prev, ...fileArray])
-      if (errors.contractFiles) {
-        setErrors(prev => ({ ...prev, contractFiles: '' }))
+
+      // Validasi ukuran file (max 10MB)
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSize) {
+        toast.error('Ukuran file maksimal 10MB')
+        return
+      }
+
+      if (type === 'identification') {
+        setIdentificationFiles(prev => [...prev, file])
+        if (errors.identificationFiles) {
+          setErrors(prev => ({ ...prev, identificationFiles: '' }))
+        }
+      } else {
+        setContractFiles(prev => [...prev, file])
+        if (errors.contractFiles) {
+          setErrors(prev => ({ ...prev, contractFiles: '' }))
+        }
       }
     }
   }
@@ -266,6 +330,66 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     }
   }
 
+  const getFileIcon = (file: File | string) => {
+    const fileName = typeof file === 'string' ? file : file.name
+    const extension = fileName.split('.').pop()?.toLowerCase()
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
+      return 'image'
+    } else if (['pdf'].includes(extension || '')) {
+      return 'pdf'
+    } else if (['doc', 'docx'].includes(extension || '')) {
+      return 'word'
+    } else {
+      return 'file'
+    }
+  }
+
+  const getFilePreview = (file: File | string, index: number) => {
+    const fileName = typeof file === 'string' ? file.split('/').pop() || 'Unknown' : file.name
+    const fileType = getFileIcon(file)
+    const isImage = fileType === 'image'
+    
+    if (typeof file === 'string') {
+      // Existing file
+      return (
+        <div className="w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+          {isImage ? (
+            <img 
+              src={file} 
+              alt={fileName}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          ) : (
+            <div className="text-center p-2">
+              <File className="h-8 w-8 text-gray-500 mx-auto mb-1" />
+              <p className="text-xs text-gray-600 truncate">{fileName}</p>
+            </div>
+          )}
+        </div>
+      )
+    } else {
+      // New file
+      return (
+        <div className="w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+          {isImage ? (
+            <img 
+              src={URL.createObjectURL(file)} 
+              alt={fileName}
+              className="w-full h-full object-cover rounded-lg"
+              onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
+            />
+          ) : (
+            <div className="text-center p-2">
+              <File className="h-8 w-8 text-gray-500 mx-auto mb-1" />
+              <p className="text-xs text-gray-600 truncate">{fileName}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+  }
+
 
   const toggleUnit = (unitId: string) => {
     const currentUnitIds = formData.unit_ids || []
@@ -274,6 +398,60 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       : [...currentUnitIds, unitId]
     handleInputChange('unit_ids', newList)
   }
+
+  const toggleCategory = (categoryId: number) => {
+    const currentCategories = formData.categories || []
+    const newList = currentCategories.includes(categoryId)
+      ? currentCategories.filter(id => id !== categoryId)
+      : [...currentCategories, categoryId]
+    handleInputChange('categories', newList)
+  }
+
+  const createNewUser = async () => {
+    try {
+      const response = await usersApi.createUser({
+        name: newUserData.name,
+        email: newUserData.email,
+        password: newUserData.password,
+        phone: newUserData.phone,
+        gender: newUserData.gender,
+        roleId: newUserData.role_id,
+        status: 'active'
+      })
+      
+      if (response.success && response.data) {
+        toast.success('User berhasil dibuat')
+        setFormData(prev => ({ ...prev, user_id: response.data!.id }))
+        setUserSelectionType('existing')
+        setNewUserData({ name: '', email: '', password: '', phone: '', gender: '', role_id: '' })
+        // Reload users list
+        const usersResponse = await usersApi.getUsers()
+        if (usersResponse.success && usersResponse.data) {
+          const usersResponseData = usersResponse.data as any
+          const usersData = Array.isArray(usersResponseData.data) ? usersResponseData.data : []
+          setUsers(usersData)
+        }
+      } else {
+        toast.error(response.error || 'Gagal membuat user')
+      }
+    } catch (error) {
+      console.error('Create user error:', error)
+      toast.error('Terjadi kesalahan saat membuat user')
+    }
+  }
+
+  const handleNewUserInputChange = (field: string, value: string) => {
+    setNewUserData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const filteredUsers = Array.isArray(users) ? users.filter(user => {
+    if (!userSearchTerm.trim()) return true // Show all users when search is empty
+    const searchTerm = userSearchTerm.toLowerCase()
+    return (
+      user.name?.toLowerCase().includes(searchTerm) ||
+      user.email?.toLowerCase().includes(searchTerm)
+    )
+  }) : []
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -299,23 +477,197 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="user_id">User *</Label>
+              <Label htmlFor="user_selection">User *</Label>
+              
+              {/* User Selection Type Toggle */}
+              <div className="flex gap-2 mb-4">
+                <Button
+                  type="button"
+                  variant={userSelectionType === 'existing' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUserSelectionType('existing')}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  User yang Ada
+                </Button>
+                <Button
+                  type="button"
+                  variant={userSelectionType === 'new' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUserSelectionType('new')}
+                  className="flex items-center gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  User Baru
+                </Button>
+              </div>
+
+              {/* Existing User Selection */}
+              {userSelectionType === 'existing' && (
+                <div className="space-y-3">
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari user..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  
+                  {/* User List */}
+                  <div className="max-h-40 overflow-y-auto border rounded-md">
+                    {usersLoading ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                        Memuat users...
+                      </div>
+                    ) : users.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        Tidak ada user tersedia
+                      </div>
+                    ) : filteredUsers.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        {userSearchTerm ? `Tidak ada user yang cocok dengan "${userSearchTerm}"` : 'Tidak ada user tersedia'}
+                      </div>
+                    ) : (
+                      filteredUsers.map((user) => {
+                        const isSelected = formData.user_id === user.id
+                        
+                        return (
+                          <div
+                            key={user.id}
+                            className={`p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
+                              isSelected ? 'bg-primary/10 border-primary' : ''
+                            }`}
+                            onClick={() => {
+                              handleInputChange('user_id', user.id)
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{user.name || 'Nama tidak tersedia'}</p>
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                              </div>
+                              {isSelected && (
+                                <Badge variant="default">Dipilih</Badge>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* New User Form */}
+              {userSelectionType === 'new' && (
+                <div className="space-y-4 p-4 border rounded-md bg-muted/30">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_name">Nama User *</Label>
+                      <Input
+                        id="new_user_name"
+                        value={newUserData.name}
+                        onChange={(e) => handleNewUserInputChange('name', e.target.value)}
+                        placeholder="Masukkan nama user"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_email">Email *</Label>
+                      <Input
+                        id="new_user_email"
+                        type="email"
+                        value={newUserData.email}
+                        onChange={(e) => handleNewUserInputChange('email', e.target.value)}
+                        placeholder="Masukkan email user"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_password">Password *</Label>
+                      <Input
+                        id="new_user_password"
+                        type="password"
+                        value={newUserData.password}
+                        onChange={(e) => handleNewUserInputChange('password', e.target.value)}
+                        placeholder="Masukkan password"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_phone">No. Telepon *</Label>
+                      <Input
+                        id="new_user_phone"
+                        type="tel"
+                        value={newUserData.phone}
+                        onChange={(e) => handleNewUserInputChange('phone', e.target.value)}
+                        placeholder="Masukkan nomor telepon"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_gender">Jenis Kelamin *</Label>
+                      <Select
+                        value={newUserData.gender}
+                        onValueChange={(value) => handleNewUserInputChange('gender', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih jenis kelamin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Laki-laki</SelectItem>
+                          <SelectItem value="female">Perempuan</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new_user_role">Role *</Label>
               <Select
-                value={formData.user_id}
-                onValueChange={(value) => handleInputChange('user_id', value)}
-                disabled={usersLoading}
-              >
-                <SelectTrigger className={errors.user_id ? 'border-red-500' : ''}>
-                  <SelectValue placeholder={usersLoading ? "Memuat users..." : "Pilih user"} />
+                        value={newUserData.role_id}
+                        onValueChange={(value) => handleNewUserInputChange('role_id', value)}
+                        disabled={rolesLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={rolesLoading ? "Memuat roles..." : "Pilih role"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name || user.email}
+                          {Array.isArray(roles) && roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      onClick={createNewUser}
+                      disabled={!newUserData.name || !newUserData.email || !newUserData.password || !newUserData.phone || !newUserData.gender || !newUserData.role_id}
+                      className="flex items-center gap-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Buat User
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setUserSelectionType('existing')}
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {errors.user_id && (
                 <p className="text-sm text-red-500">{errors.user_id}</p>
               )}
@@ -370,21 +722,28 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
             <div className='space-y-2'>
               <Label htmlFor="categories">Kategori *</Label>
-                <Select
-                  value={formData.categories && formData.categories.length > 0 ? formData.categories[0].toString() : ''}
-                  onValueChange={(value) => handleInputChange('categories', [parseInt(value)])}
-              >
-                <SelectTrigger className={errors.categories ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Pilih kategori tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value.toString()}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {CATEGORY_OPTIONS.map((option) => (
+                  <div
+                    key={option.value}
+                    className={`p-3 border rounded cursor-pointer transition-colors ${
+                      (formData.categories || []).includes(option.value)
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => toggleCategory(option.value)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{option.label}</p>
+                      </div>
+                      {(formData.categories || []).includes(option.value) && (
+                        <Badge variant="default">Dipilih</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
               {errors.categories && (
                 <p className="text-sm text-red-500">{errors.categories}</p>
               )}
@@ -399,80 +758,60 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           <CardTitle>Dokumen Identitas *</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={(e) => handleFileUpload(e.target.files, 'identification')}
-              className="flex-1"
-            />
-            <Button type="button" size="sm" asChild>
-              <label className="cursor-pointer">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </label>
-            </Button>
-          </div>
           {errors.identificationFiles && (
             <p className="text-sm text-red-500">{errors.identificationFiles}</p>
           )}
-          <div className="space-y-2">
-            {/* Existing files preview */}
+          
+          {/* File Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Existing files */}
             {existingIdentificationUrls.map((url, index) => (
-              <div key={`existing-${index}`} className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200">
-                <File className="h-4 w-4 text-blue-600" />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-blue-800">Existing Document {index + 1}</span>
-                  <div className="text-xs text-blue-600">
-                    {url.split('/').pop()}
-                  </div>
-                  {/* Preview untuk gambar existing */}
-                  {url.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                    <div className="mt-2">
-                      <img
-                        src={url}
-                        alt={`Existing document ${index + 1}`}
-                        className="w-20 h-20 object-cover rounded border"
-                      />
-                    </div>
-                  )}
+              <div key={`existing-${index}`} className="relative group">
+                {getFilePreview(url, index)}
+                <div className="absolute top-2 right-2">
+                  <Badge variant="secondary" className="text-xs">Existing</Badge>
                 </div>
-                <Badge variant="secondary" className="text-xs">Existing</Badge>
               </div>
             ))}
             
-            {/* New files preview */}
+            {/* New files */}
             {identificationFiles.map((file, index) => (
-              <div key={`new-${index}`} className="flex items-center gap-2 p-2 bg-muted rounded">
-                <File className="h-4 w-4" />
-                <div className="flex-1">
-                  <span className="text-sm font-medium">{file.name}</span>
-                  <div className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </div>
-                  {/* Preview untuk gambar */}
-                  {file.type.startsWith('image/') && (
-                    <div className="mt-2">
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                        className="w-20 h-20 object-cover rounded border"
-                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
-                      />
-                    </div>
-                  )}
-                </div>
+              <div key={`new-${index}`} className="relative group">
+                {getFilePreview(file, index)}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => removeFile(index, 'identification')}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
+            
+            {/* Add more files button */}
+            <div className="relative">
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  handleFileChange(file, 'identification')
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                id="identification-upload"
+              />
+              <label 
+                htmlFor="identification-upload"
+                className="w-full h-24 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 hover:border-gray-400 cursor-pointer transition-colors"
+              >
+                <div className="text-center">
+                  <Plus className="h-6 w-6 text-gray-400 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Tambah File</p>
+                </div>
+              </label>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -483,80 +822,60 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           <CardTitle>Dokumen Kontrak *</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={(e) => handleFileUpload(e.target.files, 'contract')}
-              className="flex-1"
-            />
-            <Button type="button" size="sm" asChild>
-              <label className="cursor-pointer">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </label>
-            </Button>
-          </div>
           {errors.contractFiles && (
             <p className="text-sm text-red-500">{errors.contractFiles}</p>
           )}
-          <div className="space-y-2">
-            {/* Existing contract files preview */}
+          
+          {/* File Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* Existing files */}
             {existingContractUrls.map((url, index) => (
-              <div key={`existing-contract-${index}`} className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
-                <File className="h-4 w-4 text-green-600" />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-green-800">Existing Contract {index + 1}</span>
-                  <div className="text-xs text-green-600">
-                    {url.split('/').pop()}
-                  </div>
-                  {/* Preview untuk gambar existing */}
-                  {url.match(/\.(jpg|jpeg|png|gif)$/i) && (
-                    <div className="mt-2">
-                      <img
-                        src={url}
-                        alt={`Existing contract ${index + 1}`}
-                        className="w-20 h-20 object-cover rounded border"
-                      />
-                    </div>
-                  )}
+              <div key={`existing-contract-${index}`} className="relative group">
+                {getFilePreview(url, index)}
+                <div className="absolute top-2 right-2">
+                  <Badge variant="secondary" className="text-xs">Existing</Badge>
                 </div>
-                <Badge variant="secondary" className="text-xs">Existing</Badge>
               </div>
             ))}
             
-            {/* New contract files preview */}
+            {/* New files */}
             {contractFiles.map((file, index) => (
-              <div key={`new-contract-${index}`} className="flex items-center gap-2 p-2 bg-muted rounded">
-                <File className="h-4 w-4" />
-                <div className="flex-1">
-                  <span className="text-sm font-medium">{file.name}</span>
-                  <div className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </div>
-                  {/* Preview untuk gambar */}
-                  {file.type.startsWith('image/') && (
-                    <div className="mt-2">
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                        className="w-20 h-20 object-cover rounded border"
-                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
-                      />
-                    </div>
-                  )}
-                </div>
+              <div key={`new-contract-${index}`} className="relative group">
+                {getFilePreview(file, index)}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => removeFile(index, 'contract')}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
+            
+            {/* Add more files button */}
+            <div className="relative">
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  handleFileChange(file, 'contract')
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                id="contract-upload"
+              />
+              <label 
+                htmlFor="contract-upload"
+                className="w-full h-24 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 hover:border-gray-400 cursor-pointer transition-colors"
+              >
+                <div className="text-center">
+                  <Plus className="h-6 w-6 text-gray-400 mx-auto mb-1" />
+                  <p className="text-xs text-gray-500">Tambah File</p>
+                </div>
+              </label>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -571,7 +890,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             <p className="text-sm text-red-500">{errors.unit_ids}</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {units.map((unit) => (
+            {Array.isArray(units) && units.map((unit) => (
               <div
                 key={unit.id}
                 className={`p-3 border rounded cursor-pointer transition-colors ${

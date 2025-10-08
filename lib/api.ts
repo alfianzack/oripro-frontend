@@ -42,8 +42,12 @@ export class ApiClient {
     const url = `${this.baseURL}${endpoint}`
     
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
+    }
+
+    // Only set Content-Type for JSON data, not for FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
     }
 
     if (this.token) {
@@ -126,7 +130,7 @@ export class ApiClient {
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined,
     })
   }
 
@@ -746,39 +750,9 @@ export const tenantsApi = {
     formData.append('file', file)
     formData.append('type', type === 'identification' ? '1' : '2')
     
-    // Use direct fetch with FormData to avoid JSON serialization
-    const token = localStorage.getItem('auth_token');
     
-    if (!token) {
-      return {
-        success: false,
-        error: 'No authentication token found. Please login again.',
-      };
-    }
-    
-    console.log('Uploading file with token:', token.substring(0, 20) + '...');
-    
-    const response = await fetch(`${API_BASE_URL}/api/tenant-uploads`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.message || `HTTP ${response.status}`,
-      };
-    }
-
-    return {
-      success: true,
-      data: result,
-    };
+    // Use apiClient.post with FormData
+    return apiClient.post<{url: string, filename: string, type: string}>('/api/uploads/tenants', formData);
   },
 
   async saveTenantAttachment(tenantId: string, url: string, attachmentType: number): Promise<ApiResponse<any>> {
