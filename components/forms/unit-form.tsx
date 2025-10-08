@@ -48,9 +48,11 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
       try {
         const response = await assetsApi.getAssets()
         if (response.success && response.data) {
-          setAssets(response.data)
+          const responseData = response.data as any
+          const assetsData = Array.isArray(responseData.data) ? responseData.data : []
+          setAssets(assetsData)
         } else {
-          toast.error('Gagal memuat data assets')
+          toast.error(response.error || 'Gagal memuat data assets')
         }
       } catch (error) {
         console.error('Load assets error:', error)
@@ -68,7 +70,7 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
     if (unit) {
       setFormData({
         name: unit.name || '',
-        asset_id: unit.asset_id || '',
+        asset_id: unit.asset?.id || '',
         size: unit.size?.toString() || '',
         rent_price: unit.rent_price?.toString() || '',
         lamp: unit.lamp?.toString() || '',
@@ -80,6 +82,17 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
       })
     }
   }, [unit])
+
+  // Re-set asset_id and electrical_unit when assets are loaded and unit is available
+  useEffect(() => {
+    if (unit && !assetsLoading && assets.length > 0 && unit.asset?.id) {
+      setFormData(prev => ({
+        ...prev,
+        asset_id: unit.asset?.id || '',
+        electrical_unit: unit.electrical_unit || 'Watt'
+      }))
+    }
+  }, [unit, assetsLoading, assets, unit?.asset?.id])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -132,6 +145,8 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
   }
 
   const handleInputChange = (field: string, value: string | boolean) => {
+    console.log('value', value);
+    console.log('field', field);
     setFormData(prev => ({ ...prev, [field]: value }))
     // Clear error when user starts typing
     if (errors[field]) {

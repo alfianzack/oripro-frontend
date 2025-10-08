@@ -6,8 +6,10 @@ import { Unit, UpdateUnitData, unitsApi } from '@/lib/api'
 import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
 import UnitForm from '@/components/forms/unit-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
 
 export default function EditUnitPage() {
   const router = useRouter()
@@ -27,7 +29,9 @@ export default function EditUnitPage() {
         const response = await unitsApi.getUnit(unitId)
         
         if (response.success && response.data) {
-          setUnit(response.data)
+          const responseData = response.data as any
+          
+          setUnit(responseData.data)
         } else {
           toast.error(response.error || 'Unit tidak ditemukan')
           router.push('/unit')
@@ -105,18 +109,23 @@ export default function EditUnitPage() {
   return (
     <>
       <DashboardBreadcrumb 
-        title={`Edit Unit: ${unit.name}`} 
-        text="Edit Unit" 
+        title={`Edit Unit`} 
+        text={`Edit Unit ${unit.name}`}  
       />
 
-      <Card className="card h-full !p-0 !block border-0 overflow-hidden mb-6">
-        <CardHeader className="border-b border-neutral-200 dark:border-slate-600 !py-4 px-6">
-          <CardTitle className="text-lg font-semibold">
-            Edit Unit: {unit.name}
-          </CardTitle>
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/unit">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+            <CardTitle>Edit Unit: {unit.name}</CardTitle>
+          </div>
         </CardHeader>
 
-        <CardContent className="card-body p-6">
+        <CardContent>
           <UnitForm
             unit={unit}
             onSubmit={handleSubmit}
