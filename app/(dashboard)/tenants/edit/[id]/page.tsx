@@ -26,7 +26,8 @@ export default function EditTenantPage() {
         const response = await tenantsApi.getTenant(tenantId)
         
         if (response.success && response.data) {
-          setTenant(response.data)
+          const responseData = response.data as any
+          setTenant(responseData.data)
         } else {
           toast.error(response.error || 'Tenant tidak ditemukan')
           router.push('/tenants')

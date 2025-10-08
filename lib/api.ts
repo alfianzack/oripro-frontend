@@ -42,8 +42,12 @@ export class ApiClient {
     const url = `${this.baseURL}${endpoint}`
     
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
+    }
+
+    // Only set Content-Type for JSON data, not for FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
     }
 
     if (this.token) {
@@ -96,6 +100,16 @@ export class ApiClient {
         }
       }
 
+      // Handle backend response format
+      if (data && typeof data === 'object' && 'data' in data && 'success' in data) {
+        // Backend returns { data: actualData, success: true, message: "..." }
+        return {
+          success: data.success,
+          data: data.data,
+          message: data.message,
+        }
+      }
+
       return {
         success: true,
         data,
@@ -116,7 +130,7 @@ export class ApiClient {
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined,
     })
   }
 
@@ -134,6 +148,9 @@ export class ApiClient {
 
 // Create a default instance
 export const apiClient = new ApiClient()
+
+// Export api for backward compatibility
+export const api = apiClient
 
 // Auth-specific API functions
 export const authApi = {
@@ -200,10 +217,12 @@ export interface User {
   id: string
   email: string
   name?: string
-  role_id?: string
+  phone?: string
+  gender?: number
+  role_id?: number
   status?: string
   role?: {
-    id: string
+    id: number
     name: string
     level: number
   }
@@ -217,6 +236,8 @@ export interface CreateUserData {
   email: string
   password: string
   name?: string
+  phone?: string
+  gender?: string
   roleId?: string
   status?: string
 }
@@ -225,6 +246,8 @@ export interface UpdateUserData {
   email?: string
   password?: string
   name?: string
+  phone?: string
+  gender?: string
   roleId?: string
   status?: string
 }
@@ -311,8 +334,8 @@ export interface Asset {
   name: string
   code: string
   description?: string
-  asset_type: number
-  status: number
+  asset_type: number | string
+  status: number | string
   address: string
   area: number
   longitude: number
@@ -327,7 +350,6 @@ export interface Asset {
 
 export interface CreateAssetData {
   name: string
-  code: string
   description?: string
   asset_type: number
   address: string
@@ -461,6 +483,84 @@ export const assetsApi = {
   async deleteAsset(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/assets/${id}`)
   },
+}
+
+// Attendance API interfaces
+export interface Attendance {
+  id: number
+  user_id: string
+  asset_id: number
+  check_in_time: string
+  check_out_time?: string
+  check_in_latitude: number
+  check_in_longitude: number
+  check_out_latitude?: number
+  check_out_longitude?: number
+  status: 'checked_in' | 'checked_out'
+  notes?: string
+  created_at: string
+  updated_at: string
+  asset: {
+    id: number
+    name: string
+    code: string
+    address: string
+  }
+}
+
+export interface AttendanceStatus {
+  id: number
+  check_in_time: string
+  check_out_time?: string
+  status: 'checked_in' | 'checked_out'
+  asset: {
+    id: number
+    name: string
+    code: string
+    address: string
+  }
+}
+
+export interface CheckRadiusResponse {
+  isInRadius: boolean
+  distance: number
+}
+
+// Attendance API functions
+export const attendanceApi = {
+  async checkRadius(latitude: number, longitude: number, assetId: number): Promise<ApiResponse<CheckRadiusResponse>> {
+    return apiClient.post<CheckRadiusResponse>('/api/attendance/check-radius', {
+      latitude,
+      longitude,
+      asset_id: assetId
+    })
+  },
+
+  async checkIn(assetId: number, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
+    return apiClient.post<Attendance>('/api/attendance/check-in', {
+      asset_id: assetId,
+      latitude,
+      longitude,
+      notes
+    })
+  },
+
+  async checkOut(assetId: number, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
+    return apiClient.post<Attendance>('/api/attendance/check-out', {
+      asset_id: assetId,
+      latitude,
+      longitude,
+      notes
+    })
+  },
+
+  async getTodayStatus(assetId: number): Promise<ApiResponse<AttendanceStatus>> {
+    return apiClient.get<AttendanceStatus>(`/api/attendance/today-status/${assetId}`)
+  },
+
+  async getWeeklyHistory(assetId: number): Promise<ApiResponse<Attendance[]>> {
+    return apiClient.get<Attendance[]>(`/api/attendance/weekly-history?asset_id=${assetId}`)
+  }
 }
 
 // Unit API interface
@@ -650,39 +750,9 @@ export const tenantsApi = {
     formData.append('file', file)
     formData.append('type', type === 'identification' ? '1' : '2')
     
-    // Use direct fetch with FormData to avoid JSON serialization
-    const token = localStorage.getItem('auth_token');
     
-    if (!token) {
-      return {
-        success: false,
-        error: 'No authentication token found. Please login again.',
-      };
-    }
-    
-    console.log('Uploading file with token:', token.substring(0, 20) + '...');
-    
-    const response = await fetch(`${API_BASE_URL}/api/tenant-uploads`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.message || `HTTP ${response.status}`,
-      };
-    }
-
-    return {
-      success: true,
-      data: result,
-    };
+    // Use apiClient.post with FormData
+    return apiClient.post<{url: string, filename: string, type: string}>('/api/uploads/tenants', formData);
   },
 
   async saveTenantAttachment(tenantId: string, url: string, attachmentType: number): Promise<ApiResponse<any>> {
@@ -696,8 +766,26 @@ export const tenantsApi = {
 
 // Menus-specific API functions
 export const menusApi = {
-  async getMenus(): Promise<ApiResponse<Menu[]>> {
-    return apiClient.get<Menu[]>('/api/menus')
+  async getMenus(params?: {
+    title?: string
+    is_active?: boolean
+    parent_id?: number | null
+    has_parent?: boolean
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<Menu[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.title) queryParams.append('title', params.title)
+    if (params?.is_active !== undefined) queryParams.append('is_active', params.is_active.toString())
+    if (params?.parent_id !== undefined) queryParams.append('parent_id', params.parent_id?.toString() || 'null')
+    if (params?.has_parent !== undefined) queryParams.append('has_parent', params.has_parent.toString())
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/menus${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<Menu[]>(endpoint)
   },
 
   async getMenu(id: string): Promise<ApiResponse<Menu>> {

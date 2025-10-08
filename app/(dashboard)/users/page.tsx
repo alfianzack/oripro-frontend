@@ -50,14 +50,23 @@ export default function UsersPage() {
       const response = await usersApi.getUsers(filterParams)
       
       if (response.success && response.data) {
-        setUsers(response.data)
-        setFilteredUsers(response.data)
+        // Ensure data is an array
+        const responseData = response.data as any
+        const usersData = Array.isArray(responseData.data) ? responseData.data : []
+        setUsers(usersData)
+        setFilteredUsers(usersData)
       } else {
         toast.error(response.error || 'Gagal memuat data users')
+        // Set empty arrays on error
+        setUsers([])
+        setFilteredUsers([])
       }
     } catch (error) {
       console.error('Load users error:', error)
       toast.error('Terjadi kesalahan saat memuat data users')
+      // Set empty arrays on error
+      setUsers([])
+      setFilteredUsers([])
     } finally {
       setLoading(false)
     }
@@ -111,12 +120,15 @@ export default function UsersPage() {
   }
 
   const getStats = () => {
-    const total = users.length
-    const superAdmin = users.filter(user => user.role?.level >= 100).length
-    const admin = users.filter(user => user.role?.level >= 50 && user.role?.level < 100).length
-    const manager = users.filter(user => user.role?.level >= 20 && user.role?.level < 50).length
-    const staff = users.filter(user => user.role?.level >= 10 && user.role?.level < 20).length
-    const user = users.filter(user => (user.role?.level || 0) < 10).length
+    // Ensure users is an array before using filter
+    const usersArray = Array.isArray(users) ? users : []
+    
+    const total = usersArray.length
+    const superAdmin = usersArray.filter(user => (user.role?.level ?? 0) >= 100).length
+    const admin = usersArray.filter(user => (user.role?.level ?? 0) >= 50 && (user.role?.level ?? 0) < 100).length
+    const manager = usersArray.filter(user => (user.role?.level ?? 0) >= 20 && (user.role?.level ?? 0) < 50).length
+    const staff = usersArray.filter(user => (user.role?.level ?? 0) >= 10 && (user.role?.level ?? 0) < 20).length
+    const user = usersArray.filter(user => (user.role?.level ?? 0) < 10).length
 
     return { total, superAdmin, admin, manager, staff, user }
   }

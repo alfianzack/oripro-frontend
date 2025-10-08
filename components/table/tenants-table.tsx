@@ -123,7 +123,6 @@ export default function TenantsTable({
           <TableHeader>
             <TableRow>
               <TableHead>No</TableHead>
-              <TableHead>Kode</TableHead>
               <TableHead>Nama Tenant</TableHead>
               <TableHead>User</TableHead>
               <TableHead>Mulai Kontrak</TableHead>
@@ -135,7 +134,7 @@ export default function TenantsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tenants.length === 0 ? (
+            {!Array.isArray(tenants) || tenants.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Tidak ada data tenant
@@ -148,9 +147,6 @@ export default function TenantsTable({
                 return (
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{String(index + 1)}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {tenant.code}
-                  </TableCell>
                   <TableCell className="font-medium">
                     {tenant.name}
                   </TableCell>
