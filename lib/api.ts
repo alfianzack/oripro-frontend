@@ -330,8 +330,8 @@ export interface Asset {
   name: string
   code: string
   description?: string
-  asset_type: number
-  status: number
+  asset_type: number | string
+  status: number | string
   address: string
   area: number
   longitude: number
@@ -346,7 +346,6 @@ export interface Asset {
 
 export interface CreateAssetData {
   name: string
-  code: string
   description?: string
   asset_type: number
   address: string

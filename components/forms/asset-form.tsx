@@ -28,7 +28,6 @@ import LeafletMapComponent from './leaflet-map-component'
 
 const assetSchema = z.object({
   name: z.string().min(1, 'Nama asset harus diisi'),
-  code: z.string().min(1, 'Kode asset harus diisi'),
   description: z.string().optional(),
   asset_type: z.number().min(1, 'Tipe asset harus dipilih'),
   address: z.string().min(1, 'Alamat harus diisi'),
@@ -59,19 +58,90 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
   const form = useForm<AssetFormData>({
     resolver: zodResolver(assetSchema) as any,
     defaultValues: {
-      name: asset?.name || '',
-      code: asset?.code || '',
-      description: asset?.description || '',
-      asset_type: asset?.asset_type || 1,
-      address: asset?.address || '',
-      area: asset?.area || 0,
-      longitude: asset?.longitude || 0,
-      latitude: asset?.latitude || 0,
-      status: asset?.status || 1,
+      name: '',
+      description: '',
+      asset_type: 1,
+      address: '',
+      area: 0,
+      longitude: 0,
+      latitude: 0,
+      status: 1,
       photo: null,
       sketch: null,
     },
   })
+
+  // Update form values when asset changes (for edit mode)
+  useEffect(() => {
+    if (asset) {
+      // Convert string values to integers for form
+      const assetTypeMap: { [key: string]: number } = {
+        'ESTATE': 1,
+        'OFFICE': 2,
+        'WAREHOUSE': 3,
+        'SPORT': 4,
+        'ENTERTAINMENTRESTAURANT': 5,
+        'RESIDENCE': 6,
+        'MALL': 7,
+        'SUPPORTFACILITYMOSQUEITAL': 8,
+        'PARKINGLOT': 9,
+      }
+      
+      const statusMap: { [key: string]: number } = {
+        'active': 1,
+        'inactive': 0,
+      }
+      
+      const convertedAssetType = typeof asset.asset_type === 'string' ? assetTypeMap[asset.asset_type] || 1 : asset.asset_type || 1
+      const convertedStatus = typeof asset.status === 'string' ? statusMap[asset.status] || 1 : asset.status || 1
+      
+      form.reset({
+        name: asset.name || '',
+        description: asset.description || '',
+        asset_type: convertedAssetType,
+        address: asset.address || '',
+        area: asset.area || 0,
+        longitude: asset.longitude || 0,
+        latitude: asset.latitude || 0,
+        status: convertedStatus,
+        photo: null,
+        sketch: null,
+      })
+    }
+  }, [asset, form])
+
+  // Re-set form values after a short delay to ensure proper initialization
+  useEffect(() => {
+    if (asset) {
+      const timer = setTimeout(() => {
+        const assetTypeMap: { [key: string]: number } = {
+          'ESTATE': 1,
+          'OFFICE': 2,
+          'WAREHOUSE': 3,
+          'SPORT': 4,
+          'ENTERTAINMENTRESTAURANT': 5,
+          'RESIDENCE': 6,
+          'MALL': 7,
+          'SUPPORTFACILITYMOSQUEITAL': 8,
+          'PARKINGLOT': 9,
+        }
+        
+        const statusMap: { [key: string]: number } = {
+          'active': 1,
+          'inactive': 0,
+        }
+        
+        const convertedAssetType = typeof asset.asset_type === 'string' ? assetTypeMap[asset.asset_type] || 1 : asset.asset_type || 1
+        const convertedStatus = typeof asset.status === 'string' ? statusMap[asset.status] || 1 : asset.status || 1
+        
+        form.setValue('area', parseFloat(asset.area as unknown as string) || 0)
+        form.setValue('asset_type', convertedAssetType)
+        form.setValue('status', convertedStatus)
+      }, 100)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [asset, form])
 
   // Set existing images when editing
   useEffect(() => {
@@ -114,20 +184,19 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       // Prepare FormData for file upload
       const formData = new FormData()
       
-      // Add basic asset data
-      formData.append('name', data.name)
-      formData.append('code', data.code)
-      formData.append('description', data.description || '')
+      // Add basic asset data - ensure all values are properly formatted
+      formData.append('name', data.name.trim())
+      formData.append('description', data.description?.trim() || '')
       formData.append('asset_type', data.asset_type.toString())
-      formData.append('address', data.address)
+      formData.append('address', data.address.trim())
       formData.append('area', data.area.toString())
       formData.append('longitude', data.longitude.toString())
       formData.append('latitude', data.latitude.toString())
       formData.append('status', data.status.toString())
       
-      // Add files if they exist (only new files)
+      // Handle photo upload - backend expects 'photos' field
       if (data.photo) {
-        formData.append('photo', data.photo)
+        formData.append('photos', data.photo)
       }
       if (data.sketch) {
         formData.append('sketch', data.sketch)
@@ -169,19 +238,6 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="code"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Kode Asset <span className="text-red-500">*</span></FormLabel>
-                <FormControl>
-                  <Input placeholder="Masukkan kode asset" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
 
         <FormField
@@ -393,7 +449,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
               <FormControl>
                 <Input 
                   type="number" 
-                  step="0.01"
+                  step="0"
                   placeholder="Masukkan luas area dalam meter persegi"
                   {...field}
                   onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}

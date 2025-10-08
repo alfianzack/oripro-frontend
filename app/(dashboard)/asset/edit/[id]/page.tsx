@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { assetsApi, Asset, UpdateAssetData } from '@/lib/api'
+import { assetsApi, Asset, CreateAssetData, UpdateAssetData } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -32,9 +32,10 @@ export default function EditAssetPage() {
       setInitialLoading(true)
       try {
         const response = await assetsApi.getAsset(assetId)
-        
         if (response.success && response.data) {
-          setAsset(response.data)
+          const responseData = response.data as any
+          
+          setAsset(responseData.data)
         } else {
           toast.error(response.error || 'Gagal memuat data asset')
           router.push('/asset')
@@ -51,10 +52,13 @@ export default function EditAssetPage() {
     loadAsset()
   }, [assetId, router])
 
-  const handleSubmit = async (data: UpdateAssetData) => {
+  const handleSubmit = async (data: CreateAssetData | UpdateAssetData | FormData) => {
     setLoading(true)
     try {
-      const response = await assetsApi.updateAsset(assetId, data)
+      // Convert FormData to UpdateAssetData if needed
+      const updateData = data instanceof FormData ? Object.fromEntries(data.entries()) as UpdateAssetData : data as UpdateAssetData
+      
+      const response = await assetsApi.updateAsset(assetId, updateData)
       
       if (response.success) {
         toast.success('Asset berhasil diperbarui')

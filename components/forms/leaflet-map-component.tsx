@@ -69,12 +69,33 @@ export default function LeafletMapComponent({
     loadLeaflet()
   }, [])
 
+  // Update marker position when coordinates change from outside
+  useEffect(() => {
+    if (mapInstance && marker && latitude && longitude) {
+      // Check if coordinates are different from current marker position
+      const currentPos = marker.getLatLng()
+      const newLat = parseFloat(latitude.toString())
+      const newLng = parseFloat(longitude.toString())
+      
+      // Only update if coordinates are actually different
+      if (Math.abs(currentPos.lat - newLat) > 0.0001 || Math.abs(currentPos.lng - newLng) > 0.0001) {
+        marker.setLatLng([newLat, newLng])
+        mapInstance.setView([newLat, newLng], mapInstance.getZoom())
+        reverseGeocode(newLat, newLng)
+      }
+    }
+  }, [latitude, longitude, mapInstance, marker])
+
   const initializeMap = () => {
     if (!mapRef.current || !window.L) return
 
     try {
+      // Use provided coordinates or default to Jakarta
+      const initialLat = latitude && latitude !== 0 ? latitude : -6.2088
+      const initialLng = longitude && longitude !== 0 ? longitude : 106.8456
+      
       // Initialize map
-      const map = window.L.map(mapRef.current).setView([latitude || -6.2088, longitude || 106.8456], 15)
+      const map = window.L.map(mapRef.current).setView([initialLat, initialLng], 15)
 
       // Add OpenStreetMap tiles
       window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -83,7 +104,7 @@ export default function LeafletMapComponent({
       }).addTo(map)
 
       // Create marker
-      const markerInstance = window.L.marker([latitude || -6.2088, longitude || 106.8456], {
+      const markerInstance = window.L.marker([initialLat, initialLng], {
         draggable: true
       }).addTo(map)
 
@@ -113,8 +134,8 @@ export default function LeafletMapComponent({
       setIsMapLoaded(true)
 
       // If we have initial coordinates, get the address
-      if (latitude && longitude) {
-        reverseGeocode(latitude, longitude)
+      if (initialLat && initialLng && initialLat !== -6.2088 && initialLng !== 106.8456) {
+        reverseGeocode(initialLat, initialLng)
       }
     } catch (error) {
       console.error('Error initializing map:', error)

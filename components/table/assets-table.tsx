@@ -88,11 +88,38 @@ export default function AssetsTable({
     })
   }
 
-  const getAssetTypeLabel = (assetType: number) => {
+  const getAssetTypeLabel = (assetType: number | string) => {
+    // Handle both integer and string asset types from backend
+    if (typeof assetType === 'string') {
+      // Map string values to labels directly
+      const stringToLabel: { [key: string]: string } = {
+        'ESTATE': 'Estate',
+        'OFFICE': 'Office', 
+        'WAREHOUSE': 'Warehouse',
+        'SPORT': 'Sport',
+        'ENTERTAINMENTRESTAURANT': 'Entertainment/Restaurant',
+        'RESIDENCE': 'Residence',
+        'MALL': 'Mall',
+        'SUPPORTFACILITYMOSQUEITAL': 'Support Facility/Mosque',
+        'PARKINGLOT': 'Parking Lot',
+      }
+      return stringToLabel[assetType] || 'Unknown'
+    }
     return ASSET_TYPE_LABELS[assetType] || 'Unknown'
   }
 
-  const getStatusBadgeVariant = (status: number) => {
+  const getStatusBadgeVariant = (status: number | string) => {
+    // Handle both integer and string status from backend
+    if (typeof status === 'string') {
+      switch (status) {
+        case 'active':
+          return 'default'
+        case 'inactive':
+          return 'secondary'
+        default:
+          return 'outline'
+      }
+    }
     switch (status) {
       case 1:
         return 'default'
@@ -103,7 +130,18 @@ export default function AssetsTable({
     }
   }
 
-  const getStatusLabel = (status: number) => {
+  const getStatusLabel = (status: number | string) => {
+    // Handle both integer and string status from backend
+    if (typeof status === 'string') {
+      switch (status) {
+        case 'active':
+          return 'Aktif'
+        case 'inactive':
+          return 'Tidak Aktif'
+        default:
+          return 'Tidak Diketahui'
+      }
+    }
     switch (status) {
       case 1:
         return 'Aktif'
@@ -172,7 +210,7 @@ export default function AssetsTable({
                   <TableCell>{asset.area ? `${asset.area} m²` : '-'}</TableCell>
                   <TableCell>
                       <span
-                          className={`px-3 py-1.5 rounded text-sm font-medium border ${asset.status === 1
+                          className={`px-3 py-1.5 rounded text-sm font-medium border ${(asset.status === 1 || asset.status === 'active')
                               ? "bg-green-600/15 text-green-600 border-green-600"
                               : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
                               }`}

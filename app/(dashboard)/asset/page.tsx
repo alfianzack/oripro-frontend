@@ -123,7 +123,7 @@ export default function AssetsPage() {
     const warehouse = assets.filter(asset => asset.asset_type === 3).length
     const residence = assets.filter(asset => asset.asset_type === 6).length
     const mall = assets.filter(asset => asset.asset_type === 7).length
-    const other = assets.filter(asset => ![1, 2, 3, 6, 7].includes(asset.asset_type)).length
+    const other = assets.filter(asset => ![1, 2, 3, 6, 7].includes(parseInt(asset.asset_type as string))).length
 
     return { total, estate, office, warehouse, residence, mall, other }
   }
