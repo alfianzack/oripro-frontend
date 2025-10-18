@@ -10,7 +10,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import UsersTable from '@/components/table/users-table'
-import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
+import UserViewDialog from '@/components/dialogs/user-view-dialog'
 import toast from 'react-hot-toast'
 
 export default function UsersPage() {
@@ -20,7 +20,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
   
   // Filter dan sorting states
   const [roleFilter, setRoleFilter] = useState<string>('all')
@@ -112,7 +112,7 @@ export default function UsersPage() {
 
   const handleView = (user: User) => {
     setSelectedUser(user)
-    setDetailDialogOpen(true)
+    setViewDialogOpen(true)
   }
 
   const handleRefresh = () => {
@@ -352,10 +352,10 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
-      <UserDetailDialog
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
+      {/* User View Dialog */}
+      <UserViewDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
         user={selectedUser}
       />
     </div>

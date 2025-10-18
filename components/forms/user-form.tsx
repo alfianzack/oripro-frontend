@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { User, CreateUserData, UpdateUserData, Role, rolesApi } from '@/lib/api'
+import { User, CreateUserData, UpdateUserData, Role, rolesApi, usersApi } from '@/lib/api'
+import AssetSelector from '@/components/ui/asset-selector'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -12,6 +13,9 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -32,6 +36,7 @@ const userFormSchema = z.object({
   gender: z.string().min(1, 'Jenis kelamin wajib dipilih'),
   roleId: z.string().optional(),
   status: z.string().optional(),
+  assetIds: z.array(z.string()).optional(),
 })
 
 type UserFormData = z.infer<typeof userFormSchema>
@@ -46,6 +51,7 @@ interface UserFormProps {
 export default function UserForm({ user, onSubmit, onCancel, loading = false }: UserFormProps) {
   const [roles, setRoles] = useState<Role[]>([])
   const [rolesLoading, setRolesLoading] = useState(false)
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([])
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
@@ -54,9 +60,10 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
       password: '',
       name: user?.name || '',
       phone: user?.phone || '',
-      gender: user?.gender ? (user.gender === 1 ? 'male' : 'female') : '',
+      gender: user?.gender || '',
       roleId: user?.role_id ? user.role_id.toString() : '',
       status: user?.status || 'active',
+      assetIds: [],
     },
   })
 
@@ -92,6 +99,37 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
     loadRoles()
   }, [])
 
+
+  // Load user assets when editing
+  useEffect(() => {
+    if (user?.id) {
+      const loadUserAssets = async () => {
+        try {
+          // For now, we'll initialize with empty array
+          // TODO: Add getUserAssets method to usersApi
+          const response = await usersApi.getUserAssets(user?.id)
+          if (response.success && response.data) {
+            const responseData = response.data as any
+            console.log("responseData")
+            console.log(responseData)
+            const assetIds = responseData.data.map((ua: any) => ua.asset_id)
+            setSelectedAssets(assetIds)
+            form.setValue('assetIds', assetIds)
+          }
+        } catch (error) {
+          console.error('Failed to load user assets:', error)
+        }
+      }
+
+      loadUserAssets()
+    }
+  }, [user?.id, form])
+
+  // Sync selectedAssets with form
+  useEffect(() => {
+    form.setValue('assetIds', selectedAssets)
+  }, [selectedAssets, form])
+
   const handleSubmit = async (data: UserFormData) => {
     try {
       // Keep gender as string for backend validation
@@ -99,6 +137,8 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
         ...data,
         gender: data.gender, // Keep as string "male" or "female"
         roleId: data.roleId || undefined,
+        // Filter out null/undefined asset IDs
+        assetIds: data.assetIds ? data.assetIds.filter(id => id && id !== null && id !== undefined) : [],
       }
       
       // Remove empty password for update
@@ -265,6 +305,13 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
             )}
           />
         </div>
+
+        {/* Asset Selection */}
+        <AssetSelector
+          selectedAssets={selectedAssets}
+          onAssetChange={setSelectedAssets}
+          className="w-full"
+        />
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 pt-6">
