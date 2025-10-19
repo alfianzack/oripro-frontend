@@ -103,6 +103,25 @@ export default function TenantsTable({
     }
   }
 
+  const getTenantStatus = (status: string) => {
+    switch (status) {
+      case 'inactive':
+        return { label: 'Tidak Aktif', variant: 'secondary' as const }
+      case 'active':
+        return { label: 'Aktif', variant: 'default' as const }
+      case 'pending':
+        return { label: 'Pending', variant: 'outline' as const }
+      case 'expired':
+        return { label: 'Expired', variant: 'destructive' as const }
+      case 'terminated':
+        return { label: 'Terminated', variant: 'destructive' as const }
+      case 'blacklisted':
+        return { label: 'Blacklisted', variant: 'destructive' as const }
+      default:
+        return { label: 'Unknown', variant: 'secondary' as const }
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -125,6 +144,7 @@ export default function TenantsTable({
               <TableHead>No</TableHead>
               <TableHead>Nama Tenant</TableHead>
               <TableHead>User</TableHead>
+              <TableHead>Status Tenant</TableHead>
               <TableHead>Mulai Kontrak</TableHead>
               <TableHead>Berakhir Kontrak</TableHead>
               <TableHead>Durasi Sewa</TableHead>
@@ -136,7 +156,7 @@ export default function TenantsTable({
           <TableBody>
             {!Array.isArray(tenants) || tenants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Tidak ada data tenant
                 </TableCell>
               </TableRow>
@@ -144,6 +164,10 @@ export default function TenantsTable({
               tenants.map((tenant, index) => {
                 const isLast = index === tenants.length - 1;
                 const contractStatus = getContractStatus(tenant.contract_end_at);
+                
+                // Debug: Log tenant data to identify the problematic field
+                console.log('Tenant data:', tenant);
+                
                 return (
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{String(index + 1)}</TableCell>
@@ -151,7 +175,22 @@ export default function TenantsTable({
                     {tenant.name}
                   </TableCell>
                   <TableCell>
-                    {tenant.user?.name || tenant.user?.email || '-'}
+                    {(() => {
+                      try {
+                        if (tenant.user && typeof tenant.user === 'object') {
+                          return tenant.user.name || tenant.user.email || '-';
+                        }
+                        return tenant.user || '-';
+                      } catch (error) {
+                        console.error('Error rendering user field:', error, tenant.user);
+                        return '-';
+                      }
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getTenantStatus(tenant.status).variant}>
+                      {getTenantStatus(tenant.status).label}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(tenant.contract_begin_at)}
@@ -160,7 +199,16 @@ export default function TenantsTable({
                     {formatDate(tenant.contract_end_at)}
                   </TableCell>
                   <TableCell>
-                    {tenant.rent_duration} {DURATION_UNIT_LABELS[tenant.rent_duration_unit] || tenant.rent_duration_unit}
+                    {(() => {
+                      try {
+                        const duration = tenant.rent_duration || 0;
+                        const unit = DURATION_UNIT_LABELS[tenant.rent_duration_unit] || tenant.rent_duration_unit || '';
+                        return `${duration} ${unit}`;
+                      } catch (error) {
+                        console.error('Error rendering duration field:', error, tenant.rent_duration, tenant.rent_duration_unit);
+                        return '-';
+                      }
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Badge variant={contractStatus.variant}>

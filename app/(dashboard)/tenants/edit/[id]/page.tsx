@@ -8,6 +8,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Home, Users, Edit, Loader2 } from 'lucide-react'
 import TenantForm from '@/components/forms/tenant-form'
 import toast from 'react-hot-toast'
+import TenantLogsTable from '@/components/table/tenant-logs-table'
 
 export default function EditTenantPage() {
   const router = useRouter()
