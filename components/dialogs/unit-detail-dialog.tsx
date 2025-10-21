@@ -2,15 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { Unit } from '@/lib/api'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { History, Home, X, Square, Zap, Lightbulb, Plug, Calendar, Edit } from 'lucide-react'
+import Link from 'next/link'
+import UnitLogsTable from '@/components/table/unit-logs-table'
 
 interface UnitDetailDialogProps {
   open: boolean
@@ -24,10 +21,46 @@ export default function UnitDetailDialog({
   unit
 }: UnitDetailDialogProps) {
   const [mounted, setMounted] = useState(false)
+  const [activeTab, setActiveTab] = useState('info')
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [open])
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onOpenChange(false)
+    }
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onOpenChange(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener('keydown', handleKeyDown)
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  if (!unit || !open) return null
 
   const formatDate = (dateString: string) => {
     if (!mounted) return 'Loading...'
@@ -45,160 +78,236 @@ export default function UnitDetailDialog({
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount)
   }
 
-  if (!unit) return null
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            Detail Unit: {unit.name}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Informasi Dasar */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Informasi Dasar</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Nama Unit
-                  </label>
-                  <p className="text-sm font-medium">{unit.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Asset
-                  </label>
-                  <p className="text-sm font-medium">{unit.asset?.name || '-'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Ukuran
-                  </label>
-                  <p className="text-sm font-medium">
-                    {unit.size ? `${unit.size} m²` : '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Harga Sewa
-                  </label>
-                  <p className="text-sm font-medium">
-                    {unit.rent_price ? formatCurrency(unit.rent_price) : '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Status
-                  </label>
-                  <div className="mt-1">
-                    <Badge variant={unit.is_deleted ? 'destructive' : 'default'}>
-                      {unit.is_deleted ? 'Dihapus' : 'Aktif'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              
-              {unit.description && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Deskripsi
-                  </label>
-                  <p className="text-sm mt-1">{unit.description}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Fasilitas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Fasilitas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Jumlah Lampu
-                  </label>
-                  <p className="text-sm font-medium">{unit.lamp || 0}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Jumlah Stop Kontak
-                  </label>
-                  <p className="text-sm font-medium">{unit.electric_socket || 0}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Daya Listrik
-                  </label>
-                  <p className="text-sm font-medium">
-                    {unit.electrical_power ? `${unit.electrical_power} ${unit.electrical_unit || 'Watt'}` : '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Toilet
-                  </label>
-                  <div className="mt-1">
-                    <Badge variant={unit.is_toilet_exist ? 'default' : 'secondary'}>
-                      {unit.is_toilet_exist ? 'Ada' : 'Tidak Ada'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Informasi Sistem */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Informasi Sistem</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Dibuat Pada
-                  </label>
-                  <p className="text-sm font-medium">{formatDate(unit.created_at)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Diperbarui Pada
-                  </label>
-                  <p className="text-sm font-medium">{formatDate(unit.updated_at)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    ID Unit
-                  </label>
-                  <p className="text-sm font-mono text-xs bg-muted p-2 rounded">
-                    {unit.id}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    ID Asset
-                  </label>
-                  <p className="text-sm font-mono text-xs bg-muted p-2 rounded">
-                    {unit.asset_id}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-7xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Home className="h-5 w-5" />
+              Detail Unit: {unit.name}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Informasi lengkap dan riwayat aktivitas unit
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="rounded-full hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6">
+            {/* Header Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant={unit.is_deleted ? 'destructive' : 'default'}>
+                  {unit.is_deleted ? 'Dihapus' : 'Aktif'}
+                </Badge>
+              </div>
+              <Button asChild>
+                <Link href={`/units/edit/${unit.id}`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Unit
+                </Link>
+              </Button>
+            </div>
+
+            {/* Custom Tabs */}
+            <div className="w-full">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'info'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Home className="h-4 w-4" />
+                  Informasi Unit
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'history'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <History className="h-4 w-4" />
+                  History Aktivitas
+                </button>
+              </div>
+
+              <div className="mt-6">
+                {activeTab === 'info' && (
+                  <div className="space-y-6">
+                    {/* Informasi Dasar */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Home className="h-5 w-5" />
+                          Informasi Dasar
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Nama Unit
+                            </label>
+                            <p className="text-sm font-medium">{unit.name}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Ukuran
+                            </label>
+                            <p className="text-sm font-medium flex items-center gap-1">
+                              <Square className="h-4 w-4" />
+                              {unit.size} m²
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Harga Sewa
+                            </label>
+                            <p className="text-sm font-medium">{formatCurrency(unit.rent_price)}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Status
+                            </label>
+                            <div className="mt-1">
+                              <Badge variant={unit.is_deleted ? 'destructive' : 'default'}>
+                                {unit.is_deleted ? 'Dihapus' : 'Aktif'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        {unit.description && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Deskripsi
+                            </label>
+                            <p className="text-sm font-medium mt-1">{unit.description}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Informasi Fasilitas */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Zap className="h-5 w-5" />
+                          Informasi Fasilitas
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Jumlah Lampu
+                            </label>
+                            <p className="text-sm font-medium flex items-center gap-1">
+                              <Lightbulb className="h-4 w-4" />
+                              {unit.lamp} buah
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Jumlah Stop Kontak
+                            </label>
+                            <p className="text-sm font-medium flex items-center gap-1">
+                              <Plug className="h-4 w-4" />
+                              {unit.electric_socket} buah
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Daya Listrik
+                            </label>
+                            <p className="text-sm font-medium">
+                              {unit.electrical_power} {unit.electrical_unit}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Toilet
+                            </label>
+                            <div className="mt-1">
+                              <Badge variant={unit.is_toilet_exist ? 'default' : 'secondary'}>
+                                {unit.is_toilet_exist ? 'Ada' : 'Tidak Ada'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Informasi Tanggal */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Calendar className="h-5 w-5" />
+                          Informasi Tanggal
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Dibuat
+                            </label>
+                            <p className="text-sm font-medium">{formatDate(unit.created_at)}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Diperbarui
+                            </label>
+                            <p className="text-sm font-medium">{formatDate(unit.updated_at)}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {activeTab === 'history' && (
+                  <div className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <History className="h-5 w-5" />
+                          History Aktivitas Unit
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <UnitLogsTable unitId={unit.id} loading={false} />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

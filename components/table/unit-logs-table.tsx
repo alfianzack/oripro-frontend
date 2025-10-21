@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserLog } from '@/lib/api'
+import { UnitLog } from '@/lib/api'
 import {
   Table,
   TableBody,
@@ -12,16 +12,16 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { History, Loader2 } from 'lucide-react'
 import JsonDisplay from '@/components/ui/json-display'
 
-interface UserLogsTableProps {
-  userId: string
+interface UnitLogsTableProps {
+  unitId: string
   loading?: boolean
 }
 
-export default function UserLogsTable({ userId, loading = false }: UserLogsTableProps) {
-  const [userLogs, setUserLogs] = useState<UserLog[]>([])
+export default function UnitLogsTable({ unitId, loading = false }: UnitLogsTableProps) {
+  const [unitLogs, setUnitLogs] = useState<UnitLog[]>([])
   const [logsLoading, setLogsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
@@ -30,35 +30,45 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
   }, [])
 
   useEffect(() => {
-    const loadUserLogs = async () => {
-      if (!userId) {
-        console.log('UserLogsTable: No userId provided')
+    const loadUnitLogs = async () => {
+      
+      if (!unitId) {
+        console.log('UnitLogsTable: No unitId provided')
         return
       }
       
       setLogsLoading(true)
       try {
-        const { usersApi } = await import('@/lib/api')
-        const response = await usersApi.getUserLogs(userId)
+        const { unitsApi } = await import('@/lib/api')
+        
+        const response = await unitsApi.getUnitLogs(unitId)
         
         
         if (response.success && response.data) {
           // Ensure response.data is an array
           const responseData = response.data as any
           const logsData = Array.isArray(responseData.data) ? responseData.data : []
-          setUserLogs(logsData)
+          
+          setUnitLogs(logsData)
         } else {
-          setUserLogs([])
+          console.log('UnitLogsTable: No data in response, setting empty array')
+          setUnitLogs([])
         }
       } catch (error) {
-        setUserLogs([])
+        console.error('UnitLogsTable: Load unit logs error:', error)
+        console.error('UnitLogsTable: Error details:', {
+          message: (error as Error).message,
+          stack: (error as Error)?.stack,
+          unitId: unitId
+        })
+        setUnitLogs([])
       } finally {
         setLogsLoading(false)
       }
     }
 
-    loadUserLogs()
-  }, [userId])
+    loadUnitLogs()
+  }, [unitId])
 
   const formatDate = (dateString: string) => {
     if (!mounted) return 'Loading...'
@@ -76,10 +86,9 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
       'create': 'Dibuat',
       'update': 'Diperbarui',
       'delete': 'Dihapus',
-      'login': 'Login',
-      'logout': 'Logout',
-      'password_change': 'Ubah Password',
-      'status_change': 'Ubah Status'
+      'rent_price_change': 'Ubah Harga Sewa',
+      'status_change': 'Ubah Status',
+      'toilet_change': 'Ubah Status Toilet'
     }
     return actionLabels[action] || action
   }
@@ -92,9 +101,9 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
         return 'secondary'
       case 'delete':
         return 'destructive'
-      case 'login':
+      case 'rent_price_change':
         return 'outline'
-      case 'logout':
+      case 'status_change':
         return 'outline'
       default:
         return 'secondary'
@@ -105,14 +114,14 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
     return (
       <Card>
         <CardHeader>
-          <CardTitle>History User</CardTitle>
-          <CardDescription>Riwayat aktivitas user</CardDescription>
+          <CardTitle>History Unit</CardTitle>
+          <CardDescription>Riwayat aktivitas unit</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span>Memuat history user...</span>
+              <span>Memuat history unit...</span>
             </div>
           </div>
         </CardContent>
@@ -134,14 +143,14 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!userLogs || userLogs.length === 0 ? (
+          {!unitLogs || unitLogs.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                Tidak ada history user
+                Tidak ada history unit
               </TableCell>
             </TableRow>
           ) : (
-            userLogs.map((log, index) => (
+            unitLogs.map((log, index) => (
               <TableRow key={log.id}>
                 <TableCell className="font-medium">{index + 1}</TableCell>
                 <TableCell>
