@@ -10,7 +10,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import UsersTable from '@/components/table/users-table'
-import UserViewDialog from '@/components/dialogs/user-view-dialog'
+import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
 import toast from 'react-hot-toast'
 
 export default function UsersPage() {
@@ -352,8 +352,8 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* User View Dialog */}
-      <UserViewDialog
+      {/* User Detail Dialog */}
+      <UserDetailDialog
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
         user={selectedUser}

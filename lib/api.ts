@@ -110,6 +110,15 @@ export class ApiClient {
         }
       }
 
+      // Handle nested response format (when backend wraps response in another data object)
+      if (data && typeof data === 'object' && 'data' in data && typeof data.data === 'object' && 'data' in data.data) {
+        return {
+          success: data.data.success || true,
+          data: data.data.data,
+          message: data.data.message,
+        }
+      }
+
       return {
         success: true,
         data,
@@ -214,11 +223,11 @@ export interface UpdateRoleData {
 
 // Users API interface
 export interface User {
-  id: string
+  id: string // UUID string
   email: string
   name?: string
   phone?: string
-  gender?: number
+  gender?: string
   role_id?: number
   status?: string
   role?: {
@@ -228,8 +237,24 @@ export interface User {
   }
   created_at: string
   updated_at: string
+  created_by?: string // UUID string
+  updated_by?: string // UUID string
+}
+
+// User Asset interface
+export interface UserAsset {
+  id: string
+  user_id: string
+  asset_id: string
   created_by?: string
-  updated_by?: string
+  created_at: string
+  asset?: Asset
+  // Flattened asset data for easier access
+  asset_name?: string
+  asset_code?: string
+  asset_address?: string
+  asset_type?: number
+  asset_status?: number
 }
 
 export interface CreateUserData {
@@ -250,6 +275,76 @@ export interface UpdateUserData {
   gender?: string
   roleId?: string
   status?: string
+}
+
+// User Log interface
+export interface UserLog {
+  id: number
+  user_id: string
+  action: string
+  old_data?: any
+  new_data?: any
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  role?: {
+    id: number
+    name: string
+    level: number
+  }
+  created_at: string
+}
+
+// Asset Log interface
+export interface AssetLog {
+  id: number
+  asset_id: string
+  action: string
+  old_data?: any
+  new_data?: any
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  created_at: string
+}
+
+// Unit Log interface
+export interface UnitLog {
+  id: number
+  unit_id: string
+  action: string
+  old_data?: any
+  new_data?: any
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  created_at: string
+}
+
+// Tenant Log interface
+export interface TenantLog {
+  id: number
+  tenant_id: string
+  action: string
+  old_data?: any
+  new_data?: any
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  user?: {
+    id: string
+    name: string
+    email: string
+  }
+  created_at: string
 }
 
 // Roles-specific API functions
@@ -300,6 +395,7 @@ export const usersApi = {
   },
 
   async getUser(id: string): Promise<ApiResponse<User>> {
+    console.log("get user api")
     return apiClient.get<User>(`/api/users/${id}`)
   },
 
@@ -325,6 +421,14 @@ export const usersApi = {
 
   async getUserSidebar(): Promise<ApiResponse<{ navMain: any[] }>> {
     return apiClient.get<{ navMain: any[] }>('/api/users/sidebar')
+  },
+
+  async getUserLogs(userId: string): Promise<ApiResponse<UserLog[]>> {
+    return apiClient.get<UserLog[]>(`/api/users/${userId}/logs`)
+  },
+
+  async getUserAssets(userId: string): Promise<ApiResponse<UserAsset[]>> {
+    return apiClient.get<UserAsset[]>(`/api/users/${userId}/assets`)
   },
 }
 
@@ -483,6 +587,10 @@ export const assetsApi = {
   async deleteAsset(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/assets/${id}`)
   },
+
+  async getAssetLogs(assetId: string): Promise<ApiResponse<AssetLog[]>> {
+    return apiClient.get<AssetLog[]>(`/api/assets/${assetId}/logs`)
+  },
 }
 
 // Attendance API interfaces
@@ -590,7 +698,7 @@ export interface CreateUnitData {
   size: number
   rent_price: number
   lamp?: number
-  electrical_socket?: number
+  electric_socket?: number
   electrical_power: number
   electrical_unit?: string
   is_toilet_exist: boolean
@@ -602,7 +710,7 @@ export interface UpdateUnitData {
   size?: number
   rent_price?: number
   lamp?: number
-  electrical_socket?: number
+  electric_socket?: number
   electrical_power?: number
   electrical_unit?: string
   is_toilet_exist?: boolean
@@ -649,6 +757,10 @@ export const unitsApi = {
 
   async deleteUnit(id: string): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/units/${id}`)
+  },
+
+  async getUnitLogs(unitId: string): Promise<ApiResponse<UnitLog[]>> {
+    return apiClient.get<UnitLog[]>(`/api/units/${unitId}/logs`)
   },
 }
 
@@ -761,6 +873,10 @@ export const tenantsApi = {
       url,
       attachment_type: attachmentType
     })
+  },
+
+  async getTenantLogs(tenantId: string): Promise<ApiResponse<TenantLog[]>> {
+    return apiClient.get<TenantLog[]>(`/api/tenants/${tenantId}/logs`)
   },
 }
 
