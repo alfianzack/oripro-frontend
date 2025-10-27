@@ -29,17 +29,41 @@ export default function EditUserPage() {
   // Load user data
   useEffect(() => {
     const loadUser = async () => {
-      if (!userId) return
+      if (!userId) {
+        console.log('No userId provided')
+        return
+      }
       
+      console.log('Loading user with ID:', userId)
       setLoadingUser(true)
+      
       try {
         const response = await usersApi.getUser(userId)
         
+        console.log('API Response:', response) // Debug log
+        
         if (response.success && response.data) {
-          const responseData = response.data as any
-          setUser(responseData.data)
+          // Handle different response formats
+          let userData = response.data
+          
+          // If data is nested (backend wraps in another data object)
+          if (userData && typeof userData === 'object' && 'data' in userData) {
+            userData = (userData as any).data
+          }
+          
+          console.log('User data:', userData) // Debug log
+          
+          if (userData && (userData as any).id) {
+            console.log('Setting user data:', userData)
+            setUser(userData as User)
+          } else {
+            console.error('Invalid user data structure:', userData)
+            toast.error('Data user tidak valid')
+            router.push('/users')
+          }
         } else {
-          toast.error('User tidak ditemukan')
+          console.error('User not found:', response) // Debug log
+          toast.error(response.error || 'User tidak ditemukan')
           router.push('/users')
         }
       } catch (error) {
@@ -47,6 +71,7 @@ export default function EditUserPage() {
         toast.error('Gagal memuat data user')
         router.push('/users')
       } finally {
+        console.log('Setting loadingUser to false')
         setLoadingUser(false)
       }
     }
@@ -57,12 +82,15 @@ export default function EditUserPage() {
   const handleSubmit = async (data: UpdateUserData) => {
     setLoading(true)
     try {
+      console.log('Updating user with data:', data) // Debug log
       const response = await usersApi.updateUser(userId, data)
+      console.log('Update response:', response) // Debug log
 
       if (response.success) {
         toast.success('User berhasil diperbarui')
         router.push('/users')
       } else {
+        console.error('Update failed:', response) // Debug log
         toast.error(response.error || 'Gagal memperbarui user')
       }
     } catch (error) {
@@ -77,7 +105,10 @@ export default function EditUserPage() {
     router.push('/users')
   }
 
+  console.log('Render state:', { loadingUser, user: !!user, userId })
+
   if (loadingUser) {
+    console.log('Showing loading state')
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
@@ -89,6 +120,7 @@ export default function EditUserPage() {
   }
 
   if (!user) {
+    console.log('Showing user not found state')
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -104,32 +136,35 @@ export default function EditUserPage() {
   return (
     <>
       <DashboardBreadcrumb title="Edit User" text={`Edit User: ${user.name}`} />
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/users">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <CardTitle>Edit User: {user.name}</CardTitle>
-              <CardDescription>
-                Perbarui informasi user
-              </CardDescription>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="icon" asChild>
+                <Link href="/users">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <div>
+                <CardTitle>Edit User: {user.name}</CardTitle>
+                <CardDescription>
+                  Perbarui informasi user
+                </CardDescription>
+              </div>
             </div>
-          </div>
-        </CardHeader>
+          </CardHeader>
 
-        <CardContent>
-          <UserForm
-            user={user}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            loading={loading}
-          />
-        </CardContent>
-      </Card>
+          <CardContent>
+            <UserForm
+              user={user}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              loading={loading}
+            />
+          </CardContent>
+        </Card>
+
+      </div>
     </>
   )
 }
