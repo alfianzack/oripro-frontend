@@ -27,119 +27,6 @@ export default function RoleForm({ role, onSubmit, loading = false }: RoleFormPr
 
   // Initialize form data when role prop changes
   useEffect(() => {
-    const loadMenus = async () => {
-      setMenusLoading(true)
-      try {
-        const response = await menusApi.getMenus()
-        console.log('Menu API Response:', response)
-        if (response.success && response.data) {
-          // Backend now returns array directly in response.data
-          const menuData = Array.isArray(response.data) ? response.data : []
-          console.log('Processed menu data:', menuData)
-          setMenus(menuData)
-        } else {
-          console.warn('Menu API response failed or no data:', response)
-          // Use mock data for testing
-          const mockMenus = [
-            {
-              id: '1',
-              title: 'Dashboard',
-              url: '/',
-              icon: 'House',
-              parent_id: undefined,
-              order: 1,
-              is_active: true,
-              can_view: true,
-              can_create: false,
-              can_update: false,
-              can_delete: false,
-              can_confirm: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '2',
-              title: 'Users',
-              url: '/users',
-              icon: 'UsersRound',
-              parent_id: undefined,
-              order: 2,
-              is_active: true,
-              can_view: true,
-              can_create: true,
-              can_update: true,
-              can_delete: true,
-              can_confirm: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              children: [
-                {
-                  id: '3',
-                  title: 'Manage Users',
-                  url: '/users/manage',
-                  icon: 'UserCog',
-                  parent_id: '2',
-                  order: 1,
-                  is_active: true,
-                  can_view: true,
-                  can_create: true,
-                  can_update: true,
-                  can_delete: true,
-                  can_confirm: false,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                },
-                {
-                  id: '4',
-                  title: 'Manage Roles',
-                  url: '/roles',
-                  icon: 'Shield',
-                  parent_id: '2',
-                  order: 2,
-                  is_active: true,
-                  can_view: true,
-                  can_create: true,
-                  can_update: true,
-                  can_delete: true,
-                  can_confirm: false,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              ]
-            },
-            {
-              id: '5',
-              title: 'Assets',
-              url: '/assets',
-              icon: 'Boxes',
-              parent_id: undefined,
-              order: 3,
-              is_active: true,
-              can_view: true,
-              can_create: true,
-              can_update: true,
-              can_delete: false,
-              can_confirm: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ]
-          console.log('Using mock menu data:', mockMenus)
-          setMenus(mockMenus)
-        }
-      } catch (error) {
-        console.error('Failed to load menus:', error)
-        setMenus([]) // Set empty array as fallback
-      } finally {
-        setMenusLoading(false)
-      }
-    }
-
-    loadMenus()
-  }, [])
-
-  // Initialize form data when role prop changes
-  useEffect(() => {
     if (role) {
       setFormData({
         name: role.name || '',
@@ -147,8 +34,8 @@ export default function RoleForm({ role, onSubmit, loading = false }: RoleFormPr
       })
       
       // Initialize menu permissions if role has them
-      if (role.menuPermissions) {
-        const permissions = role.menuPermissions.map(perm => ({
+      if ((role as any).menuPermissions) {
+        const permissions = ((role as any).menuPermissions || []).map((perm: any) => ({
           menu_id: perm.menu_id,
           can_view: perm.can_view,
           can_create: perm.can_create,
