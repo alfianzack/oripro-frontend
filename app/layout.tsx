@@ -9,20 +9,20 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ORIPRO - Sistem Informasi Manajemen Aset Perusahaan",
-  description: "ORIPRO - Sistem Informasi Manajemen Aset Perusahaan",
+  title: "ONEPROX - Sistem Informasi Manajemen Aset Perusahaan",
+  description: "ONEPROX - Sistem Informasi Manajemen Aset Perusahaan",
   // metadataBase: new URL("https://oripro-nextjs-typescript-shadcn-5fu5.vercel.app"),
   openGraph: {
-    title: "ORIPRO - Sistem Informasi Manajemen Aset Perusahaan",
+    title: "ONEPROX - Sistem Informasi Manajemen Aset Perusahaan",
     description: "Sistem Informasi Manajemen Aset Perusahaan",
     // url: "https://wowdash-nextjs-typescript-shadcn-5fu5.vercel.app",
-    siteName: "ORIPRO",
+    siteName: "ONEPROX",
     images: [
       {
         url: "https://wowdash-nextjs-typescript-shadcn-5fu5.vercel.app/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "ORIPRO Dashboard Preview",
+        alt: "ONEPROX Dashboard Preview",
       },
     ],
     locale: "en_US",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ORIPRO - Sistem Informasi Manajemen Aset Perusahaan",
+    title: "ONEPROX - Sistem Informasi Manajemen Aset Perusahaan",
     description: "Sistem Informasi Manajemen Aset Perusahaan",
     images: ["https://oripro-nextjs-typescript-shadcn-5fu5.vercel.app/og-image.jpg"],
   },

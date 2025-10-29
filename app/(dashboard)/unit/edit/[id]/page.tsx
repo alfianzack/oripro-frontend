@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
+import UnitLogsTable from '@/components/table/unit-logs-table'
 
 export default function EditUnitPage() {
   const router = useRouter()
@@ -112,27 +113,29 @@ export default function EditUnitPage() {
         title={`Edit Unit`} 
         text={`Edit Unit ${unit.name}`}  
       />
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="icon" asChild>
+                <Link href="/unit">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <CardTitle>Edit Unit: {unit.name}</CardTitle>
+            </div>
+          </CardHeader>
 
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/unit">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <CardTitle>Edit Unit: {unit.name}</CardTitle>
-          </div>
-        </CardHeader>
+          <CardContent>
+            <UnitForm
+              unit={unit}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          </CardContent>
+        </Card>
 
-        <CardContent>
-          <UnitForm
-            unit={unit}
-            onSubmit={handleSubmit}
-            loading={loading}
-          />
-        </CardContent>
-      </Card>
+      </div>
     </>
   )
 }

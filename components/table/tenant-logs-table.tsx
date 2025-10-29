@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { History, Loader2 } from 'lucide-react'
 import JsonDisplay from '@/components/ui/json-display'
 
 interface TenantLogsTableProps {
@@ -122,93 +122,85 @@ export default function TenantLogsTable({ tenantId, loading = false }: TenantLog
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>History Tenant</CardTitle>
-        <CardDescription>Riwayat aktivitas tenant</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>No</TableHead>
-                <TableHead>Aksi</TableHead>
-                <TableHead>Data Lama</TableHead>
-                <TableHead>Data Baru</TableHead>
-                <TableHead>Dibuat Oleh</TableHead>
-                <TableHead>Tanggal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!tenantLogs || tenantLogs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Tidak ada history tenant
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>No</TableHead>
+            <TableHead>Aksi</TableHead>
+            <TableHead>Data Lama</TableHead>
+            <TableHead>Data Baru</TableHead>
+            <TableHead>Dibuat Oleh</TableHead>
+            <TableHead>Tanggal</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!tenantLogs || tenantLogs.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                Tidak ada history tenant
+              </TableCell>
+            </TableRow>
+          ) : (
+            tenantLogs.map((log, index) => {
+              // Debug: Log log data to identify the problematic field
+              console.log('Tenant log data:', log);
+              
+              return (
+                <TableRow key={log.id}>
+                  <TableCell className="font-medium">{index + 1}</TableCell>
+                  <TableCell>
+                    <Badge variant={getActionBadgeVariant(log.action)}>
+                      {getActionLabel(log.action)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[300px] min-w-[200px]">
+                    {log.old_data ? (
+                      <JsonDisplay 
+                        data={log.old_data}
+                        className="text-xs"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-[300px] min-w-[200px]">
+                    {log.new_data ? (
+                      <JsonDisplay 
+                        data={log.new_data}
+                        className="text-xs"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      try {
+                        if (log.created_by && typeof log.created_by === 'object') {
+                          return (
+                            <div>
+                              <div className="font-medium">{log.created_by.name || '-'}</div>
+                              <div className="text-xs text-muted-foreground">{log.created_by.email || '-'}</div>
+                            </div>
+                          );
+                        }
+                        return <span className="text-muted-foreground">-</span>;
+                      } catch (error) {
+                        console.error('Error rendering created_by field:', error, log.created_by);
+                        return <span className="text-muted-foreground">-</span>;
+                      }
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(log.created_at)}
                   </TableCell>
                 </TableRow>
-              ) : (
-                tenantLogs.map((log, index) => {
-                  // Debug: Log log data to identify the problematic field
-                  console.log('Tenant log data:', log);
-                  
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>
-                        <Badge variant={getActionBadgeVariant(log.action)}>
-                          {getActionLabel(log.action)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[300px] min-w-[200px]">
-                        {log.old_data ? (
-                          <JsonDisplay 
-                            data={log.old_data}
-                            className="text-xs"
-                          />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-[300px] min-w-[200px]">
-                        {log.new_data ? (
-                          <JsonDisplay 
-                            data={log.new_data}
-                            className="text-xs"
-                          />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          try {
-                            if (log.created_by && typeof log.created_by === 'object') {
-                              return (
-                                <div>
-                                  <div className="font-medium">{log.created_by.name || '-'}</div>
-                                  <div className="text-xs text-muted-foreground">{log.created_by.email || '-'}</div>
-                                </div>
-                              );
-                            }
-                            return <span className="text-muted-foreground">-</span>;
-                          } catch (error) {
-                            console.error('Error rendering created_by field:', error, log.created_by);
-                            return <span className="text-muted-foreground">-</span>;
-                          }
-                        })()}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(log.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

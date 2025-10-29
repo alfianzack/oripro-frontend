@@ -32,7 +32,7 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
     size: '',
     rent_price: '',
     lamp: '',
-    electrical_socket: '',
+    electric_socket: '',
     electrical_power: '',
     electrical_unit: 'Watt',
     is_toilet_exist: false,
@@ -74,7 +74,7 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
         size: unit.size?.toString() || '',
         rent_price: unit.rent_price?.toString() || '',
         lamp: unit.lamp?.toString() || '',
-        electrical_socket: unit.electric_socket?.toString() || '',
+        electric_socket: unit.electric_socket?.toString() || '',
         electrical_power: unit.electrical_power?.toString() || '',
         electrical_unit: unit.electrical_unit || 'Watt',
         is_toilet_exist: unit.is_toilet_exist || false,
@@ -134,7 +134,7 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
       size: parseFloat(formData.size),
       rent_price: parseFloat(formData.rent_price),
       lamp: formData.lamp ? parseInt(formData.lamp) : 0,
-      electrical_socket: formData.electrical_socket ? parseInt(formData.electrical_socket) : 0,
+      electric_socket: formData.electric_socket ? parseInt(formData.electric_socket) : 0,
       electrical_power: parseFloat(formData.electrical_power),
       electrical_unit: formData.electrical_unit,
       is_toilet_exist: formData.is_toilet_exist,
@@ -267,13 +267,13 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="electrical_socket">Jumlah Stop Kontak</Label>
+              <Label htmlFor="electric_socket">Jumlah Stop Kontak</Label>
               <Input
-                id="electrical_socket"
+                id="electric_socket"
                 type="number"
                 min="0"
-                value={formData.electrical_socket}
-                onChange={(e) => handleInputChange('electrical_socket', e.target.value)}
+                value={formData.electric_socket}
+                onChange={(e) => handleInputChange('electric_socket', e.target.value)}
                 placeholder="Masukkan jumlah stop kontak"
               />
             </div>

@@ -5,7 +5,8 @@ import { Tenant, DURATION_UNIT_LABELS } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Building2, X } from 'lucide-react'
+import { History, Building2, X, Edit } from 'lucide-react'
+import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
 
 interface TenantDetailDialogProps {
@@ -119,6 +120,20 @@ export default function TenantDetailDialog({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
+            {/* Header Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant={contractStatus.variant}>
+                  {contractStatus.label}
+                </Badge>
+              </div>
+              <Button asChild>
+                <Link href={`/tenants/edit/${tenant.id}`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Tenant
+                </Link>
+              </Button>
+            </div>
 
             {/* Custom Tabs */}
             <div className="w-full">

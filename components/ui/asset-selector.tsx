@@ -35,6 +35,7 @@ export default function AssetSelector({
         
         if (response.success && response.data) {
           const responseData = response.data as any
+          console.log('responseData', responseData)
           const assetsData = Array.isArray(responseData.data) ? responseData.data : []
           setAssets(assetsData)
         } else {
@@ -81,21 +82,42 @@ export default function AssetSelector({
 
   const getAssetStatus = (asset: Asset) => {
     if (asset.status === 1) return { label: 'Aktif', variant: 'default' as const }
-    if (asset.status === 2) return { label: 'Tidak Aktif', variant: 'secondary' as const }
-    if (asset.status === 3) return { label: 'Maintenance', variant: 'destructive' as const }
+    if (asset.status === 0) return { label: 'Tidak Aktif', variant: 'secondary' as const }
     return { label: 'Unknown', variant: 'outline' as const }
   }
 
-  const getAssetTypeLabel = (assetType: number) => {
-    const types: Record<number, string> = {
-      1: 'Gedung',
-      2: 'Rumah',
-      3: 'Apartemen',
-      4: 'Kantor',
-      5: 'Toko',
-      6: 'Lainnya'
+  const getAssetTypeLabel = (assetType: string | number) => {
+    console.log('assetType', assetType)
+    
+    // Handle string asset types from API
+    if (typeof assetType === 'string') {
+      const stringTypes: Record<string, string> = {
+        'ESTATE': 'Estate',
+        'OFFICE': 'Office',
+        'WAREHOUSE': 'Warehouse',
+        'SPORT': 'Sport',
+        'ENTERTAINMENTRESTAURANT': 'Entertainment/Restaurant',
+        'RESIDENCE': 'Residence',
+        'MALL': 'Mall',
+        'SUPPORTFACILITYMOSQUEITAL': 'Support Facility/Mosque',
+        'PARKINGLOT': 'Parking Lot'
+      }
+      return stringTypes[assetType] || assetType
     }
-    return types[assetType] || 'Unknown'
+    
+    // Handle numeric asset types (fallback)
+    const numericTypes: Record<number, string> = {
+      1: 'Estate',
+      2: 'Office',
+      3: 'Warehouse',
+      4: 'Sport',
+      5: 'Entertainment/Restaurant',
+      6: 'Residence',
+      7: 'Mall',
+      8: 'Support Facility/Mosque',
+      9: 'Parking Lot'
+    }
+    return numericTypes[assetType] || 'Unknown'
   }
 
   if (loading) {
@@ -195,12 +217,6 @@ export default function AssetSelector({
                       </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="flex justify-end">
-                      <Badge variant={status.variant} className="text-xs">
-                        {status.label}
-                      </Badge>
-                    </div>
                   </div>
                 </div>
               )

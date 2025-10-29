@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserLog } from '@/lib/api'
+import { AssetLog } from '@/lib/api'
 import {
   Table,
   TableBody,
@@ -12,16 +12,16 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { History, Loader2 } from 'lucide-react'
 import JsonDisplay from '@/components/ui/json-display'
 
-interface UserLogsTableProps {
-  userId: string
+interface AssetLogsTableProps {
+  assetId: string
   loading?: boolean
 }
 
-export default function UserLogsTable({ userId, loading = false }: UserLogsTableProps) {
-  const [userLogs, setUserLogs] = useState<UserLog[]>([])
+export default function AssetLogsTable({ assetId, loading = false }: AssetLogsTableProps) {
+  const [assetLogs, setAssetLogs] = useState<AssetLog[]>([])
   const [logsLoading, setLogsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
@@ -30,35 +30,31 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
   }, [])
 
   useEffect(() => {
-    const loadUserLogs = async () => {
-      if (!userId) {
-        console.log('UserLogsTable: No userId provided')
-        return
-      }
+    const loadAssetLogs = async () => {
+      if (!assetId) return
       
       setLogsLoading(true)
       try {
-        const { usersApi } = await import('@/lib/api')
-        const response = await usersApi.getUserLogs(userId)
-        
+        const { assetsApi } = await import('@/lib/api')
+        const response = await assetsApi.getAssetLogs(assetId)
         
         if (response.success && response.data) {
           // Ensure response.data is an array
           const responseData = response.data as any
           const logsData = Array.isArray(responseData.data) ? responseData.data : []
-          setUserLogs(logsData)
+          setAssetLogs(logsData)
         } else {
-          setUserLogs([])
+          setAssetLogs([])
         }
       } catch (error) {
-        setUserLogs([])
+        console.error('Load asset logs error:', error)
       } finally {
         setLogsLoading(false)
       }
     }
 
-    loadUserLogs()
-  }, [userId])
+    loadAssetLogs()
+  }, [assetId])
 
   const formatDate = (dateString: string) => {
     if (!mounted) return 'Loading...'
@@ -76,9 +72,8 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
       'create': 'Dibuat',
       'update': 'Diperbarui',
       'delete': 'Dihapus',
-      'login': 'Login',
-      'logout': 'Logout',
-      'password_change': 'Ubah Password',
+      'upload_photo': 'Upload Foto',
+      'upload_sketch': 'Upload Sketch',
       'status_change': 'Ubah Status'
     }
     return actionLabels[action] || action
@@ -92,9 +87,9 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
         return 'secondary'
       case 'delete':
         return 'destructive'
-      case 'login':
+      case 'upload_photo':
         return 'outline'
-      case 'logout':
+      case 'upload_sketch':
         return 'outline'
       default:
         return 'secondary'
@@ -105,14 +100,14 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
     return (
       <Card>
         <CardHeader>
-          <CardTitle>History User</CardTitle>
-          <CardDescription>Riwayat aktivitas user</CardDescription>
+          <CardTitle>History Asset</CardTitle>
+          <CardDescription>Riwayat aktivitas asset</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <div className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span>Memuat history user...</span>
+              <span>Memuat history asset...</span>
             </div>
           </div>
         </CardContent>
@@ -134,14 +129,14 @@ export default function UserLogsTable({ userId, loading = false }: UserLogsTable
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!userLogs || userLogs.length === 0 ? (
+          {!assetLogs || assetLogs.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                Tidak ada history user
+                Tidak ada history asset
               </TableCell>
             </TableRow>
           ) : (
-            userLogs.map((log, index) => (
+            assetLogs.map((log, index) => (
               <TableRow key={log.id}>
                 <TableCell className="font-medium">{index + 1}</TableCell>
                 <TableCell>

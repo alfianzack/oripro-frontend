@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Edit, Trash2, Eye } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2, Eye, History } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface UnitsTableProps {

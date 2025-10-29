@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 
-import LogoDark from "@/public/assets/images/logo_oripro.jpg";
-import LogoWhite from "@/public/assets/images/logo_oripro.jpg";
+import LogoDark from "@/public/assets/images/logo_oneprox2.png";
+import LogoWhite from "@/public/assets/images/logo_oneprox2.png";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 
 function ThemeLogo() {
