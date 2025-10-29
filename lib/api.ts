@@ -989,6 +989,159 @@ export interface MenuAccess {
   hasAccess: boolean
 }
 
+// Task API interface
+export interface Task {
+  id: number
+  name: string
+  is_main_task: boolean
+  is_need_validation: boolean
+  is_scan: boolean
+  scan_code?: string
+  duration: number
+  asset_id: string
+  role_id: number
+  is_all_times: boolean
+  parent_task_id?: number
+  days?: number[]
+  times?: string[]
+  created_at: string
+  updated_at: string
+  asset?: Asset
+  role?: Role
+  parent_task?: Task
+}
+
+export interface CreateTaskData {
+  name: string
+  is_main_task?: boolean
+  is_need_validation?: boolean
+  is_scan?: boolean
+  scan_code?: string
+  duration: number
+  asset_id: string
+  role_id: number
+  is_all_times?: boolean
+  parent_task_id?: number
+  days?: number[]
+  times?: string[]
+}
+
+export interface UpdateTaskData {
+  name?: string
+  is_main_task?: boolean
+  is_need_validation?: boolean
+  is_scan?: boolean
+  scan_code?: string
+  duration?: number
+  asset_id?: string
+  role_id?: number
+  is_all_times?: boolean
+  parent_task_id?: number
+  days?: number[]
+  times?: string[]
+}
+
+// Task Log interface
+export interface TaskLog {
+  id: number
+  task_id: number
+  action: string
+  old_data?: any
+  new_data?: any
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  created_at: string
+}
+
+// Tasks-specific API functions
+export const tasksApi = {
+  async getTasks(): Promise<ApiResponse<Task[]>> {
+    return apiClient.get<Task[]>('/api/tasks')
+  },
+
+  async getTask(id: number): Promise<ApiResponse<Task>> {
+    return apiClient.get<Task>(`/api/tasks/${id}`)
+  },
+
+  async createTask(data: CreateTaskData): Promise<ApiResponse<Task>> {
+    return apiClient.post<Task>('/api/tasks', data)
+  },
+
+  async updateTask(id: number, data: UpdateTaskData): Promise<ApiResponse<Task>> {
+    return apiClient.put<Task>(`/api/tasks/${id}`, data)
+  },
+
+  async deleteTask(id: number): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(`/api/tasks/${id}`)
+  },
+
+  async getTaskLogs(taskId: number): Promise<ApiResponse<TaskLog[]>> {
+    return apiClient.get<TaskLog[]>(`/api/tasks/${taskId}/logs`)
+  },
+}
+
+// User Task API interface
+export interface UserTask {
+  id: number
+  user_id: string
+  task_id: number
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_at: string
+  started_at?: string
+  completed_at?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  task?: Task
+  user?: User
+}
+
+export interface CreateUserTaskData {
+  user_id: string
+  task_id: number
+  scheduled_at: string
+  notes?: string
+}
+
+export interface UpdateUserTaskData {
+  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  notes?: string
+}
+
+// User Tasks-specific API functions
+export const userTasksApi = {
+  async getUserTasks(params?: {
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<UserTask[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/user-tasks${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<UserTask[]>(endpoint)
+  },
+
+  async getUpcomingUserTasks(): Promise<ApiResponse<UserTask[]>> {
+    return apiClient.get<UserTask[]>('/api/user-tasks/upcoming')
+  },
+
+  async generateUpcomingUserTasks(): Promise<ApiResponse<any>> {
+    return apiClient.post<any>('/api/user-tasks/generate-upcoming')
+  },
+
+  async startUserTask(id: number): Promise<ApiResponse<UserTask>> {
+    return apiClient.put<UserTask>(`/api/user-tasks/${id}/start`)
+  },
+
+  async completeUserTask(id: number, data?: { notes?: string }): Promise<ApiResponse<UserTask>> {
+    return apiClient.put<UserTask>(`/api/user-tasks/${id}/complete`, data)
+  },
+}
+
 // Predefined menu structure for access control
 export const MENU_STRUCTURE: MenuAccess[] = [
   {
@@ -1045,6 +1198,13 @@ export const MENU_STRUCTURE: MenuAccess[] = [
     name: 'Tenants',
     path: '/tenants',
     icon: 'Building2',
+    hasAccess: false
+  },
+  {
+    id: 'task',
+    name: 'Task',
+    path: '/task',
+    icon: 'StickyNote',
     hasAccess: false
   },
   {
