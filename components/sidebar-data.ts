@@ -10,6 +10,7 @@ import {
   StickyNote,
   Settings,
   Building2,
+  FileText,
 } from "lucide-react";
 
 // Icon mapping untuk konversi dari string ke komponen Lucide
@@ -25,6 +26,7 @@ const iconMap: Record<string, any> = {
   'StickyNote': StickyNote,
   'Settings': Settings,
   'Building2': Building2,
+  'FileText': FileText,
 };
 
 // Interface untuk menu dari API
@@ -105,6 +107,12 @@ export const fallbackSidebarData = {
       isActive: true,
     },
     {
+      title: "Dashboard Tenant",
+      url: "/dashboard-tenant",
+      icon: FileText,
+      isActive: true,
+    },
+    {
       title: "Users",
       url: "#",
       icon: UsersRound,
@@ -144,6 +152,12 @@ export const fallbackSidebarData = {
       title: "Tenants",
       url: "/tenants",
       icon: Building2,
+      isActive: true,
+    },
+    {
+      title: "Task",
+      url: "/task",
+      icon: StickyNote,
       isActive: true,
     },
     {

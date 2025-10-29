@@ -73,8 +73,30 @@ export function useUserSidebar(): UserSidebar {
         const response = await usersApi.getUserSidebar()
         
         if (response.success && response.data) {
+          const responseData = response.data as any;
           // Konversi string icon ke komponen Lucide
-          const processedNavMain = (response.data.navMain || []).map(item => ({
+          if (process.env.NODE_ENV === 'development') {
+          // Tambahkan "Manage Menus" di bawah "Settings" jika belum ada (khusus development)
+            if (Array.isArray(responseData.data.navMain)) {
+              responseData.data.navMain = responseData.data.navMain.map((item: any) => {
+                if (item.title === "Setting" && Array.isArray(item.items)) {
+                  // Cek apakah "Manage Menus" sudah ada
+                  const hasManageMenus = item.items.some(
+                    (sub: any) => sub.title === "Manage Menus"
+                  );
+                  if (!hasManageMenus) {
+                    item.items.push({
+                      title: "Manage Menus",
+                      url: "/menus",
+                      circleColor: "bg-purple-600",
+                    });
+                  }
+                }
+                return item;
+              });
+            }
+          }
+          const processedNavMain = (responseData.data.navMain || []).map((item: any) => ({
             ...item,
             icon: item.icon && typeof item.icon === 'string' ? iconMap[item.icon] || House : item.icon
           }))

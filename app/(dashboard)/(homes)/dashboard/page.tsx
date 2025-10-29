@@ -1,74 +1,45 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb";
-import StatCard from "@/app/(dashboard)/(homes)/dashboard/components/stat-card";
-import SalesStaticCard from "@/app/(dashboard)/(homes)/dashboard/components/sales-static-card";
-import TotalSubscriberCard from "@/app/(dashboard)/(homes)/dashboard/components/total-subscriber-card";
-import UserOverviewCard from "@/app/(dashboard)/(homes)/dashboard/components/user-overview-card";
-import TabsWithTableCard from "@/app/(dashboard)/(homes)/dashboard/components/tabs-with-table-card";
-import TopPerformerCard from "@/app/(dashboard)/(homes)/dashboard/components/top-performer-card";
-import GenerateContentCard from "@/app/(dashboard)/(homes)/dashboard/components/generate-content-card";
-import TopCountriesCard from "@/app/(dashboard)/(homes)/dashboard/components/top-countries-card";
 import LoadingSkeleton from "@/components/loading-skeleton";
-import DetailBreadcrumb from "@/components/layout/detail-breadcrumb";
+import DashboardStatCards from "@/app/(dashboard)/(homes)/dashboard/components/dashboard-stat-cards";
+import RevenueGrowthChart from "@/app/(dashboard)/(homes)/dashboard/components/revenue-growth-chart";
+import TopAssetRevenueCard from "@/app/(dashboard)/(homes)/dashboard/components/top-asset-revenue-card";
 
 const metadata: Metadata = {
-  title: "AI Dashboard | WowDash Admin Panel",
+  title: "Dashboard Overview | Oripro Property Management",
   description:
-    "Explore AI analytics, monitor model performance, and track intelligent automation workflows in the AI Dashboard of WowDash Admin Template.",
+    "Dashboard overview untuk monitoring revenue, asset, units, dan tenant dalam sistem manajemen properti Oripro.",
 };
 
 
 export default async function DashboardPage() {
   return (
     <>
+      {/* Dashboard Title */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Dashboard Overview</h1>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-6">
-        <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-          <StatCard />
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <Suspense fallback={<LoadingSkeleton height="h-32" text="Loading..." />}>
+          <DashboardStatCards />
         </Suspense>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 mt-6">
-        <div className="xl:col-span-12 2xl:col-span-6">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <SalesStaticCard />
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Growth Chart */}
+        <div className="lg:col-span-1">
+          <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat chart..." />}>
+            <RevenueGrowthChart />
           </Suspense>
         </div>
 
-        <div className="xl:col-span-6 2xl:col-span-3">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <TotalSubscriberCard />
-          </Suspense>
-        </div>
-
-        <div className="xl:col-span-6 2xl:col-span-3">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <UserOverviewCard />
-          </Suspense>
-        </div>
-
-        <div className="xl:col-span-12 2xl:col-span-9">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <TabsWithTableCard />
-          </Suspense>
-        </div>
-
-        <div className="xl:col-span-12 2xl:col-span-3">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <TopPerformerCard />
-          </Suspense>
-        </div>
-
-        <div className="xl:col-span-12 2xl:col-span-6">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <TopCountriesCard />
-          </Suspense>
-        </div>
-
-        <div className="xl:col-span-12 2xl:col-span-6">
-          <Suspense fallback={<LoadingSkeleton height="h-64" text="Loading..." />}>
-            <GenerateContentCard />
+        {/* Top Asset Revenue */}
+        <div className="lg:col-span-1">
+          <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat data asset..." />}>
+            <TopAssetRevenueCard />
           </Suspense>
         </div>
       </div>
