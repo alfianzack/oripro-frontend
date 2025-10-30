@@ -77,8 +77,8 @@ export function useUserSidebar(): UserSidebar {
           // Konversi string icon ke komponen Lucide
           if (process.env.NODE_ENV === 'development') {
           // Tambahkan "Manage Menus" di bawah "Settings" jika belum ada (khusus development)
-            if (Array.isArray(responseData.data.navMain)) {
-              responseData.data.navMain = responseData.data.navMain.map((item: any) => {
+            if (Array.isArray(responseData.navMain)) {
+              responseData.navMain = responseData.navMain.map((item: any) => {
                 if (item.title === "Setting" && Array.isArray(item.items)) {
                   // Cek apakah "Manage Menus" sudah ada
                   const hasManageMenus = item.items.some(
@@ -96,7 +96,7 @@ export function useUserSidebar(): UserSidebar {
               });
             }
           }
-          const processedNavMain = (responseData.data.navMain || []).map((item: any) => ({
+          const processedNavMain = (responseData.navMain || []).map((item: any) => ({
             ...item,
             icon: item.icon && typeof item.icon === 'string' ? iconMap[item.icon] || House : item.icon
           }))
