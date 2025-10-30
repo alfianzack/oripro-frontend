@@ -112,8 +112,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         }
         
         if (rolesResponse.success && rolesResponse.data) {
-          const rolesResponseData = rolesResponse.data as any
-          const rolesData = Array.isArray(rolesResponseData.data) ? rolesResponseData.data : []
+          const rolesData = Array.isArray(rolesResponse.data) ? rolesResponse.data : []
           setRoles(rolesData)
         } else {
           toast.error('Gagal memuat data roles')
@@ -156,7 +155,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         unit_ids: unitIds,
         categories: categoryIds,
         total_rent_price: (tenant as any).total_rent_price || 0,
-        status: tenant.status || 'pending',
+        status: (tenant as any).status || 'pending',
       })
       
       // Set existing file URLs for preview
@@ -503,27 +502,24 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           <CardTitle>Informasi Dasar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Layout Grid: Input Fields di Kiri, User Section di Kanan */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Input Fields - Kiri */}
-            <div className="space-y-6">
-              {/* Nama Tenant */}
-              <div className="space-y-2">
-                <Label htmlFor="name">Nama Tenant *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Masukkan nama tenant"
-                  className={errors.name ? 'border-red-500' : ''}
-                />
-                {errors.name && (
-                  <p className="text-sm text-red-500">{errors.name}</p>
-                )}
-              </div>
+          {/* Layout Single Column */}
+          <div className="space-y-6">
+            {/* Nama Tenant */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Nama Tenant *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Masukkan nama tenant"
+                className={errors.name ? 'border-red-500' : ''}
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name}</p>
+              )}
             </div>
 
-            {/* User Selection - Kanan */}
+            {/* User Selection */}
             <div className="space-y-2">
               <Label htmlFor="user_selection">User *</Label>
               
@@ -752,8 +748,66 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             </div>
           </div>
 
+          {/* Unit Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Pilih Unit *</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {errors.unit_ids && (
+                <p className="text-sm text-red-500">{errors.unit_ids}</p>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {Array.isArray(units) && units.map((unit) => (
+                  <div
+                    key={unit.id}
+                    className={`p-3 border rounded cursor-pointer transition-colors ${
+                      (formData.unit_ids || []).includes(unit.id)
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => toggleUnit(unit.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{unit.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {unit.asset?.name && (
+                            <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
+                          )}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: 'IDR',
+                            minimumFractionDigits: 0,
+                          }).format(unit.rent_price) : 'Harga tidak tersedia'}
+                        </p>
+                      </div>
+                      {(formData.unit_ids || []).includes(unit.id) && (
+                        <Badge variant="default">Dipilih</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Separator */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Informasi Kontrak
+              </span>
+            </div>
+          </div>
+
           {/* Informasi Kontrak */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="contract_begin_at">Tanggal Mulai Kontrak *</Label>
                 <Input
@@ -833,8 +887,20 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               </div>
           </div>
 
+          {/* Separator */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Kategori dan Status
+              </span>
+            </div>
+          </div>
+
           {/* Kategori dan Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* Kategori */}
             <div className='space-y-2'>
               <Label htmlFor="categories">Kategori *</Label>
@@ -1012,51 +1078,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         </CardContent>
       </Card>
 
-      {/* Unit Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pilih Unit *</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {errors.unit_ids && (
-            <p className="text-sm text-red-500">{errors.unit_ids}</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {Array.isArray(units) && units.map((unit) => (
-              <div
-                key={unit.id}
-                className={`p-3 border rounded cursor-pointer transition-colors ${
-                  (formData.unit_ids || []).includes(unit.id)
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => toggleUnit(unit.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{unit.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {unit.asset?.name && (
-                        <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
-                        style: 'currency',
-                        currency: 'IDR',
-                        minimumFractionDigits: 0,
-                      }).format(unit.rent_price) : 'Harga tidak tersedia'}
-                    </p>
-                  </div>
-                  {(formData.unit_ids || []).includes(unit.id) && (
-                    <Badge variant="default">Dipilih</Badge>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      
 
       <Separator />
 

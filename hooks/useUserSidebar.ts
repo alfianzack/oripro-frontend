@@ -71,7 +71,7 @@ export function useUserSidebar(): UserSidebar {
 
         // Fetch user sidebar from API using usersApi
         const response = await usersApi.getUserSidebar()
-        
+        console.log('Response:', response);
         if (response.success && response.data) {
           const responseData = response.data as any;
           // Konversi string icon ke komponen Lucide

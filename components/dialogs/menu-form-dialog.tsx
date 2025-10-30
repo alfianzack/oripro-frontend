@@ -67,7 +67,7 @@ export default function MenuFormDialog({
           title: menu.title,
           url: menu.url || '',
           icon: menu.icon || '',
-          parent_id: menu.parent_id,
+          parent_id: menu.parent_id ? parseInt(menu.parent_id.toString()) : undefined,
           order: menu.order,
           is_active: menu.is_active,
           can_view: menu.can_view,
@@ -107,10 +107,29 @@ export default function MenuFormDialog({
     try {
       let response
       
+      // Debug: Log data yang akan dikirim
+      console.log('Form data to send:', formData)
+      console.log('Parent ID type:', typeof formData.parent_id, formData.parent_id)
+      
+      // Sanitize data: remove undefined parent_id or ensure it's a number
+      const sanitizedData = {
+        ...formData,
+        parent_id: formData.parent_id && !isNaN(Number(formData.parent_id)) ? Number(formData.parent_id) : undefined
+      }
+      
+      // Remove undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key as keyof typeof sanitizedData] === undefined) {
+          delete sanitizedData[key as keyof typeof sanitizedData]
+        }
+      })
+      
+      console.log('Sanitized data to send:', sanitizedData)
+      
       if (isEdit && menu) {
-        response = await menusApi.updateMenu(menu.id, formData as UpdateMenuData)
+        response = await menusApi.updateMenu(menu.id, sanitizedData as UpdateMenuData)
       } else {
-        response = await menusApi.createMenu(formData as CreateMenuData)
+        response = await menusApi.createMenu(sanitizedData as CreateMenuData)
       }
       
       if (response.success) {
@@ -184,8 +203,8 @@ export default function MenuFormDialog({
             <div className="space-y-2">
               <Label htmlFor="parent_id">Parent Menu</Label>
               <Select
-                value={formData.parent_id || 'none'}
-                onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? undefined : value)}
+                value={formData.parent_id ? formData.parent_id.toString() : 'none'}
+                onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? undefined : parseInt(value))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih parent menu (opsional)" />
@@ -193,7 +212,7 @@ export default function MenuFormDialog({
                 <SelectContent>
                   <SelectItem value="none">Tidak ada parent (Menu Utama)</SelectItem>
                   {parentMenus.map((parentMenu) => (
-                    <SelectItem key={parentMenu.id} value={parentMenu.id}>
+                    <SelectItem key={parentMenu.id} value={parentMenu.id.toString()}>
                       {parentMenu.title}
                     </SelectItem>
                   ))}

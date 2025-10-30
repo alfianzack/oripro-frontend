@@ -41,6 +41,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return navMain;
   }, [navMain, loading, error]);
 
+  console.log('Sidebar data:', sidebarData);
   return (
     <Sidebar collapsible="icon" {...props} className="hidden xl:block">
       <SidebarHeader>
