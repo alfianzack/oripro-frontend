@@ -119,7 +119,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           setRoles([])
         }
       } catch (error) {
-        console.error('Load data error:', error)
         toast.error('Terjadi kesalahan saat memuat data')
         setUsers([])
         setUnits([])
@@ -171,12 +170,18 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       newErrors.name = 'Nama tenant harus diisi'
     }
 
-    if (!formData.user_id) {
-      if (userSelectionType === 'existing') {
-      newErrors.user_id = 'User harus dipilih'
-      } else {
-        newErrors.user_id = 'User baru harus dibuat terlebih dahulu'
+    if (userSelectionType === 'existing') {
+      if (!formData.user_id) {
+        newErrors.user_id = 'User harus dipilih'
       }
+    } else {
+      // Validasi field user baru
+      if (!newUserData.name.trim()) newErrors.user_id = 'Nama user baru harus diisi'
+      else if (!newUserData.email.trim()) newErrors.user_id = 'Email user baru harus diisi'
+      else if (!newUserData.password.trim()) newErrors.user_id = 'Password user baru harus diisi'
+      else if (!newUserData.phone.trim()) newErrors.user_id = 'No. telepon user baru harus diisi'
+      else if (!newUserData.gender) newErrors.user_id = 'Jenis kelamin user baru harus dipilih'
+      else if (!newUserData.role_id) newErrors.user_id = 'Role user baru harus dipilih'
     }
 
     if (!formData.contract_begin_at) {
@@ -236,6 +241,47 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
     setUploading(true)
     try {
+      let createdUserId: string | null = null
+      // Jika mode user baru, buat user terlebih dahulu
+      if (userSelectionType === 'new' && !formData.user_id) {
+        const createUserResponse = await usersApi.createUser({
+          name: newUserData.name,
+          email: newUserData.email,
+          password: newUserData.password,
+          phone: newUserData.phone,
+          gender: newUserData.gender,
+          roleId: newUserData.role_id ? String(parseInt(newUserData.role_id as any, 10)) : undefined,
+          status: 'active'
+        })
+
+        if (!createUserResponse.success || !createUserResponse.data) {
+          throw new Error(createUserResponse.error || 'Gagal membuat user baru')
+        }
+        
+        // Handle response structure - backend returns { data: userObject, message, status }
+        // API client might wrap it differently
+        let userId: string | undefined
+        
+        if (createUserResponse.data) {
+          // Check if data is nested (data.data) - handle case where API client wraps response
+          const responseData = createUserResponse.data as any
+          if (responseData.data && responseData.data.id) {
+            userId = responseData.data.id
+          } 
+          // Check if data is the user object directly
+          else if (responseData.id) {
+            userId = responseData.id
+          }
+        }
+        
+        if (!userId) {
+          throw new Error('Gagal mendapatkan ID user yang baru dibuat')
+        }
+        
+        createdUserId = userId
+        setFormData(prev => ({ ...prev, user_id: createdUserId! }))
+      }
+
       let identificationUrls = existingIdentificationUrls
       let contractUrls = existingContractUrls
 
@@ -250,9 +296,16 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         contractUrls = [...existingContractUrls, ...newContractUrls]
       }
 
+      const effectiveUserId = userSelectionType === 'new' ? (createdUserId || formData.user_id) : formData.user_id
+
+      // Validasi user_id sebelum submit
+      if (!effectiveUserId || effectiveUserId === '') {
+        throw new Error('User ID tidak tersedia. Pastikan user sudah dipilih atau dibuat.')
+      }
+      
       const submitData = {
         name: formData.name.trim(),
-        user_id: formData.user_id,
+        user_id: effectiveUserId,
         contract_begin_at: formData.contract_begin_at,
         contract_end_at: formData.contract_end_at,
         rent_duration: parseInt(formData.rent_duration) || 0,
@@ -285,7 +338,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
       await onSubmit(submitData)
     } catch (error) {
-      toast.error('Gagal mengupload file. Silakan coba lagi.')
+      toast.error('Gagal membuat tenant. ' + error)
     } finally {
       setUploading(false)
     }
@@ -476,7 +529,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         toast.error(response.error || 'Gagal membuat user')
       }
     } catch (error) {
-      console.error('Create user error:', error)
       toast.error('Terjadi kesalahan saat membuat user')
     }
   }
@@ -485,14 +537,18 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     setNewUserData(prev => ({ ...prev, [field]: value }))
   }
 
-  const filteredUsers = Array.isArray(users) ? users.filter(user => {
-    if (!userSearchTerm.trim()) return true // Show all users when search is empty
-    const searchTerm = userSearchTerm.toLowerCase()
-    return (
-      user.name?.toLowerCase().includes(searchTerm) ||
-      user.email?.toLowerCase().includes(searchTerm)
-    )
-  }) : []
+  const filteredUsers = Array.isArray(users) ? users
+    // filter hanya role tenant
+    .filter(user => user.role?.name?.toLowerCase() === 'tenant')
+    // filter pencarian
+    .filter(user => {
+      if (!userSearchTerm.trim()) return true
+      const searchTerm = userSearchTerm.toLowerCase()
+      return (
+        user.name?.toLowerCase().includes(searchTerm) ||
+        user.email?.toLowerCase().includes(searchTerm)
+      )
+    }) : []
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -712,7 +768,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                 </SelectTrigger>
                 <SelectContent>
                           {Array.isArray(roles) && roles.map((role) => (
-                            <SelectItem key={role.id} value={role.id}>
+                            <SelectItem key={role.id} value={String(role.id)}>
                               {role.name}
                     </SelectItem>
                   ))}
@@ -721,24 +777,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      onClick={createNewUser}
-                      disabled={!newUserData.name || !newUserData.email || !newUserData.password || !newUserData.phone || !newUserData.gender || !newUserData.role_id}
-                      className="flex items-center gap-2"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      Buat User
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setUserSelectionType('existing')}
-                    >
-                      Batal
-                    </Button>
-                  </div>
                 </div>
               )}
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreateTenantData, tenantsApi } from '@/lib/api'
+import { CreateTenantData, UpdateTenantData, tenantsApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Home, Users, Plus } from 'lucide-react'
@@ -13,10 +13,10 @@ export default function CreateTenantPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateTenantData) => {
+  const handleSubmit = async (data: CreateTenantData | UpdateTenantData) => {
     setLoading(true)
     try {
-      const response = await tenantsApi.createTenant(data)
+      const response = await tenantsApi.createTenant(data as CreateTenantData)
       
       if (response.success && response.data) {
         toast.success('Tenant berhasil dibuat')
