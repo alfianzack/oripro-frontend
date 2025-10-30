@@ -73,8 +73,10 @@ export function useUserSidebar(): UserSidebar {
         const response = await usersApi.getUserSidebar()
         console.log('Response:', response);
         if (response.success && response.data) {
-          const responseData = response.data as any;
+          const resData = response.data as any;
+          const responseData = resData.data as any;
           // Konversi string icon ke komponen Lucide
+          
           if (process.env.NODE_ENV === 'development') {
           // Tambahkan "Manage Menus" di bawah "Settings" jika belum ada (khusus development)
             if (Array.isArray(responseData.navMain)) {
