@@ -38,7 +38,6 @@ const RevenueGrowthChart = () => {
             yaxis: {
                 lines: {
                     show: true,
-                    strokeDashArray: 3,
                 }
             },
         },

@@ -164,6 +164,9 @@ export default function TenantsTable({
               tenants.map((tenant, index) => {
                 const isLast = index === tenants.length - 1;
                 const contractStatus = getContractStatus(tenant.contract_end_at);
+                // Use contract status as tenant status since Tenant interface doesn't have status field
+                const tenantStatus = contractStatus.status === 'expired' ? 'expired' : 
+                                   contractStatus.status === 'expiring' ? 'pending' : 'active';
                 
                 // Debug: Log tenant data to identify the problematic field
                 console.log('Tenant data:', tenant);
@@ -188,8 +191,8 @@ export default function TenantsTable({
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getTenantStatus(tenant.status).variant}>
-                      {getTenantStatus(tenant.status).label}
+                    <Badge variant={getTenantStatus(tenantStatus).variant}>
+                      {getTenantStatus(tenantStatus).label}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">

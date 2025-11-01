@@ -50,7 +50,6 @@ export default async function RootLayout({
         </LoadingProvider>
         <Toaster
           position="top-right"
-          limit={1}
           gutter={8}
           toastOptions={{
             duration: 4000,

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreateRoleData, rolesApi } from '@/lib/api'
+import { CreateRoleData, UpdateRoleData, rolesApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Home, ShieldCheck, Plus } from 'lucide-react'
@@ -13,10 +13,12 @@ export default function CreateRolePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateRoleData) => {
+  const handleSubmit = async (data: CreateRoleData | UpdateRoleData) => {
     setLoading(true)
     try {
-      const response = await rolesApi.createRole(data)
+      // Form always sends required fields, so we can safely cast
+      // menuPermissions is sent by form but not in TypeScript type definition
+      const response = await rolesApi.createRole(data as any)
       
       if (response.success && response.data) {
         toast.success('Role berhasil dibuat')

@@ -16,7 +16,7 @@ import {
   Building2
 } from 'lucide-react'
 import Link from 'next/link'
-import { Tenant, Unit, Asset } from '@/lib/api'
+import { Tenant, Unit, Asset, DURATION_UNIT_LABELS } from '@/lib/api'
 
 interface ContractInfoCardProps {
   tenant: Tenant
@@ -122,7 +122,7 @@ export default function ContractInfoCard({ tenant, unit, asset }: ContractInfoCa
             </div>
             <div className="flex justify-between text-sm">
               <span>Durasi:</span>
-              <span>{tenant.rent_duration} {tenant.rent_duration_unit === 0 ? 'Tahun' : 'Bulan'}</span>
+              <span>{tenant.rent_duration} {DURATION_UNIT_LABELS[tenant.rent_duration_unit] || tenant.rent_duration_unit || 'Bulan'}</span>
             </div>
           </div>
         </div>

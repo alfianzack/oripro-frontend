@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreateUnitData, unitsApi } from '@/lib/api'
+import { CreateUnitData, UpdateUnitData, unitsApi } from '@/lib/api'
 import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
 import UnitForm from '@/components/forms/unit-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +12,11 @@ export default function CreateUnitPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateUnitData) => {
+  const handleSubmit = async (data: CreateUnitData | UpdateUnitData) => {
     setLoading(true)
     try {
-      const response = await unitsApi.createUnit(data)
+      // Form always sends required fields for create, so we can safely cast
+      const response = await unitsApi.createUnit(data as CreateUnitData)
       
       if (response.success) {
         toast.success('Unit berhasil dibuat')

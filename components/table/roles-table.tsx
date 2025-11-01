@@ -59,7 +59,7 @@ export default function RolesTable({
 
     setDeleting(true)
     try {
-      const response = await rolesApi.deleteRole(roleToDelete.id)
+      const response = await rolesApi.deleteRole(roleToDelete.id.toString())
       
       if (response.success) {
         toast.success('Role berhasil dihapus')

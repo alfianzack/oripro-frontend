@@ -63,7 +63,7 @@ export default function MenusTable({
 
     setDeleting(true)
     try {
-      const response = await menusApi.deleteMenu(menuToDelete.id)
+      const response = await menusApi.deleteMenu(menuToDelete.id.toString())
       
       if (response.success) {
         showToast.success(`Menu "${menuToDelete.title}" berhasil dihapus`)
@@ -99,7 +99,7 @@ export default function MenusTable({
   }
 
   // Helper function to get child menus for a specific parent
-  const getChildMenus = (menus: Menu[], parentId: string) => {
+  const getChildMenus = (menus: Menu[], parentId: number) => {
     return menus.filter(menu => menu.parent_id === parentId)
   }
 
