@@ -70,7 +70,7 @@ export default function MenuAccessSelector({
       }
 
       // Create a map for quick lookup
-      const menuMap = new Map<string, MenuWithPermissions>()
+      const menuMap = new Map<number, MenuWithPermissions>()
       
       // First pass: create all menu objects with permissions
       menuList.forEach(menu => {

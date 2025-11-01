@@ -40,29 +40,23 @@ export default function DashboardTenantPage() {
       ])
 
       if (tenantsResponse.success && tenantsResponse.data) {
-        const tenantsData = Array.isArray(tenantsResponse.data.data) 
-          ? tenantsResponse.data.data 
-          : Array.isArray(tenantsResponse.data) 
-            ? tenantsResponse.data 
-            : []
+        const tenantsData = Array.isArray(tenantsResponse.data) 
+          ? tenantsResponse.data 
+          : []
         setTenants(tenantsData)
       }
 
       if (unitsResponse.success && unitsResponse.data) {
-        const unitsData = Array.isArray(unitsResponse.data.data) 
-          ? unitsResponse.data.data 
-          : Array.isArray(unitsResponse.data) 
-            ? unitsResponse.data 
-            : []
+        const unitsData = Array.isArray(unitsResponse.data) 
+          ? unitsResponse.data 
+          : []
         setUnits(unitsData)
       }
 
       if (assetsResponse.success && assetsResponse.data) {
-        const assetsData = Array.isArray(assetsResponse.data.data) 
-          ? assetsResponse.data.data 
-          : Array.isArray(assetsResponse.data) 
-            ? assetsResponse.data 
-            : []
+        const assetsData = Array.isArray(assetsResponse.data) 
+          ? assetsResponse.data 
+          : []
         setAssets(assetsData)
       }
     } catch (error) {

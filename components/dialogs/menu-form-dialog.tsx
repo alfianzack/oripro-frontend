@@ -127,7 +127,7 @@ export default function MenuFormDialog({
       console.log('Sanitized data to send:', sanitizedData)
       
       if (isEdit && menu) {
-        response = await menusApi.updateMenu(menu.id, sanitizedData as UpdateMenuData)
+        response = await menusApi.updateMenu(menu.id.toString(), sanitizedData as UpdateMenuData)
       } else {
         response = await menusApi.createMenu(sanitizedData as CreateMenuData)
       }

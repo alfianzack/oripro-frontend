@@ -20,10 +20,10 @@ export default function CreateAssetPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateAssetData | UpdateAssetData) => {
+  const handleSubmit = async (data: CreateAssetData | UpdateAssetData | FormData) => {
     setLoading(true)
     try {
-      const response = await assetsApi.createAsset(data as CreateAssetData)
+      const response = await assetsApi.createAsset(data as CreateAssetData | FormData)
       
       if (response.success) {
         toast.success('Asset berhasil dibuat')

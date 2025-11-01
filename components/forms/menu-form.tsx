@@ -30,10 +30,9 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
     parent_id: undefined as number | undefined,
     order: 0,
     is_active: true,
-    circle_color: '',
     can_view: false,
-    can_create: false,
-    can_update: false,
+    can_add: false,
+    can_edit: false,
     can_delete: false,
     can_confirm: false,
   })
@@ -48,7 +47,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
     if (allMenus && allMenus.length > 0) {
       console.log('All menus loaded:', allMenus)
       // Filter menus that don't have a parent (parent_id is null or undefined)
-      const parentMenusList = allMenus.filter(menu => 
+      const parentMenusList = allMenus.filter((menu: Menu) => 
         !menu.parent_id && menu.is_active
       )
       console.log('Parent menus filtered:', parentMenusList)
@@ -68,10 +67,9 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
         parent_id: menu.parent_id || undefined,
         order: menu.order || 0,
         is_active: menu.is_active ?? true,
-        circle_color: menu.circle_color || '',
         can_view: menu.can_view ?? false,
-        can_create: menu.can_create ?? false,
-        can_update: menu.can_update ?? false,
+        can_add: menu.can_add ?? false,
+        can_edit: menu.can_edit ?? false,
         can_delete: menu.can_delete ?? false,
         can_confirm: menu.can_confirm ?? false,
       })
@@ -115,10 +113,9 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
       parent_id: formData.parent_id,
       order: formData.order,
       is_active: formData.is_active,
-      circle_color: formData.circle_color.trim() || undefined,
       can_view: formData.can_view,
-      can_create: formData.can_create,
-      can_update: formData.can_update,
+      can_add: formData.can_add,
+      can_edit: formData.can_edit,
       can_delete: formData.can_delete,
       can_confirm: formData.can_confirm,
     }
@@ -190,7 +187,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="parent_id">Menu Parent</Label>
               <Select
-                value={formData.parent_id || undefined}
+                value={formData.parent_id?.toString() || undefined}
                 onValueChange={(value) => handleInputChange('parent_id', value === 'none' ? undefined : parseInt(value))}
                 disabled={menusLoading}
               >
@@ -205,7 +202,7 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
                   <SelectItem value="none">Tidak ada parent</SelectItem>
                   {parentMenus.length > 0 ? (
                     parentMenus.map((parent) => (
-                      <SelectItem key={parent.id} value={parent.id}>
+                      <SelectItem key={parent.id} value={parent.id.toString()}>
                         {parent.title}
                       </SelectItem>
                     ))
@@ -234,16 +231,6 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
               {errors.order && (
                 <p className="text-sm text-red-500">{errors.order}</p>
               )}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="circle_color">Warna Circle</Label>
-              <Input
-                id="circle_color"
-                value={formData.circle_color}
-                onChange={(e) => handleInputChange('circle_color', e.target.value)}
-                placeholder="Contoh: bg-blue-600"
-              />
             </div>
           </div>
 
@@ -276,20 +263,20 @@ export default function MenuForm({ menu, onSubmit, onCancel, loading = false }: 
 
             <div className="flex items-center space-x-2">
               <Switch
-                id="can_create"
-                checked={formData.can_create}
-                onCheckedChange={(checked) => handleInputChange('can_create', checked)}
+                id="can_add"
+                checked={formData.can_add}
+                onCheckedChange={(checked) => handleInputChange('can_add', checked)}
               />
-              <Label htmlFor="can_create">Can Create</Label>
+              <Label htmlFor="can_add">Can Add</Label>
             </div>
 
             <div className="flex items-center space-x-2">
               <Switch
-                id="can_update"
-                checked={formData.can_update}
-                onCheckedChange={(checked) => handleInputChange('can_update', checked)}
+                id="can_edit"
+                checked={formData.can_edit}
+                onCheckedChange={(checked) => handleInputChange('can_edit', checked)}
               />
-              <Label htmlFor="can_update">Can Update</Label>
+              <Label htmlFor="can_edit">Can Edit</Label>
             </div>
 
             <div className="flex items-center space-x-2">

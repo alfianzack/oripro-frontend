@@ -45,8 +45,15 @@ export default function TenantStatsCards({ tenants, units }: TenantStatsCardsPro
     const availableUnits = totalUnits - rentedUnits
 
     const totalRevenue = tenants.reduce((sum, tenant) => {
-      const unit = units.find(u => u.id === tenant.unit?.id)
-      return sum + (unit?.rent_price || 0)
+      // Tenant can have multiple units, so sum all rent prices
+      if (tenant.units && tenant.units.length > 0) {
+        return sum + tenant.units.reduce((unitSum, unit) => unitSum + (unit.rent_price || 0), 0)
+      } else if (tenant.unit_ids && tenant.unit_ids.length > 0) {
+        // If units array is not populated, find units by IDs
+        const tenantUnits = units.filter(u => tenant.unit_ids?.includes(u.id))
+        return sum + tenantUnits.reduce((unitSum, unit) => unitSum + (unit.rent_price || 0), 0)
+      }
+      return sum
     }, 0)
 
     const avgRevenue = totalTenants > 0 ? totalRevenue / totalTenants : 0
@@ -142,8 +149,15 @@ export function UnitStatsCards({ tenants, units }: TenantStatsCardsProps) {
     const availableUnits = totalUnits - rentedUnits
 
     const totalRevenue = tenants.reduce((sum, tenant) => {
-      const unit = units.find(u => u.id === tenant.unit?.id)
-      return sum + (unit?.rent_price || 0)
+      // Tenant can have multiple units, so sum all rent prices
+      if (tenant.units && tenant.units.length > 0) {
+        return sum + tenant.units.reduce((unitSum, unit) => unitSum + (unit.rent_price || 0), 0)
+      } else if (tenant.unit_ids && tenant.unit_ids.length > 0) {
+        // If units array is not populated, find units by IDs
+        const tenantUnits = units.filter(u => tenant.unit_ids?.includes(u.id))
+        return sum + tenantUnits.reduce((unitSum, unit) => unitSum + (unit.rent_price || 0), 0)
+      }
+      return sum
     }, 0)
 
     const avgRevenue = tenants.length > 0 ? totalRevenue / tenants.length : 0
