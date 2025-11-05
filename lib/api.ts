@@ -989,26 +989,58 @@ export interface MenuAccess {
   hasAccess: boolean
 }
 
+// Task Group API interface
+export interface TaskGroup {
+  id: number
+  name: string
+  description?: string
+  start_time: string
+  end_time: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTaskGroupData {
+  name: string
+  description?: string
+  start_time: string
+  end_time: string
+  is_active?: boolean
+}
+
+export interface UpdateTaskGroupData {
+  name?: string
+  description?: string
+  start_time?: string
+  end_time?: string
+  is_active?: boolean
+}
+
 // Task API interface
 export interface Task {
-  id: number
+  id: number | string
   name: string
   is_main_task: boolean
   is_need_validation: boolean
   is_scan: boolean
-  scan_code?: string
+  scan_code?: string | null
   duration: number
   asset_id: string
   role_id: number
   is_all_times: boolean
-  parent_task_id?: number
+  parent_task_id?: number | string
+  parent_task_ids?: number[] | string[]
+  task_group_id?: number | string | null
   days?: number[]
   times?: string[]
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
+  created_by?: string
   asset?: Asset
   role?: Role
   parent_task?: Task
+  task_group?: TaskGroup
 }
 
 export interface CreateTaskData {
@@ -1022,6 +1054,8 @@ export interface CreateTaskData {
   role_id: number
   is_all_times?: boolean
   parent_task_id?: number
+  parent_task_ids?: number[]
+  task_group_id?: number
   days?: number[]
   times?: string[]
 }
@@ -1037,6 +1071,8 @@ export interface UpdateTaskData {
   role_id?: number
   is_all_times?: boolean
   parent_task_id?: number
+  parent_task_ids?: number[]
+  task_group_id?: number
   days?: number[]
   times?: string[]
 }
@@ -1056,10 +1092,67 @@ export interface TaskLog {
   created_at: string
 }
 
+// Task Groups-specific API functions
+export const taskGroupsApi = {
+  async getTaskGroups(params?: {
+    name?: string
+    is_active?: boolean
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<TaskGroup[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.is_active !== undefined) queryParams.append('is_active', params.is_active.toString())
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/task-groups${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<TaskGroup[]>(endpoint)
+  },
+
+  async getTaskGroup(id: number): Promise<ApiResponse<TaskGroup>> {
+    return apiClient.get<TaskGroup>(`/api/task-groups/${id}`)
+  },
+
+  async createTaskGroup(data: CreateTaskGroupData): Promise<ApiResponse<TaskGroup>> {
+    return apiClient.post<TaskGroup>('/api/task-groups', data)
+  },
+
+  async updateTaskGroup(id: number, data: UpdateTaskGroupData): Promise<ApiResponse<TaskGroup>> {
+    return apiClient.put<TaskGroup>(`/api/task-groups/${id}`, data)
+  },
+
+  async deleteTaskGroup(id: number): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(`/api/task-groups/${id}`)
+  },
+}
+
 // Tasks-specific API functions
 export const tasksApi = {
-  async getTasks(): Promise<ApiResponse<Task[]>> {
-    return apiClient.get<Task[]>('/api/tasks')
+  async getTasks(params?: {
+    name?: string
+    asset_id?: string
+    role_id?: number
+    task_group_id?: number
+    is_main_task?: boolean
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<Task[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.name) queryParams.append('name', params.name)
+    if (params?.asset_id) queryParams.append('asset_id', params.asset_id)
+    if (params?.role_id) queryParams.append('role_id', params.role_id.toString())
+    if (params?.task_group_id) queryParams.append('task_group_id', params.task_group_id.toString())
+    if (params?.is_main_task !== undefined) queryParams.append('is_main_task', params.is_main_task.toString())
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/tasks${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<Task[]>(endpoint)
   },
 
   async getTask(id: number): Promise<ApiResponse<Task>> {
@@ -1080,6 +1173,73 @@ export const tasksApi = {
 
   async getTaskLogs(taskId: number): Promise<ApiResponse<TaskLog[]>> {
     return apiClient.get<TaskLog[]>(`/api/tasks/${taskId}/logs`)
+  },
+}
+
+// Scan Info API interface
+export interface ScanInfo {
+  id: number
+  scan_code: string
+  latitude: number
+  longitude: number
+  asset_id: string
+  created_at?: string
+  updated_at?: string
+  asset?: Asset
+}
+
+export interface CreateScanInfoData {
+  scan_code: string
+  latitude: number
+  longitude: number
+  asset_id: string
+}
+
+export interface UpdateScanInfoData {
+  scan_code?: string
+  latitude?: number
+  longitude?: number
+  asset_id?: string
+}
+
+// Scan Info-specific API functions
+export const scanInfoApi = {
+  async getScanInfos(params?: {
+    scan_code?: string
+    asset_id?: string
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<ScanInfo[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.scan_code) queryParams.append('scan_code', params.scan_code)
+    if (params?.asset_id) queryParams.append('asset_id', params.asset_id)
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/scan-infos${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<ScanInfo[]>(endpoint)
+  },
+
+  async getScanInfo(id: number): Promise<ApiResponse<ScanInfo>> {
+    return apiClient.get<ScanInfo>(`/api/scan-infos/${id}`)
+  },
+
+  async createScanInfo(data: CreateScanInfoData): Promise<ApiResponse<ScanInfo>> {
+    return apiClient.post<ScanInfo>('/api/scan-infos', data)
+  },
+
+  async updateScanInfo(id: number, data: UpdateScanInfoData): Promise<ApiResponse<ScanInfo>> {
+    return apiClient.put<ScanInfo>(`/api/scan-infos/${id}`, data)
+  },
+
+  async deleteScanInfo(id: number): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(`/api/scan-infos/${id}`)
+  },
+
+  async generateQRCode(id: number): Promise<ApiResponse<{ qr_code_base64: string } | { qr_code_data: string } | string>> {
+    return apiClient.get<{ qr_code_base64: string } | { qr_code_data: string } | string>(`/api/scan-infos/${id}/qr-code`)
   },
 }
 
