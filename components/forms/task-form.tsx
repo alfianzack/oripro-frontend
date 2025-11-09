@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -35,7 +36,6 @@ const taskSchema = z.object({
   duration: z.number().int().min(1, 'Duration must be at least 1'),
   asset_id: z.string().min(1, 'Asset is required').uuid('Asset ID must be a valid UUID'),
   role_id: z.number().int().min(1, 'Role is required'),
-  is_all_times: z.boolean().optional(),
   parent_task_ids: z.array(z.number().int()).optional(),
   task_group_id: z.number().int().optional().nullable(),
   days: z.array(z.number().int()).optional(),
@@ -83,7 +83,6 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
       duration: 1,
       asset_id: '',
       role_id: 0,
-      is_all_times: false,
       parent_task_ids: [],
       task_group_id: null,
       days: [],
@@ -91,7 +90,8 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
     },
   })
 
-  const isAllTimes = form.watch('is_all_times')
+  const isMainTask = form.watch('is_main_task')
+  const selectedAssetId = form.watch('asset_id')
 
   // Load assets
   useEffect(() => {
@@ -148,14 +148,25 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
     loadTaskGroups()
   }, [])
 
-  // Load parent tasks
+  // Load parent tasks (only main tasks with same asset_id)
   useEffect(() => {
     const loadParentTasks = async () => {
+      // Only load if asset_id is selected
+      if (!selectedAssetId) {
+        setParentTasks([])
+        setParentTasksLoading(false)
+        return
+      }
+
+      setParentTasksLoading(true)
       try {
-        const response = await tasksApi.getTasks()
+        const response = await tasksApi.getTasks({ 
+          is_main_task: true,
+          asset_id: selectedAssetId 
+        })
         if (response.success && response.data) {
           const responseData = response.data as any
-          const tasksData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+          const tasksData = responseData.data.tasks
           // Filter out current task if editing
           const filtered = task ? tasksData.filter((t: Task) => t.id !== task.id) : tasksData
           setParentTasks(filtered)
@@ -167,7 +178,7 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
       }
     }
     loadParentTasks()
-  }, [task])
+  }, [task, selectedAssetId])
 
   // Update form values when task changes (for edit mode)
   useEffect(() => {
@@ -192,7 +203,6 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         duration: task.duration || 0,
         asset_id: task.asset_id || '',
         role_id: task.role_id || 0,
-        is_all_times: task.is_all_times || false,
         parent_task_ids: task.parent_task_ids 
           ? normalizeIds(task.parent_task_ids)
           : (task.parent_task_id ? [normalizeId(task.parent_task_id)!].filter(Boolean) as number[] : []),
@@ -217,7 +227,6 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         duration: data.duration,
         asset_id: data.asset_id,
         role_id: data.role_id,
-        is_all_times: data.is_all_times,
         // Only include parent_task_ids if it has items
         ...(data.parent_task_ids && data.parent_task_ids.length > 0 ? { parent_task_ids: data.parent_task_ids } : {}),
         // Only include task_group_id if it has a value
@@ -349,11 +358,11 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
           name="duration"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Duration (minutes) <span className="text-red-500">*</span></FormLabel>
+              <FormLabel>Duration (hours) <span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Input 
                   type="number" 
-                  placeholder="Enter duration in minutes"
+                  placeholder="Enter duration in hours"
                   {...field}
                   onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                 />
@@ -459,26 +468,6 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="is_all_times"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">All Times</FormLabel>
-                  <div className="text-sm text-muted-foreground">
-                    Task is available at all times
-                  </div>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
         </div>
 
         {/* Scan Code */}
@@ -498,53 +487,116 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
           />
         )}
 
-        {/* Parent Tasks */}
-        <FormField
-          control={form.control}
-          name="parent_task_ids"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Parent Tasks</FormLabel>
-              <div className="space-y-2 border rounded-lg p-4 max-h-48 overflow-y-auto">
-                {parentTasksLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading tasks...</div>
-                ) : parentTasks.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No parent tasks available</div>
-                ) : (
-                  parentTasks.map((parentTask) => {
-                    const taskId = typeof parentTask.id === 'string' ? parseInt(parentTask.id) : parentTask.id
-                    return (
-                    <div key={parentTask.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`parent-${parentTask.id}`}
-                        checked={field.value?.includes(taskId) || false}
-                        onCheckedChange={(checked) => {
-                          const current = field.value || []
-                          if (checked) {
-                            field.onChange([...current, taskId])
-                          } else {
-                            field.onChange(current.filter(id => id !== taskId))
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={`parent-${parentTask.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {parentTask.name}
-                      </label>
-                    </div>
-                    )
-                  })
-                )}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Parent Tasks - Only show if main task is not active */}
+        {!isMainTask && (
+          <FormField
+            control={form.control}
+            name="parent_task_ids"
+            render={({ field }) => {
+              // Use field.value which is initialized from task.parent_task_ids when editing
+              // This ensures we use task.parent_task_ids as the source of truth for selected parents
+              const selectedTaskIdsRaw = field.value || []
+              
+              // Normalize selected task IDs to numbers for comparison
+              const selectedTaskIds = selectedTaskIdsRaw
+                .map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                .filter(id => !isNaN(id) && id !== null && id !== undefined)
+              
+              const tasksArray = Array.isArray(parentTasks) ? parentTasks : []
+              const selectedTasks = tasksArray.filter((taskItem) => {
+                const taskId = typeof taskItem.id === 'string' ? parseInt(taskItem.id, 10) : taskItem.id
+                return !isNaN(taskId) && selectedTaskIds.includes(taskId) && taskItem.is_main_task === true
+              })
+              const availableTasks = tasksArray.filter((taskItem) => {
+                const taskId = typeof taskItem.id === 'string' ? parseInt(taskItem.id, 10) : taskItem.id
+                return !isNaN(taskId) && !selectedTaskIds.includes(taskId) && taskItem.is_main_task === true
+              })
 
-        {/* Days - Only show if not all times */}
-        {!isAllTimes && (
+              return (
+                <FormItem>
+                  <FormLabel>Parent Tasks</FormLabel>
+                  
+                  {/* Selected Tasks as Badges */}
+                  {selectedTasks.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4 p-3 border rounded-lg bg-muted/50">
+                      {selectedTasks.map((task) => {
+                        const taskId = typeof task.id === 'string' ? parseInt(task.id, 10) : task.id
+                        return (
+                          <Badge key={task.id} variant="secondary" className="flex items-center gap-1 pr-1">
+                            <span>{task.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = field.value || []
+                                const normalizedCurrent = current.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                                field.onChange(normalizedCurrent.filter(id => id !== taskId))
+                              }}
+                              className="ml-1 rounded-full hover:bg-secondary-foreground/20 p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Available Tasks List */}
+                  <div className="space-y-2 border rounded-lg p-4 max-h-48 overflow-y-auto">
+                    {parentTasksLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading tasks...</div>
+                    ) : parentTasks.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No parent tasks available</div>
+                    ) : availableTasks.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">All tasks have been selected</div>
+                    ) : (
+                      availableTasks.map((parentTask) => {
+                        const taskId = typeof parentTask.id === 'string' ? parseInt(parentTask.id) : parentTask.id
+                        return (
+                          <div key={parentTask.id} className="flex items-center space-x-2 hover:bg-muted/50 p-2 rounded cursor-pointer"
+                            onClick={() => {
+                              const current = field.value || []
+                              const normalizedCurrent = current.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                              if (!normalizedCurrent.includes(taskId)) {
+                                field.onChange([...normalizedCurrent, taskId])
+                              }
+                            }}
+                          >
+                            <Checkbox
+                              id={`parent-${parentTask.id}`}
+                              checked={false}
+                              onCheckedChange={(checked) => {
+                                const current = field.value || []
+                                const normalizedCurrent = current.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                                if (checked) {
+                                  if (!normalizedCurrent.includes(taskId)) {
+                                    field.onChange([...normalizedCurrent, taskId])
+                                  }
+                                } else {
+                                  field.onChange(normalizedCurrent.filter(id => id !== taskId))
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`parent-${parentTask.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                            >
+                              {parentTask.name}
+                            </label>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
+          />
+        )}
+
+        {/* Days - Only show if main task is active */}
+        {isMainTask && (
           <FormField
             control={form.control}
             name="days"
@@ -574,8 +626,8 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
           />
         )}
 
-        {/* Times - Only show if not all times */}
-        {!isAllTimes && (
+        {/* Times - Only show if main task is active */}
+        {isMainTask && (
           <FormField
             control={form.control}
             name="times"
