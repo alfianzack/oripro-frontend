@@ -1,11 +1,19 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, DURATION_UNIT_LABELS } from '@/lib/api'
+import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, tenantsApi } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Building2, X, Edit } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { History, Building2, X, Edit, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
 
@@ -22,10 +30,32 @@ export default function TenantDetailDialog({
 }: TenantDetailDialogProps) {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
+  const [depositLogs, setDepositLogs] = useState<TenantDepositLog[]>([])
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Fetch deposit logs when dialog opens and tenant is available
+  useEffect(() => {
+    const loadDepositLogs = async () => {
+      if (open && tenant?.id) {
+        try {
+          const response = await tenantsApi.getTenantDepositLogs(tenant.id)
+          if (response.success && response.data) {
+            const logsData = response.data as any
+            const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+            console.log('logs', logs)
+            setDepositLogs(logs)
+          }
+        } catch (error) {
+          console.error('Load deposit logs error:', error)
+        }
+      }
+    }
+
+    loadDepositLogs()
+  }, [open, tenant?.id])
 
   useEffect(() => {
     if (open) {
@@ -159,6 +189,17 @@ export default function TenantDetailDialog({
                 >
                   <History className="h-4 w-4" />
                   History Aktivitas
+                </button>
+                <button
+                  onClick={() => setActiveTab('deposit')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'deposit'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Wallet className="h-4 w-4" />
+                  History Deposito
                 </button>
               </div>
 
@@ -334,7 +375,7 @@ export default function TenantDetailDialog({
                             <label className="text-sm font-medium text-muted-foreground">
                               ID Tenant
                             </label>
-                            <p className="text-sm font-mono text-xs bg-muted p-2 rounded">
+                            <p className="text-xs font-mono bg-muted p-2 rounded">
                               {tenant.id}
                             </p>
                           </div>
@@ -342,7 +383,7 @@ export default function TenantDetailDialog({
                             <label className="text-sm font-medium text-muted-foreground">
                               ID User
                             </label>
-                            <p className="text-sm font-mono text-xs bg-muted p-2 rounded">
+                            <p className="text-xs font-mono bg-muted p-2 rounded">
                               {tenant.user_id}
                             </p>
                           </div>
@@ -363,6 +404,95 @@ export default function TenantDetailDialog({
                       </CardHeader>
                       <CardContent>
                         <TenantLogsTable tenantId={tenant.id} loading={false} />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {activeTab === 'deposit' && (
+                  <div className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5" />
+                          History Deposito
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {depositLogs.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Tanggal</TableHead>
+                                  <TableHead>Reason</TableHead>
+                                  <TableHead>New Deposit</TableHead>
+                                  <TableHead>Old Deposit</TableHead>
+                                  <TableHead>Dibuat Oleh</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {depositLogs.map((log) => {
+                                  const reason = log.reason || '-'
+                                  const newDeposit = log.new_deposit || 0
+                                  const oldDeposit = log.old_deposit || 0
+                                  
+                                  return (
+                                    <TableRow key={log.id}>
+                                      <TableCell className="text-sm">
+                                        {formatDate(log.created_at)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <span className="text-sm">{reason}</span>
+                                      </TableCell>
+                                      <TableCell>
+                                        {newDeposit > 0 ? (
+                                          <span className="text-sm font-medium">
+                                            {new Intl.NumberFormat('id-ID', {
+                                              style: 'currency',
+                                              currency: 'IDR',
+                                              minimumFractionDigits: 0,
+                                            }).format(Number(newDeposit))}
+                                          </span>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        {oldDeposit > 0 ? (
+                                          <span className="text-sm font-medium">
+                                            {new Intl.NumberFormat('id-ID', {
+                                              style: 'currency',
+                                              currency: 'IDR',
+                                              minimumFractionDigits: 0,
+                                            }).format(Number(oldDeposit))}
+                                          </span>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        {log.created_by ? (
+                                          <div>
+                                            <p className="font-medium text-sm">{log.created_by.name}</p>
+                                            <p className="text-xs text-muted-foreground">{log.created_by.email}</p>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <p>Tidak ada history deposito</p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>

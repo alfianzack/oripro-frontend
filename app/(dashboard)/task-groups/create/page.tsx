@@ -27,7 +27,7 @@ export default function CreateTaskGroupPage() {
       
       if (response.success) {
         toast.success('Task group created successfully')
-        router.push('/task_group')
+        router.push('/task-groups')
       } else {
         toast.error(response.error || 'Failed to create task group')
       }

@@ -57,7 +57,10 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     rent_duration_unit: DURATION_UNITS.MONTH,
     unit_ids: [] as string[],
     categories: [] as number[],
-    total_rent_price: 0,
+    rent_price: 0,
+    down_payment: 0,
+    deposit: 0,
+    deposit_reason: '',
     status: 'pending',
   })
   const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('existing')
@@ -82,6 +85,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   const [uploading, setUploading] = useState(false)
   const [existingIdentificationUrls, setExistingIdentificationUrls] = useState<string[]>([])
   const [existingContractUrls, setExistingContractUrls] = useState<string[]>([])
+  const [originalDeposit, setOriginalDeposit] = useState<number>(0)
 
   // Load users, units, and roles
   useEffect(() => {
@@ -153,9 +157,15 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           DURATION_UNITS.MONTH,
         unit_ids: unitIds,
         categories: categoryIds,
-        total_rent_price: (tenant as any).total_rent_price || 0,
+        rent_price: tenant.rent_price || 0,
+        down_payment: tenant.down_payment || 0,
+        deposit: tenant.deposit || 0,
+        deposit_reason: '',
         status: (tenant as any).status || 'pending',
       })
+      
+      // Store original deposit value to detect changes
+      setOriginalDeposit(tenant.deposit || 0)
       
       // Set existing file URLs for preview
       setExistingIdentificationUrls(tenant.tenant_identifications || [])
@@ -206,6 +216,17 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
     if (!formData.categories || formData.categories.length === 0) {
       newErrors.categories = 'Kategori harus dipilih'
+    }
+
+    if (!formData.rent_price || formData.rent_price <= 0) {
+      newErrors.rent_price = 'Harga sewa harus diisi dan lebih dari 0'
+    }
+
+    // Validate deposit reason when updating deposit (only when editing)
+    if (tenant && formData.deposit !== originalDeposit) {
+      if (!formData.deposit_reason || !formData.deposit_reason.trim()) {
+        newErrors.deposit_reason = 'Alasan perubahan deposit harus diisi'
+      }
     }
 
     setErrors(newErrors)
@@ -312,7 +333,10 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         rent_duration_unit: formData.rent_duration_unit,
         unit_ids: formData.unit_ids,
         categories: formData.categories,
-        total_rent_price: formData.total_rent_price,
+        rent_price: formData.rent_price,
+        ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
+        ...(formData.deposit > 0 ? { deposit: formData.deposit } : {}),
+        ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
         tenant_identifications: identificationUrls,
         contract_documents: contractUrls,
       }
@@ -344,12 +368,39 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     }
   }
 
-  const handleInputChange = (field: string, value: string | string[] | number[]) => {
+  // Format price with thousand separators (Indonesian format: 1.000.000)
+  const formatPrice = (value: number | string): string => {
+    if (value === null || value === undefined || value === '') return ''
+    const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '')) : value
+    if (isNaN(numValue) || numValue === 0) return ''
+    // Convert to integer string and add thousand separators
+    const integerPart = Math.floor(numValue).toString()
+    return integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  }
+
+  // Parse price input: remove separators and leading zeros
+  const parsePrice = (value: string): number => {
+    if (!value || value.trim() === '') return 0
+    // Remove thousand separators (dots) and any non-digit characters except decimal point
+    const cleaned = value.replace(/\./g, '').replace(/[^\d]/g, '')
+    if (!cleaned || cleaned === '') return 0
+    // Remove leading zeros but keep at least one digit if all zeros
+    const parsed = cleaned.replace(/^0+(?=\d)/, '') || '0'
+    return parseFloat(parsed) || 0
+  }
+
+  const handleInputChange = (field: string, value: string | string[] | number[] | number) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
     }
+  }
+
+  // Handle price input change with formatting
+  const handlePriceChange = (field: 'rent_price' | 'down_payment' | 'deposit', value: string) => {
+    const parsedValue = parsePrice(value)
+    handleInputChange(field, parsedValue)
   }
 
   const handleFileChange = (file: File | null, type: 'identification' | 'contract') => {
@@ -463,18 +514,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     handleInputChange('categories', [categoryId])
   }
 
-  // Calculate total rent price when units change
-  useEffect(() => {
-    if (formData.unit_ids && formData.unit_ids.length > 0 && units.length > 0) {
-      const totalPrice = formData.unit_ids.reduce((total, unitId) => {
-        const unit = units.find(u => u.id === unitId)
-        return total + (unit?.rent_price || 0)
-      }, 0)
-      setFormData(prev => ({ ...prev, total_rent_price: totalPrice }))
-    } else {
-      setFormData(prev => ({ ...prev, total_rent_price: 0 }))
-    }
-  }, [formData.unit_ids, units])
 
   // Calculate contract end date based on start date and duration
   useEffect(() => {
@@ -908,21 +947,61 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_rent_price">Total Harga Sewa</Label>
+                <Label htmlFor="rent_price">Harga Sewa (Rent Price) <span className="text-red-500">*</span></Label>
                 <Input
-                  id="total_rent_price"
-                  value={new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0,
-                  }).format(formData.total_rent_price)}
-                  readOnly
-                  className="bg-gray-50"
+                  id="rent_price"
+                  type="text"
+                  value={formatPrice(formData.rent_price)}
+                  onChange={(e) => handlePriceChange('rent_price', e.target.value)}
+                  placeholder="Masukkan harga sewa"
+                  className={errors.rent_price ? 'border-red-500' : ''}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Total harga sewa dihitung otomatis berdasarkan unit yang dipilih
-                </p>
+                {errors.rent_price && (
+                  <p className="text-sm text-red-500">{errors.rent_price}</p>
+                )}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="down_payment">Uang Muka (Down Payment)</Label>
+                <Input
+                  id="down_payment"
+                  type="text"
+                  value={formatPrice(formData.down_payment)}
+                  onChange={(e) => handlePriceChange('down_payment', e.target.value)}
+                  placeholder="Masukkan uang muka"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="deposit">Deposit</Label>
+                <Input
+                  id="deposit"
+                  type="text"
+                  value={formatPrice(formData.deposit)}
+                  onChange={(e) => handlePriceChange('deposit', e.target.value)}
+                  placeholder="Masukkan deposit"
+                />
+              </div>
+
+              {/* Deposit Reason - Only show when editing and deposit is being updated */}
+              {tenant && formData.deposit !== originalDeposit && (
+                <div className="space-y-2">
+                  <Label htmlFor="deposit_reason">
+                    Alasan Perubahan Deposit <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="deposit_reason"
+                    type="text"
+                    value={formData.deposit_reason}
+                    onChange={(e) => handleInputChange('deposit_reason', e.target.value)}
+                    placeholder="Masukkan alasan perubahan deposit"
+                    className={errors.deposit_reason ? 'border-red-500' : ''}
+                  />
+                  {errors.deposit_reason && (
+                    <p className="text-sm text-red-500">{errors.deposit_reason}</p>
+                  )}
+                </div>
+              )}
           </div>
 
           {/* Separator */}

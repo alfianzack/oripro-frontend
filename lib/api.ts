@@ -347,6 +347,26 @@ export interface TenantLog {
   created_at: string
 }
 
+// Tenant Deposit Log interface
+export interface TenantDepositLog {
+  id: number
+  tenant_id: string
+  reason?: string
+  new_deposit?: number
+  old_deposit?: number
+  old_data?: {
+    deposit?: number
+    old_deposit?: number
+    amount?: number
+  }
+  created_by?: {
+    id: string
+    name: string
+    email: string
+  }
+  created_at: string
+}
+
 // Roles-specific API functions
 export const rolesApi = {
   async getRoles(): Promise<ApiResponse<Role[]>> {
@@ -774,6 +794,9 @@ export interface Tenant {
   rent_duration: number
   rent_duration_unit: string
   code: string
+  rent_price?: number
+  down_payment?: number
+  deposit?: number
   created_by?: string
   updated_by?: string
   created_at: string
@@ -796,6 +819,9 @@ export interface CreateTenantData {
   contract_documents: string[]
   unit_ids: string[]
   categories: number[]
+  rent_price?: number
+  down_payment?: number
+  deposit?: number
 }
 
 export interface UpdateTenantData {
@@ -808,6 +834,10 @@ export interface UpdateTenantData {
   contract_documents?: string[]
   unit_ids?: string[]
   categories?: number[]
+  rent_price?: number
+  down_payment?: number
+  deposit?: number
+  deposit_reason?: string
 }
 
 // Duration unit constants
@@ -877,6 +907,10 @@ export const tenantsApi = {
 
   async getTenantLogs(tenantId: string): Promise<ApiResponse<TenantLog[]>> {
     return apiClient.get<TenantLog[]>(`/api/tenants/${tenantId}/logs`)
+  },
+
+  async getTenantDepositLogs(tenantId: string): Promise<ApiResponse<TenantDepositLog[]>> {
+    return apiClient.get<TenantDepositLog[]>(`/api/tenants/${tenantId}/deposito-logs`)
   },
 }
 

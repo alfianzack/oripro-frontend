@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Tenant, UpdateTenantData, tenantsApi } from '@/lib/api'
+import { Tenant, UpdateTenantData, TenantDepositLog, tenantsApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Home, Users, Edit, Loader2 } from 'lucide-react'
@@ -18,20 +18,30 @@ export default function EditTenantPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [depositLogs, setDepositLogs] = useState<TenantDepositLog[]>([])
 
   useEffect(() => {
     const loadTenant = async () => {
       if (!tenantId) return
       
       try {
-        const response = await tenantsApi.getTenant(tenantId)
+        const [tenantResponse, depositLogsResponse] = await Promise.all([
+          tenantsApi.getTenant(tenantId),
+          tenantsApi.getTenantDepositLogs(tenantId)
+        ])
         
-        if (response.success && response.data) {
-          const responseData = response.data as any
+        if (tenantResponse.success && tenantResponse.data) {
+          const responseData = tenantResponse.data as any
           setTenant(responseData.data)
         } else {
-          toast.error(response.error || 'Tenant tidak ditemukan')
+          toast.error(tenantResponse.error || 'Tenant tidak ditemukan')
           router.push('/tenants')
+        }
+
+        if (depositLogsResponse.success && depositLogsResponse.data) {
+          const logsData = depositLogsResponse.data as any
+          const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+          setDepositLogs(logs)
         }
       } catch (error) {
         console.error('Load tenant error:', error)
