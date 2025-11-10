@@ -30,25 +30,75 @@ export default function AttendanceCard() {
   }, []);
 
   // Check today's attendance status
-  const checkTodayStatus = async (assetId: string) => {
+  const checkTodayStatus = async (assetId: string | number) => {
+    // Validate assetId before proceeding - can be UUID (string) or number
+    if (!assetId || assetId === null || assetId === undefined) {
+      console.error('Invalid asset ID:', assetId);
+      const defaultStatus: TodayAttendanceStatus = {
+        hasCheckedIn: false,
+        hasCheckedOut: false,
+        status: 'not_checked_in',
+        attendance: null
+      };
+      setTodayAttendanceStatus(defaultStatus);
+      return;
+    }
+
     console.log('Checking today status for asset ID:', assetId);
     try {
-      const response = await attendanceApi.getTodayStatus(parseInt(assetId));
+      const response = await attendanceApi.getTodayStatus(assetId);
       console.log('Today status response:', response);
       
-      if (response.success && response.data) {
-        // Map the response data to our interface
-        const statusData: TodayAttendanceStatus = {
-          hasCheckedIn: !!response.data.check_in_time,
-          hasCheckedOut: !!response.data.check_out_time,
-          status: response.data.status,
-          attendance: response.data
-        };
-        setTodayAttendanceStatus(statusData);
-        console.log('Today attendance status set:', statusData);
+      if (response.success) {
+        if (response.data) {
+          const statusData = response.data;
+          
+          // Handle backend response structure - backend returns hasCheckedIn/hasCheckedOut
+          if (statusData.hasCheckedIn !== undefined || statusData.hasCheckedOut !== undefined) {
+            // Backend returns wrapped structure
+            const statusDataMapped: TodayAttendanceStatus = {
+              hasCheckedIn: statusData.hasCheckedIn || false,
+              hasCheckedOut: statusData.hasCheckedOut || false,
+              status: statusData.status || 'not_checked_in',
+              attendance: statusData.attendance || null
+            };
+            setTodayAttendanceStatus(statusDataMapped);
+            console.log('Today attendance status set:', statusDataMapped);
+          } else if (statusData.check_in_time || statusData.check_out_time) {
+            // Direct attendance object structure (fallback)
+            const statusDataMapped: TodayAttendanceStatus = {
+              hasCheckedIn: !!statusData.check_in_time,
+              hasCheckedOut: !!statusData.check_out_time,
+              status: statusData.status || (statusData.check_out_time ? 'checked_out' : 'checked_in'),
+              attendance: statusData
+            };
+            setTodayAttendanceStatus(statusDataMapped);
+            console.log('Today attendance status set (direct):', statusDataMapped);
+          } else {
+            // No attendance data
+            console.log('No attendance data for today, setting default status');
+            const defaultStatus: TodayAttendanceStatus = {
+              hasCheckedIn: false,
+              hasCheckedOut: false,
+              status: 'not_checked_in',
+              attendance: null
+            };
+            setTodayAttendanceStatus(defaultStatus);
+          }
+        } else {
+          // No data in response
+          console.log('No attendance data for today, setting default status');
+          const defaultStatus: TodayAttendanceStatus = {
+            hasCheckedIn: false,
+            hasCheckedOut: false,
+            status: 'not_checked_in',
+            attendance: null
+          };
+          setTodayAttendanceStatus(defaultStatus);
+        }
       } else {
-        console.log('No attendance data for today, setting default status');
-        // Set default status if no data
+        console.log('API returned unsuccessful response:', response.error || response.message);
+        // Set default status if API call failed
         const defaultStatus: TodayAttendanceStatus = {
           hasCheckedIn: false,
           hasCheckedOut: false,
@@ -68,6 +118,36 @@ export default function AttendanceCard() {
       };
       setTodayAttendanceStatus(defaultStatus);
     }
+  };
+
+  // Helper: Format date with day
+  const formatDateWithDay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Helper: Format date short
+  const formatDateShort = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Helper: Format time
+  const formatTime = (timeString: string) => {
+    return new Date(timeString).toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Helper: hitung jarak dua titik latlong (meter)
@@ -136,14 +216,10 @@ export default function AttendanceCard() {
       let minDistance = Infinity;
       
       for (const asset of assets) {
-        console.log('Asset data:', asset);
         
         // Check different possible field names for coordinates
         const assetLat = asset.lat || (asset as any).latitude || (asset as any).latitude_coordinate;
         const assetLng = asset.lng || (asset as any).longitude || (asset as any).longitude_coordinate;
-        
-        console.log('Asset lat:', assetLat, 'Asset lng:', assetLng);
-        console.log('User location:', location.lat, location.lng);
         
         if (!assetLat || !assetLng) {
           console.log('Asset missing coordinates:', asset);
@@ -151,9 +227,8 @@ export default function AttendanceCard() {
         }
         
         const dist = getDistanceFromLatLonInMeters(location.lat, location.lng, assetLat, assetLng);
-        console.log(`Distance to ${asset.name}: ${dist.toFixed(2)} meters`);
-        console.log('Dist:', dist);
-        if (dist < 1000) { // 1000 meter threshold for easier testing
+        
+        if (dist < 2000) { // 1000 meter threshold for easier testing
           found = true;
           nearest = asset;
           break;
@@ -166,16 +241,25 @@ export default function AttendanceCard() {
         }
       }
       
-      console.log('Is near asset:', found);
-      console.log('Nearest asset:', nearest);
-      console.log('Min distance:', minDistance.toFixed(2), 'meters');
-      
       setIsNearAsset(found);
-      setNearestAsset(nearest ? {id: nearest.id, name: nearest.name} : null);
       
-      // Check today's attendance status if near asset
-      if (found && nearest) {
-        checkTodayStatus(nearest.id);
+      // Ensure nearest asset has valid ID before setting - can be UUID (string) or number
+      if (nearest && nearest.id) {
+        const assetId = nearest.id; // Keep as-is (UUID string or number)
+        
+        // Basic validation - just check it's not empty/null/undefined
+        if (assetId !== null && assetId !== undefined && assetId !== '') {
+          setNearestAsset({id: String(assetId), name: nearest.name});
+          // Check today's attendance status if near asset
+          if (found) {
+            checkTodayStatus(assetId);
+          }
+        } else {
+          console.error('Invalid asset ID:', nearest.id);
+          setNearestAsset(null);
+        }
+      } else {
+        setNearestAsset(null);
       }
     }
     setLoading(false);
@@ -184,6 +268,14 @@ export default function AttendanceCard() {
   const handleAbsensi = async () => {
     if (!nearestAsset || !location) return;
     
+    // Validate assetId before proceeding - can be UUID (string) or number
+    const assetId = nearestAsset.id; // Keep as-is (UUID string or number)
+    
+    if (!assetId || assetId === null || assetId === undefined || assetId === '') {
+      setAttendanceStatus("error");
+      return;
+    }
+    
     setAttendanceStatus(null);
     
     try {
@@ -191,7 +283,7 @@ export default function AttendanceCard() {
       if (todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut) {
         // Check out
         const response = await attendanceApi.checkOut(
-          parseInt(nearestAsset.id),
+          assetId,
           location.lat,
           location.lng
         );
@@ -201,12 +293,13 @@ export default function AttendanceCard() {
           console.log('Check-out successful:', response.data);
         } else {
           setAttendanceStatus("error");
-          console.error('Check-out failed:', response.message);
+          const errorMsg = response.error || response.message || 'Check-out gagal';
+          console.error('Check-out failed:', errorMsg);
         }
       } else {
         // Check in
         const response = await attendanceApi.checkIn(
-          parseInt(nearestAsset.id),
+          assetId,
           location.lat,
           location.lng
         );
@@ -216,22 +309,25 @@ export default function AttendanceCard() {
           console.log('Check-in successful:', response.data);
         } else {
           setAttendanceStatus("error");
-          console.error('Check-in failed:', response.message);
+          const errorMsg = response.error || response.message || 'Check-in gagal';
+          console.error('Check-in failed:', errorMsg);
         }
       }
       
       // Save to localStorage
       const attendanceData = {
         timestamp: new Date().toISOString(),
-        assetId: nearestAsset.id,
+        assetId: String(assetId),
         assetName: nearestAsset.name,
         location: location
       };
       localStorage.setItem('lastAttendance', JSON.stringify(attendanceData));
       setLastAttendance(JSON.stringify(attendanceData));
       
-      // Refresh today status
-      await checkTodayStatus(nearestAsset.id);
+      // Refresh today status after a short delay to ensure database is updated
+      setTimeout(async () => {
+        await checkTodayStatus(assetId);
+      }, 500);
       
       // Auto reset after 3 seconds
       setTimeout(() => {
@@ -300,18 +396,42 @@ export default function AttendanceCard() {
           
           {/* Attendance Status Info */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            {/* Display current date */}
+            <div className="text-xs text-blue-600 mb-2 font-medium">
+              {formatDateWithDay(new Date().toISOString())}
+            </div>
+            
             {todayAttendanceStatus ? (
               <>
                 {todayAttendanceStatus.hasCheckedIn && !todayAttendanceStatus.hasCheckedOut && (
-                  <div className="flex items-center gap-2 text-blue-800">
-                    <span className="text-lg">✅</span>
-                    <span>Sudah check-in hari ini. Silakan check-out saat pulang.</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-blue-800">
+                      <span className="text-lg">✅</span>
+                      <span>Sudah check-in hari ini. Silakan check-out saat pulang.</span>
+                    </div>
+                    {todayAttendanceStatus.attendance?.check_in_time && (
+                      <div className="text-sm text-blue-700 ml-7">
+                        Check-in: {formatTime(todayAttendanceStatus.attendance.check_in_time)}
+                      </div>
+                    )}
                   </div>
                 )}
                 {todayAttendanceStatus.hasCheckedIn && todayAttendanceStatus.hasCheckedOut && (
-                  <div className="flex items-center gap-2 text-blue-800">
-                    <span className="text-lg">✅</span>
-                    <span>Sudah check-in dan check-out hari ini.</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-blue-800">
+                      <span className="text-lg">✅</span>
+                      <span>Sudah check-in dan check-out hari ini.</span>
+                    </div>
+                    {todayAttendanceStatus.attendance?.check_in_time && (
+                      <div className="text-sm text-blue-700 ml-7">
+                        Check-in: {formatTime(todayAttendanceStatus.attendance.check_in_time)}
+                      </div>
+                    )}
+                    {todayAttendanceStatus.attendance?.check_out_time && (
+                      <div className="text-sm text-blue-700 ml-7">
+                        Check-out: {formatTime(todayAttendanceStatus.attendance.check_out_time)}
+                      </div>
+                    )}
                   </div>
                 )}
                 {!todayAttendanceStatus.hasCheckedIn && (
@@ -382,10 +502,13 @@ export default function AttendanceCard() {
           {(() => {
             try {
               const data = JSON.parse(lastAttendance);
+              const date = new Date(data.timestamp);
               return (
                 <div>
                   <div>Asset: {data.assetName}</div>
-                  <div>Waktu: {new Date(data.timestamp).toLocaleString('id-ID')}</div>
+                  <div>Hari: {date.toLocaleDateString('id-ID', { weekday: 'long' })}</div>
+                  <div>Tanggal: {date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                  <div>Waktu: {date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
               );
             } catch {
