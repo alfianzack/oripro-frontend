@@ -36,11 +36,25 @@ interface AttendanceRecord {
 }
 
 interface TodayStatus {
-  id: number
-  check_in_time: string
+  id?: number
+  check_in_time?: string
   check_out_time?: string
-  status: 'checked_in' | 'checked_out'
-  asset: {
+  status: 'checked_in' | 'checked_out' | 'not_checked_in'
+  hasCheckedIn?: boolean
+  hasCheckedOut?: boolean
+  attendance?: {
+    id: number
+    check_in_time: string
+    check_out_time?: string
+    status: 'checked_in' | 'checked_out'
+    asset?: {
+      id: number
+      name: string
+      code: string
+      address: string
+    }
+  }
+  asset?: {
     id: number
     name: string
     code: string
@@ -110,17 +124,39 @@ export default function AttendanceWidget({
       return
     }
 
+    // Validasi data sebelum dikirim
+    if (!assetId || assetId === null || assetId === undefined) {
+      alert('Asset ID tidak valid. Silakan refresh halaman.')
+      return
+    }
+
+    if (typeof userLocation.lat !== 'number' || typeof userLocation.lng !== 'number') {
+      alert('Koordinat lokasi tidak valid. Silakan refresh lokasi.')
+      return
+    }
+
+    if (isNaN(userLocation.lat) || isNaN(userLocation.lng)) {
+      alert('Koordinat lokasi tidak valid. Silakan refresh lokasi.')
+      return
+    }
+
+    console.log('Check-in data:', { assetId, latitude: userLocation.lat, longitude: userLocation.lng })
+    
     setIsLoading(true)
     try {
       const response = await attendanceApi.checkIn(assetId, userLocation.lat, userLocation.lng)
       if (response.success) {
         alert('Check-in berhasil!')
-        loadTodayStatus()
-        loadWeeklyHistory()
+        // Wait a bit for database to update, then reload status
+        setTimeout(() => {
+          loadTodayStatus()
+          loadWeeklyHistory()
+        }, 500)
       } else {
         handleApiError(response)
       }
     } catch (error) {
+      console.error('Check-in error:', error)
       handleApiError({ success: false, error: error instanceof Error ? error.message : 'Terjadi kesalahan' })
     } finally {
       setIsLoading(false)
@@ -134,17 +170,39 @@ export default function AttendanceWidget({
       return
     }
 
+    // Validasi data sebelum dikirim
+    if (!assetId || assetId === null || assetId === undefined) {
+      alert('Asset ID tidak valid. Silakan refresh halaman.')
+      return
+    }
+
+    if (typeof userLocation.lat !== 'number' || typeof userLocation.lng !== 'number') {
+      alert('Koordinat lokasi tidak valid. Silakan refresh lokasi.')
+      return
+    }
+
+    if (isNaN(userLocation.lat) || isNaN(userLocation.lng)) {
+      alert('Koordinat lokasi tidak valid. Silakan refresh lokasi.')
+      return
+    }
+
+    console.log('Check-out data:', { assetId, latitude: userLocation.lat, longitude: userLocation.lng })
+
     setIsLoading(true)
     try {
       const response = await attendanceApi.checkOut(assetId, userLocation.lat, userLocation.lng)
       if (response.success) {
         alert('Check-out berhasil!')
-        loadTodayStatus()
-        loadWeeklyHistory()
+        // Wait a bit for database to update, then reload status
+        setTimeout(() => {
+          loadTodayStatus()
+          loadWeeklyHistory()
+        }, 500)
       } else {
         handleApiError(response)
       }
     } catch (error) {
+      console.error('Check-out error:', error)
       handleApiError({ success: false, error: error instanceof Error ? error.message : 'Terjadi kesalahan' })
     } finally {
       setIsLoading(false)
@@ -155,11 +213,52 @@ export default function AttendanceWidget({
   const loadTodayStatus = async () => {
     try {
       const response = await attendanceApi.getTodayStatus(assetId)
-      if (response.success && response.data) {
-        setTodayStatus(response.data)
+      console.log('Today status response:', response)
+      
+      if (response.success) {
+        if (response.data) {
+          // Handle backend response structure
+          const statusData = response.data
+          
+          // If backend returns wrapped structure with hasCheckedIn/hasCheckedOut
+          if (statusData.hasCheckedIn !== undefined || statusData.hasCheckedOut !== undefined) {
+            // Use attendance object if available, otherwise construct from status
+            const attendance = statusData.attendance || null
+            
+            if (attendance) {
+              setTodayStatus({
+                id: attendance.id,
+                check_in_time: attendance.check_in_time,
+                check_out_time: attendance.check_out_time,
+                status: attendance.status as 'checked_in' | 'checked_out',
+                asset: attendance.asset
+              })
+            } else if (statusData.hasCheckedIn || statusData.hasCheckedOut) {
+              // If we have status but no attendance object, set status anyway
+              setTodayStatus({
+                status: statusData.status as 'checked_in' | 'checked_out',
+                hasCheckedIn: statusData.hasCheckedIn,
+                hasCheckedOut: statusData.hasCheckedOut
+              })
+            } else {
+              // No attendance today
+              setTodayStatus(null)
+            }
+          } else {
+            // Direct attendance object structure
+            setTodayStatus(statusData)
+          }
+        } else {
+          // No data means no attendance today
+          setTodayStatus(null)
+        }
+      } else {
+        console.error('Failed to load today status:', response.error)
+        setTodayStatus(null)
       }
     } catch (error) {
       console.error('Error loading today status:', error)
+      setTodayStatus(null)
     }
   }
 
@@ -183,12 +282,23 @@ export default function AttendanceWidget({
     })
   }
 
+  // Format date with day
+  const formatDateWithDay = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
   // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
       weekday: 'short',
       day: 'numeric',
-      month: 'short'
+      month: 'short',
+      year: 'numeric'
     })
   }
 
@@ -243,10 +353,13 @@ export default function AttendanceWidget({
           {/* Today's Status */}
           {todayStatus && (
             <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="text-xs text-gray-500 mb-2 font-medium">
+                {formatDateWithDay(new Date().toISOString())}
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Status Hari Ini:</span>
                 <Badge variant={todayStatus.status === 'checked_in' ? 'default' : 'secondary'}>
-                  {todayStatus.status === 'checked_in' ? 'Sudah Check-in' : 'Sudah Check-out'}
+                  {todayStatus.status === 'checked_in' ? 'Sudah Check-in' : todayStatus.status === 'checked_out' ? 'Sudah Check-out' : 'Belum Check-in'}
                 </Badge>
               </div>
               {todayStatus.check_in_time && (
@@ -266,7 +379,7 @@ export default function AttendanceWidget({
           <div className="flex gap-2">
             <Button
               onClick={handleCheckIn}
-              disabled={!radiusInfo?.isInRadius || todayStatus?.status === 'checked_in' || isLoading}
+              disabled={!radiusInfo?.isInRadius || (todayStatus && (todayStatus.status === 'checked_in' || todayStatus.hasCheckedIn)) || isLoading}
               className="flex-1"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
@@ -274,7 +387,7 @@ export default function AttendanceWidget({
             </Button>
             <Button
               onClick={handleCheckOut}
-              disabled={!todayStatus || todayStatus.status === 'checked_out' || isLoading}
+              disabled={!todayStatus || todayStatus.status === 'checked_out' || todayStatus.hasCheckedOut || isLoading}
               variant="outline"
               className="flex-1"
             >

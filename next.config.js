@@ -4,8 +4,8 @@ const nextConfig = {
     return [
       {
         source: '/',
-        destination: '/dashboard',
-        permanent: true,
+        destination: '/welcome',
+        permanent: false, // Changed to false so it can be overridden if needed
       },
     ];
   },

@@ -27,7 +27,7 @@ function LogoSidebar() {
 
   return (
     <Link
-      href="/dashboard"
+      href="/welcome"
       className={cn(
         'sidebar-logo h-[72px] py-3.5 flex items-center justify-center border-b border-neutral-100 dark:border-slate-700',
         isCollapsed ? 'px-1' : 'px-4'

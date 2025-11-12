@@ -22,7 +22,7 @@ function ThemeLogo() {
   if (!isMounted) return null;
 
   return (
-    <Link href="/dashboard">
+    <Link href="/welcome">
       <Image
         src={theme === "dark" ? LogoWhite : LogoDark}
         alt="Logo"

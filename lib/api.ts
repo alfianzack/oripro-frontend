@@ -94,9 +94,22 @@ export class ApiClient {
           }
         }
         
+        // Handle validation errors (400 Bad Request)
+        if (response.status === 400 && data.errors && Array.isArray(data.errors)) {
+          const errorMessages = data.errors.map((err: any) => 
+            err.msg || `${err.param}: ${err.msg}`
+          ).join(', ')
+          return {
+            success: false,
+            error: errorMessages || data.message || `HTTP ${response.status}`,
+            message: data.message,
+          }
+        }
+        
         return {
           success: false,
-          error: data.message || `HTTP ${response.status}`,
+          error: data.message || data.error || `HTTP ${response.status}`,
+          message: data.message,
         }
       }
 
@@ -107,6 +120,17 @@ export class ApiClient {
           success: data.success,
           data: data.data,
           message: data.message,
+          // Include error/message in error field for consistency
+          error: data.success ? undefined : (data.message || data.error),
+        }
+      }
+
+      // Handle backend error format { success: false, message: "..." }
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        return {
+          success: false,
+          error: data.message || data.error || 'Terjadi kesalahan',
+          message: data.message,
         }
       }
 
@@ -116,6 +140,7 @@ export class ApiClient {
           success: data.data.success || true,
           data: data.data.data,
           message: data.data.message,
+          error: data.data.success ? undefined : (data.data.message || data.data.error),
         }
       }
 
@@ -146,7 +171,14 @@ export class ApiClient {
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (data instanceof FormData ? data : JSON.stringify(data)) : undefined,
+    })
+  }
+
+  async putFormData<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: formData,
     })
   }
 
@@ -660,11 +692,25 @@ export interface Attendance {
 }
 
 export interface AttendanceStatus {
-  id: number
-  check_in_time: string
+  id?: number
+  check_in_time?: string
   check_out_time?: string
-  status: 'checked_in' | 'checked_out'
-  asset: {
+  status: 'checked_in' | 'checked_out' | 'not_checked_in'
+  hasCheckedIn?: boolean
+  hasCheckedOut?: boolean
+  attendance?: {
+    id: number
+    check_in_time: string
+    check_out_time?: string
+    status: 'checked_in' | 'checked_out'
+    asset?: {
+      id: number
+      name: string
+      code: string
+      address: string
+    }
+  }
+  asset?: {
     id: number
     name: string
     code: string
@@ -679,38 +725,115 @@ export interface CheckRadiusResponse {
 
 // Attendance API functions
 export const attendanceApi = {
-  async checkRadius(latitude: number, longitude: number, assetId: number): Promise<ApiResponse<CheckRadiusResponse>> {
-    return apiClient.post<CheckRadiusResponse>('/api/attendance/check-radius', {
+  async checkRadius(latitude: number, longitude: number, assetId: number | string): Promise<ApiResponse<CheckRadiusResponse>> {
+    return apiClient.post<CheckRadiusResponse>('/api/attendances/check-radius', {
       latitude,
       longitude,
       asset_id: assetId
     })
   },
 
-  async checkIn(assetId: number, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
-    return apiClient.post<Attendance>('/api/attendance/check-in', {
-      asset_id: assetId,
+  async checkIn(assetId: number | string, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
+    // Validate assetId - can be UUID (string) or number
+    if (!assetId || assetId === null || assetId === undefined) {
+      return Promise.resolve({
+        success: false,
+        error: 'Asset ID tidak valid'
+      })
+    }
+
+    // Convert to string for validation, but keep original type
+    const asset_id = assetId
+
+    if (typeof latitude !== 'number' || isNaN(latitude)) {
+      return Promise.resolve({
+        success: false,
+        error: 'Latitude tidak valid'
+      })
+    }
+
+    if (typeof longitude !== 'number' || isNaN(longitude)) {
+      return Promise.resolve({
+        success: false,
+        error: 'Longitude tidak valid'
+      })
+    }
+
+    return apiClient.post<Attendance>('/api/attendances/check-in', {
+      asset_id,
       latitude,
       longitude,
       notes
     })
   },
 
-  async checkOut(assetId: number, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
-    return apiClient.post<Attendance>('/api/attendance/check-out', {
-      asset_id: assetId,
+  async checkOut(assetId: number | string, latitude: number, longitude: number, notes?: string): Promise<ApiResponse<Attendance>> {
+    // Validate assetId - can be UUID (string) or number
+    if (!assetId || assetId === null || assetId === undefined) {
+      return Promise.resolve({
+        success: false,
+        error: 'Asset ID tidak valid'
+      })
+    }
+
+    // Convert to string for validation, but keep original type
+    const asset_id = assetId
+
+    if (typeof latitude !== 'number' || isNaN(latitude)) {
+      return Promise.resolve({
+        success: false,
+        error: 'Latitude tidak valid'
+      })
+    }
+
+    if (typeof longitude !== 'number' || isNaN(longitude)) {
+      return Promise.resolve({
+        success: false,
+        error: 'Longitude tidak valid'
+      })
+    }
+
+    return apiClient.post<Attendance>('/api/attendances/check-out', {
+      asset_id,
       latitude,
       longitude,
       notes
     })
   },
 
-  async getTodayStatus(assetId: number): Promise<ApiResponse<AttendanceStatus>> {
-    return apiClient.get<AttendanceStatus>(`/api/attendance/today-status/${assetId}`)
+  async getTodayStatus(assetId: number | string): Promise<ApiResponse<AttendanceStatus>> {
+    // Validate assetId - can be UUID (string) or number
+    if (!assetId || assetId === null || assetId === undefined) {
+      return Promise.resolve({
+        success: false,
+        error: 'Asset ID tidak valid'
+      })
+    }
+
+    // Keep original type (UUID string or number)
+    const id = assetId
+
+    return apiClient.get<AttendanceStatus>(`/api/attendances/today-status/${id}`)
   },
 
-  async getWeeklyHistory(assetId: number): Promise<ApiResponse<Attendance[]>> {
-    return apiClient.get<Attendance[]>(`/api/attendance/weekly-history?asset_id=${assetId}`)
+  async getUserAttendanceHistory(limit?: number): Promise<ApiResponse<Attendance[]>> {
+    const queryParams = limit ? `?limit=${limit}` : ''
+    return apiClient.get<Attendance[]>(`/api/attendances/history${queryParams}`)
+  },
+
+  async getWeeklyHistory(assetId: number | string): Promise<ApiResponse<Attendance[]>> {
+    // Validate assetId - can be UUID (string) or number
+    if (!assetId || assetId === null || assetId === undefined) {
+      return Promise.resolve({
+        success: false,
+        error: 'Asset ID tidak valid'
+      })
+    }
+
+    // Keep original type (UUID string or number)
+    const id = assetId
+
+    return apiClient.get<Attendance[]>(`/api/attendances/weekly-history?asset_id=${id}`)
   }
 }
 
@@ -1071,6 +1194,13 @@ export interface TaskGroup {
   is_active: boolean
   created_at: string
   updated_at: string
+  parent_tasks?: TaskWithUserTasks[]
+  child_tasks?: TaskWithUserTasks[]
+}
+
+export interface TaskWithUserTasks extends Task {
+  user_tasks?: UserTask[]
+  child_tasks?: TaskWithUserTasks[]
 }
 
 export interface CreateTaskGroupData {
@@ -1199,6 +1329,10 @@ export const taskGroupsApi = {
   async deleteTaskGroup(id: number): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/task-groups/${id}`)
   },
+
+  async getTaskGroupsForWork(): Promise<ApiResponse<UserTask[]>> {
+    return apiClient.get<UserTask[]>('/api/user-tasks')
+  },
 }
 
 // Tasks-specific API functions
@@ -1317,18 +1451,25 @@ export const scanInfoApi = {
 
 // User Task API interface
 export interface UserTask {
-  id: number
+  id?: number
+  user_task_id?: number | string
   user_id: string
-  task_id: number
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
-  scheduled_at: string
+  task_id: number | string
+  status: 'pending' | 'inprogress' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_at?: string
   started_at?: string
-  completed_at?: string
-  notes?: string
+  start_at?: string | null
+  completed_at?: string | null
+  notes?: string | null
+  code?: string
+  is_main_task?: boolean
+  parent_user_task_id?: number | string | null
   created_at: string
-  updated_at: string
+  updated_at?: string | null
   task?: Task
   user?: User
+  evidences?: any[]
+  sub_user_task?: UserTask[]
 }
 
 export interface CreateUserTaskData {
@@ -1371,6 +1512,10 @@ export const userTasksApi = {
 
   async completeUserTask(id: number, data?: { notes?: string }): Promise<ApiResponse<UserTask>> {
     return apiClient.put<UserTask>(`/api/user-tasks/${id}/complete`, data)
+  },
+
+  async completeUserTaskWithFiles(id: number, formData: FormData): Promise<ApiResponse<UserTask>> {
+    return apiClient.putFormData<UserTask>(`/api/user-tasks/${id}/complete`, formData)
   },
 }
 

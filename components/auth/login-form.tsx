@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition, useRef } from 'react'
 import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { showToast } from '@/lib/toast'
 import Link from 'next/link'
 import { z } from 'zod'
@@ -22,6 +23,7 @@ import SocialLogin from './social-login'
 import { loginSchema } from '@/lib/zod'
 import { useLoading } from '@/contexts/LoadingContext'
 import { handleLoginAction } from './actions/login'
+import { usersApi, apiClient } from '@/lib/api'
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -29,12 +31,13 @@ const LoginForm = () => {
   const { loading, setLoading } = useLoading()
   const [isSubmitting, setIsSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null)
+  const router = useRouter()
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'superadmin@example.com',
-      password: 'superadmin123',
+      password: 'superadmin',
     },
   })
 
@@ -56,16 +59,76 @@ const LoginForm = () => {
           localStorage.setItem('auth_token', res.token)
           localStorage.setItem('user_data', JSON.stringify(res.user))
           
-          // Use NextAuth signIn with custom credentials
-          await signIn('credentials', {
-            redirect: true,
-            email: values.email,
-            password: values.password,
-            token: res.token,
-            user: res.user,
-            callbackUrl: '/dashboard',
-          })
-          showToast.success('Login berhasil!')
+          // Update apiClient token immediately so it can be used in the next request
+          apiClient.setToken(res.token)
+          
+          // Check if user has access to dashboard
+          try {
+            const permissionsResponse = await usersApi.getUserPermissions()
+            
+            if (permissionsResponse.success && permissionsResponse.data) {
+              const permissions = permissionsResponse.data.permissions || permissionsResponse.data || []
+              
+              // Check if user has view access to dashboard menu
+              // Dashboard menu has id: 1 in database, title: 'Dashboard'
+              const hasDashboardAccess = permissions.some(
+                (perm: any) => {
+                  const menuId = perm.menu_id || perm.menu?.id
+                  const menuTitle = perm.menu?.title
+                  
+                  // Check if this is dashboard menu (id: 1 or '1' or 'dashboard', title: 'Dashboard')
+                  const isDashboard = 
+                    menuId === 1 || 
+                    menuId === '1' || 
+                    menuId === 'dashboard' ||
+                    menuTitle === 'Dashboard'
+                  
+                  return isDashboard && perm.can_view === true
+                }
+              )
+              
+              // Use NextAuth signIn with custom credentials
+              await signIn('credentials', {
+                redirect: false,
+                email: values.email,
+                password: values.password,
+                token: res.token,
+                user: res.user,
+              })
+              
+              showToast.success('Login berhasil!')
+              
+              // Redirect based on dashboard access
+              if (hasDashboardAccess) {
+                router.push('/dashboard')
+              } else {
+                router.push('/welcome')
+              }
+            } else {
+              // If unable to fetch permissions, redirect to welcome as fallback
+              await signIn('credentials', {
+                redirect: false,
+                email: values.email,
+                password: values.password,
+                token: res.token,
+                user: res.user,
+              })
+              showToast.success('Login berhasil!')
+              router.push('/welcome')
+            }
+          } catch (permError) {
+            console.error('Error checking dashboard access:', permError)
+            // If error checking permissions, redirect to welcome as fallback
+            await signIn('credentials', {
+              redirect: false,
+              email: values.email,
+              password: values.password,
+              token: res.token,
+              user: res.user,
+            })
+            showToast.success('Login berhasil!')
+            router.push('/welcome')
+          }
         } else {
           showToast.error('Login gagal. Silakan coba lagi.')
         }

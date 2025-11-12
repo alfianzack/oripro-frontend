@@ -4,7 +4,7 @@ import { signIn, signOut } from "@/auth";
 
 export async function doSocialLogin (formData:FormData) {
     const action = formData.get('action');
-    await signIn(action as string, { redirectTo: '/dashboard' });
+    await signIn(action as string, { redirectTo: '/welcome' });
 }
 
 export async function doLogout () {
