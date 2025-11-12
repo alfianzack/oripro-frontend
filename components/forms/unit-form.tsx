@@ -30,9 +30,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
     name: '',
     asset_id: '',
     size: '',
-    rent_price: '',
-    lamp: '',
-    electric_socket: '',
     electrical_power: '',
     electrical_unit: 'Watt',
     is_toilet_exist: false,
@@ -72,9 +69,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
         name: unit.name || '',
         asset_id: unit.asset?.id || '',
         size: unit.size?.toString() || '',
-        rent_price: unit.rent_price?.toString() || '',
-        lamp: unit.lamp?.toString() || '',
-        electric_socket: unit.electric_socket?.toString() || '',
         electrical_power: unit.electrical_power?.toString() || '',
         electrical_unit: unit.electrical_unit || 'Watt',
         is_toilet_exist: unit.is_toilet_exist || false,
@@ -109,10 +103,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
       newErrors.size = 'Ukuran harus diisi dan lebih dari 0'
     }
 
-    if (!formData.rent_price || parseFloat(formData.rent_price) <= 0) {
-      newErrors.rent_price = 'Harga sewa harus diisi dan lebih dari 0'
-    }
-
     if (!formData.electrical_power || parseFloat(formData.electrical_power) <= 0) {
       newErrors.electrical_power = 'Daya listrik harus diisi dan lebih dari 0'
     }
@@ -132,9 +122,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
       name: formData.name.trim(),
       asset_id: formData.asset_id,
       size: parseFloat(formData.size),
-      rent_price: parseFloat(formData.rent_price),
-      lamp: formData.lamp ? parseInt(formData.lamp) : 0,
-      electric_socket: formData.electric_socket ? parseInt(formData.electric_socket) : 0,
       electrical_power: parseFloat(formData.electrical_power),
       electrical_unit: formData.electrical_unit,
       is_toilet_exist: formData.is_toilet_exist,
@@ -217,21 +204,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="rent_price">Harga Sewa (Rp) *</Label>
-              <Input
-                id="rent_price"
-                type="number"
-                min="0"
-                value={formData.rent_price}
-                onChange={(e) => handleInputChange('rent_price', e.target.value)}
-                placeholder="Masukkan harga sewa"
-                className={errors.rent_price ? 'border-red-500' : ''}
-              />
-              {errors.rent_price && (
-                <p className="text-sm text-red-500">{errors.rent_price}</p>
-              )}
-            </div>
           </div>
 
           <div className="space-y-2">
@@ -254,30 +226,6 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lamp">Jumlah Lampu</Label>
-              <Input
-                id="lamp"
-                type="number"
-                min="0"
-                value={formData.lamp}
-                onChange={(e) => handleInputChange('lamp', e.target.value)}
-                placeholder="Masukkan jumlah lampu"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="electric_socket">Jumlah Stop Kontak</Label>
-              <Input
-                id="electric_socket"
-                type="number"
-                min="0"
-                value={formData.electric_socket}
-                onChange={(e) => handleInputChange('electric_socket', e.target.value)}
-                placeholder="Masukkan jumlah stop kontak"
-              />
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="electrical_power">Daya Listrik *</Label>
               <div className="flex gap-2">

@@ -100,7 +100,7 @@ export default function EditScanInfoPage() {
 
   return (
     <>
-      <DashboardBreadcrumb title="Edit Scan Info" text={`Edit Scan Info: ${scanInfo.code}`} />
+      <DashboardBreadcrumb title="Edit Scan Info" text={`Edit Scan Info: ${scanInfo.scan_code}`} />
       <div className="max-w-6xl mx-auto space-y-6">
         <Card>
           <CardHeader>
@@ -110,7 +110,7 @@ export default function EditScanInfoPage() {
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              <CardTitle>Edit Scan Info: {scanInfo.code}</CardTitle>
+              <CardTitle>Edit Scan Info: {scanInfo.scan_code}</CardTitle>
             </div>
           </CardHeader>
 
