@@ -24,6 +24,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Handle root path - always redirect to /welcome
+  // Authentication check for /welcome will happen after redirect
+  if (pathname === "/") {
+    const welcomeUrl = new URL("/welcome", req.url);
+    return NextResponse.redirect(welcomeUrl);
+  }
+
   // Check if it's a public route
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
   
@@ -31,7 +38,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // For protected routes, check authentication
+  // For protected routes (including /welcome), check authentication
   let session = null;
   let isAuthenticated = false;
 

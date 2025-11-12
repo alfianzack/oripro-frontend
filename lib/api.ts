@@ -816,6 +816,11 @@ export const attendanceApi = {
     return apiClient.get<AttendanceStatus>(`/api/attendances/today-status/${id}`)
   },
 
+  async getUserAttendanceHistory(limit?: number): Promise<ApiResponse<Attendance[]>> {
+    const queryParams = limit ? `?limit=${limit}` : ''
+    return apiClient.get<Attendance[]>(`/api/attendances/history${queryParams}`)
+  },
+
   async getWeeklyHistory(assetId: number | string): Promise<ApiResponse<Attendance[]>> {
     // Validate assetId - can be UUID (string) or number
     if (!assetId || assetId === null || assetId === undefined) {
