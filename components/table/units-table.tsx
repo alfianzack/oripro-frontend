@@ -123,9 +123,6 @@ export default function UnitsTable({
               <TableHead>Nama Unit</TableHead>
               <TableHead>Asset</TableHead>
               <TableHead>Ukuran (m²)</TableHead>
-              <TableHead>Harga Sewa</TableHead>
-              <TableHead>Lampu</TableHead>
-              <TableHead>Stop Kontak</TableHead>
               <TableHead>Daya Listrik</TableHead>
               <TableHead>Toilet</TableHead>
               <TableHead>Status</TableHead>
@@ -136,7 +133,7 @@ export default function UnitsTable({
           <TableBody>
             {units.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Tidak ada data unit
                 </TableCell>
               </TableRow>
@@ -154,15 +151,6 @@ export default function UnitsTable({
                   </TableCell>
                   <TableCell>
                     {unit.size ? `${unit.size} m²` : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {unit.rent_price ? formatCurrency(unit.rent_price) : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {unit.lamp || 0}
-                  </TableCell>
-                  <TableCell>
-                    {unit.electric_socket || 0}
                   </TableCell>
                   <TableCell>
                     {unit.electrical_power ? `${unit.electrical_power} ${unit.electrical_unit || 'Watt'}` : '-'}

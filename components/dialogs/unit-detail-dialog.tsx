@@ -5,7 +5,7 @@ import { Unit } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Home, X, Square, Zap, Lightbulb, Plug, Calendar, Edit } from 'lucide-react'
+import { History, Home, X, Square, Zap, Calendar, Edit } from 'lucide-react'
 import Link from 'next/link'
 import UnitLogsTable from '@/components/table/unit-logs-table'
 
@@ -71,15 +71,6 @@ export default function UnitDetailDialog({
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount)
   }
 
   return (
@@ -184,12 +175,6 @@ export default function UnitDetailDialog({
                           </div>
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
-                              Harga Sewa
-                            </label>
-                            <p className="text-sm font-medium">{formatCurrency(unit.rent_price)}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-muted-foreground">
                               Status
                             </label>
                             <div className="mt-1">
@@ -220,24 +205,6 @@ export default function UnitDetailDialog({
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-muted-foreground">
-                              Jumlah Lampu
-                            </label>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <Lightbulb className="h-4 w-4" />
-                              {unit.lamp} buah
-                            </p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-muted-foreground">
-                              Jumlah Stop Kontak
-                            </label>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <Plug className="h-4 w-4" />
-                              {unit.electric_socket} buah
-                            </p>
-                          </div>
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
                               Daya Listrik
