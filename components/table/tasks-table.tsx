@@ -63,7 +63,8 @@ export default function TasksTable({
 
     setDeleting(true)
     try {
-      const response = await tasksApi.deleteTask(taskToDelete.id)
+      const taskId = typeof taskToDelete.id === 'string' ? parseInt(taskToDelete.id, 10) : taskToDelete.id
+      const response = await tasksApi.deleteTask(taskId)
       
       if (response.success) {
         toast.success('Task deleted successfully')

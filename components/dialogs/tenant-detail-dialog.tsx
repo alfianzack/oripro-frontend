@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, tenantsApi } from '@/lib/api'
+import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { History, Building2, X, Edit, Wallet } from 'lucide-react'
+import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
 
@@ -31,6 +31,7 @@ export default function TenantDetailDialog({
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
   const [depositLogs, setDepositLogs] = useState<TenantDepositLog[]>([])
+  const [paymentLogs, setPaymentLogs] = useState<TenantPaymentLog[]>([])
 
   useEffect(() => {
     setMounted(true)
@@ -55,6 +56,26 @@ export default function TenantDetailDialog({
     }
 
     loadDepositLogs()
+  }, [open, tenant?.id])
+
+  // Fetch payment logs when dialog opens and tenant is available
+  useEffect(() => {
+    const loadPaymentLogs = async () => {
+      if (open && tenant?.id) {
+        try {
+          const response = await tenantsApi.getTenantPaymentLogs(tenant.id)
+          if (response.success && response.data) {
+            const logsData = response.data as any
+            const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+            setPaymentLogs(logs)
+          }
+        } catch (error) {
+          console.error('Load payment logs error:', error)
+        }
+      }
+    }
+
+    loadPaymentLogs()
   }, [open, tenant?.id])
 
   useEffect(() => {
@@ -157,12 +178,20 @@ export default function TenantDetailDialog({
                   {contractStatus.label}
                 </Badge>
               </div>
-              <Button asChild>
-                <Link href={`/tenants/edit/${tenant.id}`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Tenant
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" asChild>
+                  <Link href={`/tenants/payment/${tenant.id}`}>
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Update Payment
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href={`/tenants/edit/${tenant.id}`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Tenant
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             {/* Custom Tabs */}
@@ -200,6 +229,17 @@ export default function TenantDetailDialog({
                 >
                   <Wallet className="h-4 w-4" />
                   History Deposito
+                </button>
+                <button
+                  onClick={() => setActiveTab('payment')}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'payment'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  History Pembayaran
                 </button>
               </div>
 
@@ -491,6 +531,84 @@ export default function TenantDetailDialog({
                           <div className="text-center py-8 text-muted-foreground">
                             <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
                             <p>Tidak ada history deposito</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {activeTab === 'payment' && (
+                  <div className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <CreditCard className="h-5 w-5" />
+                          History Pembayaran
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {paymentLogs.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Tanggal</TableHead>
+                                  <TableHead>Tanggal Pembayaran</TableHead>
+                                  <TableHead>Jumlah</TableHead>
+                                  <TableHead>Metode Pembayaran</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead>Catatan</TableHead>
+                                  <TableHead>Dibuat Oleh</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {paymentLogs.map((log) => {
+                                  const amount = log.amount || 0
+                                  const formattedAmount = new Intl.NumberFormat('id-ID', {
+                                    style: 'currency',
+                                    currency: 'IDR',
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }).format(amount)
+
+                                  return (
+                                    <TableRow key={log.id}>
+                                      <TableCell className="text-sm">
+                                        {formatDate(log.created_at)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {log.payment_date ? formatDate(log.payment_date) : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {amount > 0 ? formattedAmount : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {log.payment_method || '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {log.notes || '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {log.created_by ? (
+                                          <div>
+                                            <p className="font-medium text-sm">{log.created_by.name}</p>
+                                            <p className="text-xs text-muted-foreground">{log.created_by.email}</p>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground">-</span>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <p>Tidak ada history pembayaran</p>
                           </div>
                         )}
                       </CardContent>

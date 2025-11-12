@@ -69,8 +69,9 @@ export default function TaskDetailDialog({
 
   if (!task || !open) return null
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!mounted) return 'Loading...'
+    if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',

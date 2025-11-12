@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, tenantsApi, DURATION_UNIT_LABELS } from '@/lib/api'
+import { Tenant, tenantsApi, DURATION_UNIT_LABELS, DURATION_UNITS } from '@/lib/api'
 import {
   Table,
   TableBody,
@@ -205,8 +205,27 @@ export default function TenantsTable({
                     {(() => {
                       try {
                         const duration = tenant.rent_duration || 0;
-                        const unit = DURATION_UNIT_LABELS[tenant.rent_duration_unit] || tenant.rent_duration_unit || '';
-                        return `${duration} ${unit}`;
+                        let unit = '';
+                        if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
+                          // Handle numeric format: 0 = month, 1 = year
+                          const unitValue = Number(tenant.rent_duration_unit);
+                          if (unitValue === 1) {
+                            unit = 'tahun';
+                          } else if (unitValue === 0) {
+                            unit = 'bulan';
+                          } else {
+                            // Fallback: handle string format
+                            const unitString = String(tenant.rent_duration_unit).toLowerCase();
+                            if (unitString === 'year' || unitString === DURATION_UNITS.YEAR) {
+                              unit = 'tahun';
+                            } else if (unitString === 'month' || unitString === DURATION_UNITS.MONTH) {
+                              unit = 'bulan';
+                            } else {
+                              unit = tenant.rent_duration_unit;
+                            }
+                          }
+                        }
+                        return duration > 0 && unit ? `${duration} ${unit}` : '-';
                       } catch (error) {
                         console.error('Error rendering duration field:', error, tenant.rent_duration, tenant.rent_duration_unit);
                         return '-';

@@ -56,11 +56,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     rent_duration: '',
     rent_duration_unit: DURATION_UNITS.MONTH,
     unit_ids: [] as string[],
-    categories: [] as number[],
+    category: 0,
     rent_price: 0,
     down_payment: 0,
     deposit: 0,
     deposit_reason: '',
+    payment_term: '',
     status: 'pending',
   })
   const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('existing')
@@ -143,8 +144,41 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       // Extract unit IDs from units array if it exists, otherwise use unit_ids
       const unitIds = tenant.units && Array.isArray(tenant.units) ? tenant.units.filter(unit => unit != null).map((unit: any) => unit.id) : (tenant.unit_ids || [])
       
-      // Extract category IDs from categories array if it exists, otherwise use categories as is
-      const categoryIds = tenant.categories && Array.isArray(tenant.categories) ? tenant.categories.filter(category => category != null).map((category: any) => category.id || category) : []
+      // Extract category value from tenant.category object
+      let categoryValue: number = 0
+      if (tenant.category) {
+        if (typeof tenant.category === 'object' && tenant.category.id !== undefined) {
+          categoryValue = typeof tenant.category.id === 'number' ? tenant.category.id : parseInt(String(tenant.category.id), 10)
+        } else if (typeof tenant.category === 'number') {
+          categoryValue = tenant.category
+        } else {
+          categoryValue = parseInt(String(tenant.category), 10)
+        }
+        // Ensure it's a valid number
+        if (isNaN(categoryValue) || categoryValue <= 0) {
+          categoryValue = 0
+        }
+      }
+      
+      // Also check tenant.categories for backward compatibility
+      if (categoryValue === 0 && tenant.categories) {
+        if (Array.isArray(tenant.categories) && tenant.categories.length > 0) {
+          const firstCategory = tenant.categories[0]
+          if (typeof firstCategory === 'object' && firstCategory.id !== undefined) {
+            categoryValue = typeof firstCategory.id === 'number' ? firstCategory.id : parseInt(String(firstCategory.id), 10)
+          } else {
+            categoryValue = typeof firstCategory === 'number' ? firstCategory : parseInt(String(firstCategory), 10)
+          }
+          if (isNaN(categoryValue) || categoryValue <= 0) {
+            categoryValue = 0
+          }
+        } else if (!Array.isArray(tenant.categories)) {
+          categoryValue = typeof tenant.categories === 'number' ? tenant.categories : parseInt(String(tenant.categories), 10)
+          if (isNaN(categoryValue) || categoryValue <= 0) {
+            categoryValue = 0
+          }
+        }
+      }
       
       setFormData({
         name: tenant.name || '',
@@ -152,15 +186,16 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         contract_begin_at: tenant.contract_begin_at ? new Date(tenant.contract_begin_at).toISOString().split('T')[0] : '',
         contract_end_at: tenant.contract_end_at ? new Date(tenant.contract_end_at).toISOString().split('T')[0] : '',
         rent_duration: tenant.rent_duration ? tenant.rent_duration.toString() : '',
-        rent_duration_unit: tenant.rent_duration_unit !== undefined ? 
-          (String(tenant.rent_duration_unit) === '0' ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH) : 
+        rent_duration_unit: tenant.rent_duration_unit ? 
+          (tenant.rent_duration_unit === DURATION_UNITS.YEAR || String(tenant.rent_duration_unit).toLowerCase() === 'year' ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH) : 
           DURATION_UNITS.MONTH,
         unit_ids: unitIds,
-        categories: categoryIds,
+        category: categoryValue,
         rent_price: tenant.rent_price || 0,
         down_payment: tenant.down_payment || 0,
         deposit: tenant.deposit || 0,
         deposit_reason: '',
+        payment_term: tenant.payment_term || (tenant.rent_duration_unit === DURATION_UNITS.MONTH ? DURATION_UNITS.MONTH : (tenant.rent_duration_unit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH)),
         status: (tenant as any).status || 'pending',
       })
       
@@ -214,12 +249,17 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       newErrors.unit_ids = 'Minimal satu unit harus dipilih'
     }
 
-    if (!formData.categories || formData.categories.length === 0) {
-      newErrors.categories = 'Kategori harus dipilih'
+    if (!formData.category || formData.category === 0) {
+      newErrors.category = 'Kategori harus dipilih'
     }
 
     if (!formData.rent_price || formData.rent_price <= 0) {
       newErrors.rent_price = 'Harga sewa harus diisi dan lebih dari 0'
+    }
+
+    // Validate payment_term (only when creating and rent_duration_unit is year)
+    if (!tenant && formData.rent_duration_unit === DURATION_UNITS.YEAR && !formData.payment_term) {
+      newErrors.payment_term = 'Periode pembayaran harus dipilih'
     }
 
     // Validate deposit reason when updating deposit (only when editing)
@@ -332,10 +372,11 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         rent_duration: parseInt(formData.rent_duration) || 0,
         rent_duration_unit: formData.rent_duration_unit,
         unit_ids: formData.unit_ids,
-        categories: formData.categories,
+        categories: [formData.category],
         rent_price: formData.rent_price,
         ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
         ...(formData.deposit > 0 ? { deposit: formData.deposit } : {}),
+        ...(formData.payment_term && !tenant ? { payment_term: formData.payment_term } : {}),
         ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
         tenant_identifications: identificationUrls,
         contract_documents: contractUrls,
@@ -511,7 +552,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   }
 
   const selectCategory = (categoryId: number) => {
-    handleInputChange('categories', [categoryId])
+    handleInputChange('category', categoryId)
   }
 
 
@@ -539,6 +580,13 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       }))
     }
   }, [formData.contract_begin_at, formData.rent_duration, formData.rent_duration_unit])
+
+  // Auto-set payment_term to "month" when rent_duration_unit is "month"
+  useEffect(() => {
+    if (!tenant && formData.rent_duration_unit === DURATION_UNITS.MONTH) {
+      setFormData(prev => ({ ...prev, payment_term: DURATION_UNITS.MONTH }))
+    }
+  }, [formData.rent_duration_unit, tenant])
 
   const createNewUser = async () => {
     try {
@@ -947,14 +995,18 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="rent_price">Harga Sewa (Rent Price) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="rent_price">
+                  Harga Sewa (Rent Price) <span className="text-red-500">*</span>
+                  {tenant && <span className="text-muted-foreground text-sm ml-2">(tidak dapat diubah saat edit)</span>}
+                </Label>
                 <Input
                   id="rent_price"
                   type="text"
                   value={formatPrice(formData.rent_price)}
                   onChange={(e) => handlePriceChange('rent_price', e.target.value)}
                   placeholder="Masukkan harga sewa"
-                  className={errors.rent_price ? 'border-red-500' : ''}
+                  disabled={!!tenant}
+                  className={errors.rent_price ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
                 {errors.rent_price && (
                   <p className="text-sm text-red-500">{errors.rent_price}</p>
@@ -962,13 +1014,18 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="down_payment">Uang Muka (Down Payment)</Label>
+                <Label htmlFor="down_payment">
+                  Uang Muka (Down Payment)
+                  {tenant && <span className="text-muted-foreground text-sm ml-2">(tidak dapat diubah saat edit)</span>}
+                </Label>
                 <Input
                   id="down_payment"
                   type="text"
                   value={formatPrice(formData.down_payment)}
                   onChange={(e) => handlePriceChange('down_payment', e.target.value)}
                   placeholder="Masukkan uang muka"
+                  disabled={!!tenant}
+                  className={tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
               </div>
 
@@ -982,6 +1039,82 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   placeholder="Masukkan deposit"
                 />
               </div>
+
+              {/* Payment Term - Only show when creating and rent_duration_unit is year */}
+              {!tenant && formData.rent_duration_unit === DURATION_UNITS.YEAR && (
+                <div className="space-y-2">
+                  <Label htmlFor="payment_term">Periode Pembayaran (Payment Term) <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={formData.payment_term}
+                    onValueChange={(value) => handleInputChange('payment_term', value)}
+                  >
+                    <SelectTrigger className={errors.payment_term ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Pilih periode pembayaran" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={DURATION_UNITS.MONTH}>
+                        Monthly
+                      </SelectItem>
+                      <SelectItem value={DURATION_UNITS.YEAR}>
+                        Annual
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.payment_term && (
+                    <p className="text-sm text-red-500">{errors.payment_term}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Pilih apakah pembayaran dilakukan per bulan atau per tahun
+                  </p>
+                </div>
+              )}
+
+              {/* Price Per Term Display - Show when creating or editing, when all required fields are filled */}
+              {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && formData.payment_term.trim() !== '' && (
+                <div className="space-y-2">
+                  <Label>
+                    Harga Dibayar per {formData.payment_term === DURATION_UNITS.YEAR ? 'Tahun' : 'Bulan'}
+                  </Label>
+                  <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {(() => {
+                        const rentPrice = formData.rent_price || 0
+                        const downPayment = formData.down_payment || 0
+                        const duration = parseInt(formData.rent_duration) || 0
+                        const durationUnit = formData.rent_duration_unit
+                        const paymentTerm = formData.payment_term
+                        
+                        if (duration > 0 && paymentTerm) {
+                          // Convert duration to months
+                          let durationInMonths = duration
+                          if (durationUnit === DURATION_UNITS.YEAR) {
+                            durationInMonths = duration * 12
+                          }
+                          
+                          // Calculate number of payments based on payment_term
+                          let numberOfPayments = durationInMonths
+                          if (paymentTerm === DURATION_UNITS.YEAR) {
+                            numberOfPayments = durationInMonths / 12
+                          }
+                          
+                          // Formula: (rent_price - down_payment) / numberOfPayments
+                          const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
+                          
+                          if (numberOfPayments > 0 && pricePerTerm > 0) {
+                            return new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }).format(pricePerTerm)
+                          }
+                        }
+                        return '-'
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Deposit Reason - Only show when editing and deposit is being updated */}
               {tenant && formData.deposit !== originalDeposit && (
@@ -1022,22 +1155,22 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             <div className='space-y-2'>
               <Label htmlFor="categories">Kategori *</Label>
               <Select
-                value={formData.categories.length > 0 ? formData.categories[0].toString() : ''}
+                value={formData.category > 0 ? String(formData.category) : ''}
                 onValueChange={(value) => selectCategory(parseInt(value))}
               >
-                <SelectTrigger className={errors.categories ? 'border-red-500' : ''}>
+                <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value.toString()}>
+                    <SelectItem key={option.value} value={String(option.value)}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.categories && (
-                <p className="text-sm text-red-500">{errors.categories}</p>
+              {errors.category && (
+                <p className="text-sm text-red-500">{errors.category}</p>
               )}
             </div>
 
