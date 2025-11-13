@@ -213,7 +213,7 @@ export default function AttendanceCard() {
       
       let found = false;
       let nearest = null;
-      let minDistance = Infinity;
+      let minDistance = 20000;
       
       for (const asset of assets) {
         
@@ -227,17 +227,12 @@ export default function AttendanceCard() {
         }
         
         const dist = getDistanceFromLatLonInMeters(location.lat, location.lng, assetLat, assetLng);
-        
-        if (dist < 2000) { // 1000 meter threshold for easier testing
+        console.log('Distance:', dist);
+        if (dist < minDistance) { // 1000 meter threshold for easier testing
           found = true;
           nearest = asset;
-          break;
-        }
-        
-        // Keep track of nearest asset for debugging
-        if (dist < minDistance) {
           minDistance = dist;
-          nearest = asset;
+          break;
         }
       }
       
@@ -251,6 +246,8 @@ export default function AttendanceCard() {
         if (assetId !== null && assetId !== undefined && assetId !== '') {
           setNearestAsset({id: String(assetId), name: nearest.name});
           // Check today's attendance status if near asset
+          console.log('Checking today status for asset ID:', assetId);
+          console.log('Found:', found);
           if (found) {
             checkTodayStatus(assetId);
           }

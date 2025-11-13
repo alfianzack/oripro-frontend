@@ -79,7 +79,7 @@ export function CompleteTaskDialog({
           console.log('[LOCATION] Distance:', distance, 'meters')
           
           // Allow if within 50 meters (adjust as needed)
-          const maxDistance = 1000 // meters
+          const maxDistance = 20000 // meters
           const isValid = distance <= maxDistance
           
           setIsLocationValid(isValid)
@@ -205,20 +205,15 @@ export function CompleteTaskDialog({
   }
 
   const handleScanBarcode = async () => {
-    console.log('[SCAN] 🎬 Starting barcode scan process')
-    
     try {
       // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('[SCAN] ❌ getUserMedia not available')
         toast.error('Browser tidak mendukung akses kamera')
         return
       }
 
-      console.log('[SCAN] 📦 Loading html5-qrcode library...')
       // Dynamic import html5-qrcode
       const { Html5Qrcode } = await import('html5-qrcode')
-      console.log('[SCAN] ✅ Html5Qrcode loaded:', typeof Html5Qrcode)
 
       const modal = document.createElement('div')
       modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'
@@ -246,26 +241,21 @@ export function CompleteTaskDialog({
       // Helper function to safely stop scanner
       const safeStopScanner = async () => {
         if (isStopped) {
-          console.log('[SCAN] Scanner already stopped, skipping')
           return
         }
         isStopped = true
         isScanning = false
         try {
           await html5QrCode.stop()
-          console.log('[SCAN] Scanner stopped successfully')
         } catch (err: any) {
           // Ignore error if scanner is already stopped
           if (err.message && err.message.includes('not running')) {
-            console.log('[SCAN] Scanner already stopped')
           } else {
-            console.error('[SCAN] Error stopping scanner:', err)
           }
         }
       }
 
       // Start scanning
-      console.log('[SCAN] 🚀 Starting html5-qrcode scanner...')
       
       // Try environment camera first, then fallback to user camera
       let cameraConfig: string | { facingMode: string } = { facingMode: 'environment' }
@@ -274,7 +264,6 @@ export function CompleteTaskDialog({
         // Try to get device list to find camera ID
         const devices = await navigator.mediaDevices.enumerateDevices()
         const videoDevices = devices.filter(device => device.kind === 'videoinput')
-        console.log('[SCAN] Available cameras:', videoDevices.map(d => ({ id: d.deviceId, label: d.label })))
         
         // Try to find back camera
         const backCamera = videoDevices.find(device => 
@@ -285,22 +274,14 @@ export function CompleteTaskDialog({
         
         if (backCamera) {
           cameraConfig = backCamera.deviceId
-          console.log('[SCAN] Using back camera:', backCamera.label)
         } else if (videoDevices.length > 0) {
           // Use first available camera
           cameraConfig = videoDevices[0].deviceId
-          console.log('[SCAN] Using first available camera:', videoDevices[0].label)
         }
       } catch (err) {
-        console.log('[SCAN] Could not enumerate devices, using facingMode:', err)
       }
       
       const onScanSuccess = async (decodedText: string, decodedResult: any) => {
-        console.log('[SCAN] ✅ QR Code detected!', {
-          text: decodedText,
-          result: decodedResult
-        })
-        
         if (isScanning) {
           isScanning = false
           
@@ -418,9 +399,7 @@ export function CompleteTaskDialog({
           onScanError
         )
         
-        console.log('[SCAN] ✅ Scanner started successfully')
       } catch (err: any) {
-        console.error('[SCAN] ❌ Error starting scanner:', err)
         
         // Fallback to user camera if environment camera fails
         if (typeof cameraConfig === 'object' && cameraConfig.facingMode === 'environment') {
@@ -437,9 +416,7 @@ export function CompleteTaskDialog({
               onScanSuccess,
               onScanError
             )
-            console.log('[SCAN] ✅ Scanner started with user camera')
           } catch (err2: any) {
-            console.error('[SCAN] ❌ Error starting scanner with user camera:', err2)
             toast.error('Gagal memulai scanner: ' + err2.message)
             if (document.body.contains(modal)) {
               document.body.removeChild(modal)
@@ -474,7 +451,6 @@ export function CompleteTaskDialog({
         }
       }
     } catch (error: any) {
-      console.error('Error accessing camera for barcode:', error)
       
       let errorMsg = 'Gagal mengakses kamera untuk scan barcode'
       
@@ -707,22 +683,6 @@ export function CompleteTaskDialog({
                   <Camera className="h-4 w-4" />
                   Scan Barcode
                 </Button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleFileChange('fileScan', file)
-                  }}
-                  className="hidden"
-                  id="file-scan-input"
-                />
-                <label htmlFor="file-scan-input">
-                  <Button type="button" variant="outline" asChild>
-                    <span>Pilih File</span>
-                  </Button>
-                </label>
               </div>
               {filePreview.scan && (
                 <img

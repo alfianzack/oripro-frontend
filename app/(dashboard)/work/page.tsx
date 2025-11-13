@@ -6,9 +6,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import { userTasksApi, UserTask } from '@/lib/api'
 import toast from 'react-hot-toast'
-import { GenerateTaskButton } from './components/GenerateTaskButton'
-import { TaskList } from './components/TaskList'
-import { CompleteTaskDialog } from './components/CompleteTaskDialog'
+import { GenerateTaskButton } from '../../../components/work/GenerateTaskButton'
+import { TaskList } from '../../../components/work/TaskList'
+import { CompleteTaskDialog } from '../../../components/work/CompleteTaskDialog'
 
 function WorkContent() {
   const pathname = usePathname()
@@ -18,27 +18,34 @@ function WorkContent() {
   const [selectedUserTask, setSelectedUserTask] = useState<UserTask | null>(null)
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false)
 
-  // Check if user tasks exist for today
-  const hasUserTasksToday = (tasks: UserTask[]): boolean => {
-    if (tasks.length === 0) return false
+  // Filter tasks for today only
+  const filterTasksForToday = (tasks: UserTask[]): UserTask[] => {
+    if (tasks.length === 0) return []
     
-    const today = new Date()
-    const jakartaToday = new Date(today.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+    // Get today's date string in Jakarta timezone (YYYY-MM-DD format)
+    const now = new Date()
+    const jakartaDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) // en-CA gives YYYY-MM-DD format
     
-    return tasks.some(task => {
-      if (!task.scheduled_at) return true // If no scheduled_at, assume it's for today
+    return tasks.filter(task => {
+      // Only include tasks with created_at (format: 2025-11-13T02:19:33.129Z)
+      if (!task.created_at) return false
       
       try {
-        const scheduledDate = new Date(task.scheduled_at)
-        const jakartaScheduled = new Date(scheduledDate.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+        // Parse ISO string format (2025-11-13T02:19:33.129Z)
+        const createdDate = new Date(task.created_at)
+        const createdDateStr = createdDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
         
-        return jakartaToday.getDate() === jakartaScheduled.getDate() &&
-               jakartaToday.getMonth() === jakartaScheduled.getMonth() &&
-               jakartaToday.getFullYear() === jakartaScheduled.getFullYear()
+        // Compare date strings (YYYY-MM-DD format)
+        return createdDateStr === jakartaDateStr
       } catch {
-        return true // On error, assume it's for today
+        return false // On error, exclude the task
       }
     })
+  }
+
+  // Check if user tasks exist for today
+  const hasUserTasksToday = (tasks: UserTask[]): boolean => {
+    return filterTasksForToday(tasks).length > 0
   }
 
   const loadUserTasks = async () => {
@@ -55,7 +62,6 @@ function WorkContent() {
         setUserTasks([])
       }
     } catch (error) {
-      console.error('Error loading user tasks:', error)
       toast.error('Terjadi kesalahan saat memuat data')
       setUserTasks([])
     } finally {
@@ -82,7 +88,6 @@ function WorkContent() {
         throw new Error(response.error || 'Gagal memulai task')
       }
     } catch (error: any) {
-      console.error('Error starting task:', error)
       toast.error(error.message || 'Terjadi kesalahan saat memulai task')
       throw error
     }
@@ -117,6 +122,7 @@ function WorkContent() {
     
   }
 
+  const tasksForToday = filterTasksForToday(userTasks)
   const hasTasksToday = hasUserTasksToday(userTasks)
 
   return (
@@ -150,7 +156,7 @@ function WorkContent() {
       {/* Task List */}
       {hasTasksToday && (
         <TaskList
-          userTasks={userTasks}
+          userTasks={tasksForToday}
           isLoading={isLoading}
           onStartTask={handleStartTask}
           onCompleteTask={handleCompleteTask}
