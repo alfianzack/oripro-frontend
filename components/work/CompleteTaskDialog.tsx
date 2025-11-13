@@ -213,7 +213,18 @@ export function CompleteTaskDialog({
       }
 
       // Dynamic import html5-qrcode
-      const { Html5Qrcode } = await import('html5-qrcode')
+      let Html5Qrcode
+      try {
+        const html5QrcodeModule = await import('html5-qrcode')
+        Html5Qrcode = html5QrcodeModule.Html5Qrcode || html5QrcodeModule.default?.Html5Qrcode || html5QrcodeModule.default
+        if (!Html5Qrcode) {
+          throw new Error('Html5Qrcode tidak ditemukan dalam modul html5-qrcode')
+        }
+      } catch (importError: any) {
+        console.error('[SCAN] Error importing html5-qrcode:', importError)
+        toast.error('Gagal memuat library scanner. Silakan refresh halaman.')
+        return
+      }
 
       const modal = document.createElement('div')
       modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'
@@ -231,6 +242,12 @@ export function CompleteTaskDialog({
       const qrReaderElement = modal.querySelector('#qr-reader') as HTMLDivElement
       const scanStatus = modal.querySelector('#scan-status') as HTMLParagraphElement
       const cancelBtn = modal.querySelector('#cancel-scan-btn') as HTMLButtonElement
+
+      if (!qrReaderElement) {
+        toast.error('Gagal membuat elemen scanner')
+        document.body.removeChild(modal)
+        return
+      }
 
       // Create Html5Qrcode instance
       const html5QrCode = new Html5Qrcode(qrReaderElement.id)
@@ -400,6 +417,9 @@ export function CompleteTaskDialog({
         )
         
       } catch (err: any) {
+        console.error('[SCAN] Error starting scanner:', err)
+        const errorMessage = err?.message || err?.toString() || 'Unknown error'
+        const errorName = err?.name || 'UnknownError'
         
         // Fallback to user camera if environment camera fails
         if (typeof cameraConfig === 'object' && cameraConfig.facingMode === 'environment') {
@@ -417,14 +437,40 @@ export function CompleteTaskDialog({
               onScanError
             )
           } catch (err2: any) {
-            toast.error('Gagal memulai scanner: ' + err2.message)
+            console.error('[SCAN] Fallback camera also failed:', err2)
+            const fallbackErrorMessage = err2?.message || err2?.toString() || 'Unknown error'
+            const fallbackErrorName = err2?.name || 'UnknownError'
+            
+            let errorMsg = 'Gagal memulai scanner'
+            if (fallbackErrorName === 'NotAllowedError' || fallbackErrorName === 'PermissionDeniedError') {
+              errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.'
+            } else if (fallbackErrorName === 'NotFoundError' || fallbackErrorName === 'DevicesNotFoundError') {
+              errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
+            } else if (fallbackErrorName === 'NotReadableError' || fallbackErrorName === 'TrackStartError') {
+              errorMsg = 'Kamera sedang digunakan oleh aplikasi lain.'
+            } else if (fallbackErrorMessage && fallbackErrorMessage !== 'Unknown error') {
+              errorMsg = `Gagal memulai scanner: ${fallbackErrorMessage}`
+            }
+            
+            toast.error(errorMsg)
             if (document.body.contains(modal)) {
               document.body.removeChild(modal)
             }
             return
           }
         } else {
-          toast.error('Gagal memulai scanner: ' + err.message)
+          let errorMsg = 'Gagal memulai scanner'
+          if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+            errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.'
+          } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+            errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
+          } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+            errorMsg = 'Kamera sedang digunakan oleh aplikasi lain.'
+          } else if (errorMessage && errorMessage !== 'Unknown error') {
+            errorMsg = `Gagal memulai scanner: ${errorMessage}`
+          }
+          
+          toast.error(errorMsg)
           if (document.body.contains(modal)) {
             document.body.removeChild(modal)
           }
@@ -451,19 +497,22 @@ export function CompleteTaskDialog({
         }
       }
     } catch (error: any) {
+      console.error('[SCAN] Unexpected error in handleScanBarcode:', error)
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      const errorName = error?.name || 'UnknownError'
       
       let errorMsg = 'Gagal mengakses kamera untuk scan barcode'
       
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.'
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
         errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
-      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
         errorMsg = 'Kamera sedang digunakan oleh aplikasi lain.'
-      } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+      } else if (errorName === 'OverconstrainedError' || errorName === 'ConstraintNotSatisfiedError') {
         errorMsg = 'Kamera tidak mendukung resolusi yang diminta.'
-      } else if (error.message) {
-        errorMsg = error.message
+      } else if (errorMessage && errorMessage !== 'Unknown error') {
+        errorMsg = errorMessage
       }
       
       toast.error(errorMsg)
