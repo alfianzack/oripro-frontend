@@ -212,7 +212,7 @@ export function CompleteTaskDialog({
         return
       }
 
-      // Dynamic import html5-qrcode
+      // Dynamic import html5-qrcode first
       let Html5Qrcode
       try {
         const html5QrcodeModule = await import('html5-qrcode')
@@ -226,12 +226,13 @@ export function CompleteTaskDialog({
         return
       }
 
+      // Create modal first
       const modal = document.createElement('div')
       modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'
       modal.innerHTML = `
         <div class="bg-white p-4 rounded-lg max-w-md w-full">
           <div id="qr-reader" class="w-full mb-4 rounded"></div>
-          <p id="scan-status" class="text-sm text-center text-gray-600 mb-4">Arahkan kamera ke QR code</p>
+          <p id="scan-status" class="text-sm text-center text-gray-600 mb-4">Meminta izin kamera...</p>
           <div class="flex gap-2">
             <button id="cancel-scan-btn" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded">Batal</button>
           </div>
@@ -243,9 +244,39 @@ export function CompleteTaskDialog({
       const scanStatus = modal.querySelector('#scan-status') as HTMLParagraphElement
       const cancelBtn = modal.querySelector('#cancel-scan-btn') as HTMLButtonElement
 
-      if (!qrReaderElement) {
+      if (!qrReaderElement || !scanStatus) {
         toast.error('Gagal membuat elemen scanner')
-        document.body.removeChild(modal)
+        if (document.body.contains(modal)) {
+          document.body.removeChild(modal)
+        }
+        return
+      }
+
+      // Request camera permission
+      let permissionGranted = false
+      let tempStream: MediaStream | null = null
+      
+      try {
+        // Request permission by accessing camera
+        scanStatus.textContent = 'Meminta izin kamera...'
+        tempStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        permissionGranted = true
+        // Stop the temporary stream immediately
+        tempStream.getTracks().forEach(track => track.stop())
+        tempStream = null
+      } catch (permissionError: any) {
+        const errorName = permissionError?.name || 'UnknownError'
+        if (document.body.contains(modal)) {
+          document.body.removeChild(modal)
+        }
+        
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+          toast.error('Izin kamera diperlukan untuk scan barcode. Silakan berikan izin kamera di pengaturan browser.')
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+          toast.error('Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.')
+        } else {
+          toast.error('Gagal mengakses kamera: ' + (permissionError?.message || 'Unknown error'))
+        }
         return
       }
 
@@ -266,36 +297,51 @@ export function CompleteTaskDialog({
           await html5QrCode.stop()
         } catch (err: any) {
           // Ignore error if scanner is already stopped
-          if (err.message && err.message.includes('not running')) {
+          if (err?.message && err.message.includes('not running')) {
           } else {
           }
         }
       }
 
-      // Start scanning
-      
-      // Try environment camera first, then fallback to user camera
-      let cameraConfig: string | { facingMode: string } = { facingMode: 'environment' }
+      // Get camera configuration after permission is granted
+      let cameraConfig: string | { facingMode: string } | null = null
       
       try {
-        // Try to get device list to find camera ID
+        scanStatus.textContent = 'Mencari kamera...'
+        // Now enumerate devices (permission already granted)
         const devices = await navigator.mediaDevices.enumerateDevices()
-        const videoDevices = devices.filter(device => device.kind === 'videoinput')
+        const videoDevices = devices.filter(device => device.kind === 'videoinput' && device.deviceId)
+        
+        if (videoDevices.length === 0) {
+          throw new Error('Tidak ada kamera yang tersedia')
+        }
         
         // Try to find back camera
-        const backCamera = videoDevices.find(device => 
-          device.label.toLowerCase().includes('back') || 
-          device.label.toLowerCase().includes('rear') ||
-          device.label.toLowerCase().includes('environment')
-        )
+        const backCamera = videoDevices.find(device => {
+          const label = device.label.toLowerCase()
+          return label.includes('back') || label.includes('rear') || label.includes('environment')
+        })
         
-        if (backCamera) {
+        if (backCamera && backCamera.deviceId) {
           cameraConfig = backCamera.deviceId
-        } else if (videoDevices.length > 0) {
+          console.log('[SCAN] Using back camera:', backCamera.label)
+        } else if (videoDevices[0]?.deviceId) {
           // Use first available camera
           cameraConfig = videoDevices[0].deviceId
+          console.log('[SCAN] Using first available camera:', videoDevices[0].label)
+        } else {
+          throw new Error('Tidak ada kamera yang valid')
         }
-      } catch (err) {
+      } catch (err: any) {
+        console.error('[SCAN] Error enumerating devices:', err)
+        // Fallback to facingMode if device enumeration fails
+        cameraConfig = { facingMode: 'environment' }
+        console.log('[SCAN] Falling back to facingMode: environment')
+      }
+
+      // Ensure cameraConfig is not null
+      if (!cameraConfig) {
+        cameraConfig = { facingMode: 'environment' }
       }
       
       const onScanSuccess = async (decodedText: string, decodedResult: any) => {
@@ -403,7 +449,14 @@ export function CompleteTaskDialog({
         }
       }
 
+      // Start scanning with the configured camera
+      scanStatus.textContent = 'Memulai scanner...'
+      
       try {
+        if (!cameraConfig) {
+          throw new Error('Konfigurasi kamera tidak tersedia')
+        }
+        
         await html5QrCode.start(
           cameraConfig,
           {
@@ -416,17 +469,35 @@ export function CompleteTaskDialog({
           onScanError
         )
         
+        scanStatus.textContent = 'Arahkan kamera ke QR code'
+        scanStatus.className = 'text-sm text-center text-gray-600 mb-4'
+        
       } catch (err: any) {
         console.error('[SCAN] Error starting scanner:', err)
         const errorMessage = err?.message || err?.toString() || 'Unknown error'
         const errorName = err?.name || 'UnknownError'
         
-        // Fallback to user camera if environment camera fails
-        if (typeof cameraConfig === 'object' && cameraConfig.facingMode === 'environment') {
-          console.log('[SCAN] Trying fallback to user camera...')
+        // Try fallback cameras
+        const fallbackConfigs = [
+          { facingMode: 'user' },
+          { facingMode: 'environment' }
+        ]
+        
+        let started = false
+        
+        for (const fallbackConfig of fallbackConfigs) {
+          // Skip if already tried
+          if (typeof cameraConfig === 'object' && 
+              cameraConfig.facingMode === fallbackConfig.facingMode) {
+            continue
+          }
+          
           try {
+            console.log(`[SCAN] Trying fallback camera: ${fallbackConfig.facingMode}`)
+            scanStatus.textContent = `Mencoba kamera alternatif...`
+            
             await html5QrCode.start(
-              { facingMode: 'user' },
+              fallbackConfig,
               {
                 fps: 10,
                 qrbox: { width: 250, height: 250 },
@@ -436,31 +507,22 @@ export function CompleteTaskDialog({
               onScanSuccess,
               onScanError
             )
-          } catch (err2: any) {
-            console.error('[SCAN] Fallback camera also failed:', err2)
-            const fallbackErrorMessage = err2?.message || err2?.toString() || 'Unknown error'
-            const fallbackErrorName = err2?.name || 'UnknownError'
             
-            let errorMsg = 'Gagal memulai scanner'
-            if (fallbackErrorName === 'NotAllowedError' || fallbackErrorName === 'PermissionDeniedError') {
-              errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.'
-            } else if (fallbackErrorName === 'NotFoundError' || fallbackErrorName === 'DevicesNotFoundError') {
-              errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
-            } else if (fallbackErrorName === 'NotReadableError' || fallbackErrorName === 'TrackStartError') {
-              errorMsg = 'Kamera sedang digunakan oleh aplikasi lain.'
-            } else if (fallbackErrorMessage && fallbackErrorMessage !== 'Unknown error') {
-              errorMsg = `Gagal memulai scanner: ${fallbackErrorMessage}`
-            }
-            
-            toast.error(errorMsg)
-            if (document.body.contains(modal)) {
-              document.body.removeChild(modal)
-            }
-            return
+            scanStatus.textContent = 'Arahkan kamera ke QR code'
+            scanStatus.className = 'text-sm text-center text-gray-600 mb-4'
+            started = true
+            break
+          } catch (fallbackErr: any) {
+            console.error(`[SCAN] Fallback camera ${fallbackConfig.facingMode} failed:`, fallbackErr)
+            continue
           }
-        } else {
+        }
+        
+        if (!started) {
           let errorMsg = 'Gagal memulai scanner'
-          if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+          if (errorMessage.includes('cameraIdOrConfig is required')) {
+            errorMsg = 'Konfigurasi kamera tidak valid. Silakan coba lagi atau refresh halaman.'
+          } else if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
             errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser.'
           } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
             errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
