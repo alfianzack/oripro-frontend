@@ -860,6 +860,7 @@ export interface Unit {
   is_toilet_exist: boolean
   description?: string
   is_deleted: boolean
+  status?: string // 0 for available, 1 for rented, etc.
   created_by?: string
   updated_by?: string
   created_at: string
@@ -898,6 +899,7 @@ export const unitsApi = {
     name?: string
     asset_id?: string
     is_deleted?: boolean
+    status?: number
     size_min?: number
     size_max?: number
     order?: string
@@ -908,6 +910,7 @@ export const unitsApi = {
     if (params?.name) queryParams.append('name', params.name)
     if (params?.asset_id) queryParams.append('asset_id', params.asset_id)
     if (params?.is_deleted !== undefined) queryParams.append('is_deleted', params.is_deleted.toString())
+    if (params?.status !== undefined && params?.status !== null) queryParams.append('status', params.status.toString())
     if (params?.size_min) queryParams.append('size_min', params.size_min.toString())
     if (params?.size_max) queryParams.append('size_max', params.size_max.toString())
     if (params?.order) queryParams.append('order', params.order)

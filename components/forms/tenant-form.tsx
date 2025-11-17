@@ -94,7 +94,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       try {
         const [usersResponse, unitsResponse, rolesResponse] = await Promise.all([
           usersApi.getUsers(),
-          unitsApi.getUnits(),
+          unitsApi.getUnits({ status: 0 }),
           rolesApi.getRoles()
         ])
         
