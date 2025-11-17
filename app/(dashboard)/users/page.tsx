@@ -25,15 +25,22 @@ export default function UsersPage() {
   // Filter dan sorting states
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
-  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [order, setOrder] = useState<string>('a-z')
   const [roles, setRoles] = useState<Role[]>([])
+  
+  // Pagination states
+  const [limit] = useState<number>(10)
+  const [offset, setOffset] = useState<number>(0)
+  const [pagination, setPagination] = useState<{ total: number; limit: number; offset: number } | null>(null)
 
   const loadUsers = async () => {
     setLoading(true)
     try {
       // Prepare filter parameters
-      const filterParams: any = {}
+      const filterParams: any = {
+        limit,
+        offset
+      }
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
@@ -43,8 +50,8 @@ export default function UsersPage() {
       if (statusFilter !== 'all') {
         filterParams.status = statusFilter
       }
-      if (sortBy && sortOrder) {
-        filterParams.order = `${sortBy}_${sortOrder}`
+      if (order) {
+        filterParams.order = order
       }
       
       const response = await usersApi.getUsers(filterParams)
@@ -52,14 +59,49 @@ export default function UsersPage() {
       if (response.success && response.data) {
         // Ensure data is an array
         const responseData = response.data as any
-        const usersData = Array.isArray(responseData.data) ? responseData.data : []
+        
+        // Handle pagination from response
+        let usersData: User[] = []
+        let paginationData: { total: number; limit: number; offset: number } | null = null
+        
+        // Check if response has nested data structure
+        if (Array.isArray(responseData.data)) {
+          usersData = responseData.data
+        } else if (Array.isArray(responseData)) {
+          usersData = responseData
+        }
+        
+        // Extract pagination from response (check response.pagination first, then responseData.pagination)
+        if (response.pagination) {
+          paginationData = {
+            total: response.pagination.total || 0,
+            limit: response.pagination.limit || limit,
+            offset: response.pagination.offset || offset
+          }
+        } else if (responseData.pagination) {
+          paginationData = {
+            total: responseData.pagination.total || 0,
+            limit: responseData.pagination.limit || limit,
+            offset: responseData.pagination.offset || offset
+          }
+        } else {
+          // Fallback: use current limit/offset and total from users length
+          paginationData = {
+            total: usersData.length,
+            limit: limit,
+            offset: offset
+          }
+        }
+        
         setUsers(usersData)
         setFilteredUsers(usersData)
+        setPagination(paginationData)
       } else {
         toast.error(response.error || 'Gagal memuat data users')
         // Set empty arrays on error
         setUsers([])
         setFilteredUsers([])
+        setPagination(null)
       }
     } catch (error) {
       console.error('Load users error:', error)
@@ -67,6 +109,7 @@ export default function UsersPage() {
       // Set empty arrays on error
       setUsers([])
       setFilteredUsers([])
+      setPagination(null)
     } finally {
       setLoading(false)
     }
@@ -88,10 +131,16 @@ export default function UsersPage() {
     loadRoles()
   }, [])
 
-  // Reload data when filters change
+  // Reload data when filters or pagination change
   useEffect(() => {
     loadUsers()
-  }, [searchTerm, roleFilter, statusFilter, sortBy, sortOrder])
+  }, [searchTerm, roleFilter, statusFilter, order, offset])
+
+  const handlePageChange = (newOffset: number) => {
+    setOffset(newOffset)
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Remove the old client-side filtering since we're using server-side filtering
   // useEffect(() => {
@@ -295,25 +344,15 @@ export default function UsersPage() {
               </SelectContent>
             </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Nama</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="role_id">Role</SelectItem>
-                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Urutan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">A - Z</SelectItem>
-                <SelectItem value="desc">Z - A</SelectItem>
+                <SelectItem value="a-z">Nama A - Z</SelectItem>
+                <SelectItem value="z-a">Nama Z - A</SelectItem>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
               </SelectContent>
             </Select>
             
@@ -324,8 +363,8 @@ export default function UsersPage() {
                 setSearchTerm('')
                 setRoleFilter('all')
                 setStatusFilter('all')
-                setSortBy('name')
-                setSortOrder('asc')
+                setOrder('a-z')
+                setOffset(0)
               }}
             >
               Reset
@@ -347,6 +386,8 @@ export default function UsersPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
+              pagination={pagination || undefined}
+              onPageChange={handlePageChange}
             />
           )}
         </CardContent>

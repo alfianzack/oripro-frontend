@@ -24,23 +24,30 @@ export default function TenantsPage() {
   
   // Filter dan sorting states
   const [userFilter, setUserFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
-  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [order, setOrder] = useState<string>('a-z')
   const [users, setUsers] = useState<User[]>([])
+  
+  // Pagination states
+  const [limit] = useState<number>(10)
+  const [offset, setOffset] = useState<number>(0)
+  const [pagination, setPagination] = useState<{ total: number; limit: number; offset: number } | null>(null)
 
   const loadTenants = async () => {
     setLoading(true)
     try {
       // Prepare filter parameters
-      const filterParams: any = {}
+      const filterParams: any = {
+        limit,
+        offset
+      }
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
       if (userFilter !== 'all') {
         filterParams.user_id = userFilter
       }
-      if (sortBy && sortOrder) {
-        filterParams.order = `${sortBy}_${sortOrder}`
+      if (order) {
+        filterParams.order = order
       }
       
       const response = await tenantsApi.getTenants(filterParams)
@@ -48,18 +55,44 @@ export default function TenantsPage() {
       if (response.success && response.data) {
         const responseData = response.data as any
         const tenantsData = Array.isArray(responseData.data) ? responseData.data : []
+        
+        // Extract pagination from response
+        let paginationData: { total: number; limit: number; offset: number } | null = null
+        if (response.pagination) {
+          paginationData = {
+            total: response.pagination.total || 0,
+            limit: response.pagination.limit || limit,
+            offset: response.pagination.offset || offset
+          }
+        } else if (responseData.pagination) {
+          paginationData = {
+            total: responseData.pagination.total || 0,
+            limit: responseData.pagination.limit || limit,
+            offset: responseData.pagination.offset || offset
+          }
+        } else {
+          paginationData = {
+            total: tenantsData.length,
+            limit: limit,
+            offset: offset
+          }
+        }
+        
         setTenants(tenantsData)
         setFilteredTenants(tenantsData)
+        setPagination(paginationData)
       } else {
         toast.error(response.error || 'Gagal memuat data tenants')
         setTenants([])
         setFilteredTenants([])
+        setPagination(null)
       }
     } catch (error) {
       console.error('Load tenants error:', error)
       toast.error('Terjadi kesalahan saat memuat data tenants')
       setTenants([])
       setFilteredTenants([])
+      setPagination(null)
     } finally {
       setLoading(false)
     }
@@ -85,10 +118,15 @@ export default function TenantsPage() {
     loadUsers()
   }, [])
 
-  // Reload data when filters change
+  // Reload data when filters or pagination change
   useEffect(() => {
     loadTenants()
-  }, [searchTerm, userFilter, sortBy, sortOrder])
+  }, [searchTerm, userFilter, order, offset])
+
+  const handlePageChange = (newOffset: number) => {
+    setOffset(newOffset)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Remove the old client-side filtering since we're using server-side filtering
   // useEffect(() => {
@@ -272,26 +310,15 @@ export default function TenantsPage() {
               </SelectContent>
             </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Nama Tenant</SelectItem>
-                <SelectItem value="code">Kode</SelectItem>
-                <SelectItem value="contract_begin_at">Tanggal Mulai Kontrak</SelectItem>
-                <SelectItem value="contract_end_at">Tanggal Berakhir Kontrak</SelectItem>
-                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Urutan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">A - Z</SelectItem>
-                <SelectItem value="desc">Z - A</SelectItem>
+                <SelectItem value="a-z">Nama A - Z</SelectItem>
+                <SelectItem value="z-a">Nama Z - A</SelectItem>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
               </SelectContent>
             </Select>
             
@@ -301,8 +328,8 @@ export default function TenantsPage() {
               onClick={() => {
                 setSearchTerm('')
                 setUserFilter('all')
-                setSortBy('name')
-                setSortOrder('asc')
+                setOrder('a-z')
+                setOffset(0)
               }}
             >
               Reset
@@ -324,6 +351,8 @@ export default function TenantsPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
+              pagination={pagination || undefined}
+              onPageChange={handlePageChange}
             />
           )}
         </CardContent>

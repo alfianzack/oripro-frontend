@@ -7,6 +7,11 @@ export interface ApiResponse<T = any> {
   data?: T
   error?: string
   message?: string
+  pagination?: {
+    total: number
+    limit: number
+    offset: number
+  }
 }
 
 export class ApiClient {
@@ -115,13 +120,15 @@ export class ApiClient {
 
       // Handle backend response format
       if (data && typeof data === 'object' && 'data' in data && 'success' in data) {
-        // Backend returns { data: actualData, success: true, message: "..." }
+        // Backend returns { data: actualData, success: true, message: "...", pagination: {...} }
         return {
           success: data.success,
           data: data.data,
           message: data.message,
           // Include error/message in error field for consistency
           error: data.success ? undefined : (data.message || data.error),
+          // Include pagination if present
+          pagination: data.pagination,
         }
       }
 

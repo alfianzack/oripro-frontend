@@ -22,8 +22,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MoreHorizontal, Edit, Trash2, Eye } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+interface PaginationInfo {
+  total: number
+  limit: number
+  offset: number
+}
 
 interface TenantsTableProps {
   tenants: Tenant[]
@@ -31,6 +37,8 @@ interface TenantsTableProps {
   onView: (tenant: Tenant) => void
   onRefresh: () => void
   loading?: boolean
+  pagination?: PaginationInfo
+  onPageChange?: (offset: number) => void
 }
 
 export default function TenantsTable({ 
@@ -38,7 +46,9 @@ export default function TenantsTable({
   onEdit, 
   onView, 
   onRefresh, 
-  loading = false 
+  loading = false,
+  pagination,
+  onPageChange
 }: TenantsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
@@ -120,6 +130,32 @@ export default function TenantsTable({
       default:
         return { label: 'Unknown', variant: 'secondary' as const }
     }
+  }
+
+  const handlePageChange = (newOffset: number) => {
+    if (onPageChange && pagination) {
+      onPageChange(newOffset)
+    }
+  }
+
+  const getCurrentPage = () => {
+    if (!pagination) return 1
+    return Math.floor(pagination.offset / pagination.limit) + 1
+  }
+
+  const getTotalPages = () => {
+    if (!pagination) return 1
+    return Math.ceil(pagination.total / pagination.limit)
+  }
+
+  const getPageStart = () => {
+    if (!pagination) return 0
+    return pagination.offset + 1
+  }
+
+  const getPageEnd = () => {
+    if (!pagination) return tenants.length
+    return Math.min(pagination.offset + pagination.limit, pagination.total)
   }
 
   if (loading) {
@@ -263,6 +299,94 @@ export default function TenantsTable({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {pagination && pagination.total > 0 && (
+        <div className="flex items-center justify-between mt-4 px-2">
+          <div className="text-sm text-muted-foreground">
+            Menampilkan {getPageStart()} - {getPageEnd()} dari {pagination.total} tenant
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(0)}
+              disabled={pagination.offset === 0 || loading}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(Math.max(0, pagination.offset - pagination.limit))}
+              disabled={pagination.offset === 0 || loading}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1">
+              {(() => {
+                const totalPages = getTotalPages()
+                const currentPage = getCurrentPage()
+                const pageNumbers: number[] = []
+                
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) {
+                    pageNumbers.push(i)
+                  }
+                } else if (currentPage <= 3) {
+                  for (let i = 1; i <= 5; i++) {
+                    pageNumbers.push(i)
+                  }
+                } else if (currentPage >= totalPages - 2) {
+                  for (let i = totalPages - 4; i <= totalPages; i++) {
+                    pageNumbers.push(i)
+                  }
+                } else {
+                  for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+                    pageNumbers.push(i)
+                  }
+                }
+                
+                return pageNumbers.map((pageNum) => (
+                  <Button
+                    key={pageNum}
+                    variant={pageNum === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange((pageNum - 1) * pagination.limit)}
+                    disabled={loading}
+                    className="h-9 w-9 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                ))
+              })()}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(Math.min(
+                (getTotalPages() - 1) * pagination.limit,
+                pagination.offset + pagination.limit
+              ))}
+              disabled={pagination.offset + pagination.limit >= pagination.total || loading}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange((getTotalPages() - 1) * pagination.limit)}
+              disabled={pagination.offset + pagination.limit >= pagination.total || loading}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
