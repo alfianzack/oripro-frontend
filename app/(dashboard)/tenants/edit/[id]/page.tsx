@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Tenant, UpdateTenantData, TenantDepositLog, tenantsApi } from '@/lib/api'
+import { Tenant, CreateTenantData, UpdateTenantData, TenantDepositLog, tenantsApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Home, Users, Edit, Loader2 } from 'lucide-react'
@@ -55,10 +55,10 @@ export default function EditTenantPage() {
     loadTenant()
   }, [tenantId, router])
 
-  const handleSubmit = async (data: UpdateTenantData) => {
+  const handleSubmit = async (data: CreateTenantData | UpdateTenantData) => {
     setLoading(true)
     try {
-      const response = await tenantsApi.updateTenant(tenantId, data)
+      const response = await tenantsApi.updateTenant(tenantId, data as UpdateTenantData)
       
       if (response.success && response.data) {
         toast.success('Tenant berhasil diperbarui')

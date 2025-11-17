@@ -396,3 +396,29 @@
 }
 /* Upload Image Css End */
 /* ======================================== Custom Classes css End ======================================== */
+
+/* Leaflet Map z-index fix - ensure map doesn't appear above header */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 2 !important;
+}
+
+.leaflet-control {
+  z-index: 3 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 9 !important;
+}
