@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Task, tasksApi, TaskGroup, taskGroupsApi } from '@/lib/api'
+import { Task, tasksApi, TaskGroup, taskGroupsApi, Asset, assetsApi, Role, rolesApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -22,6 +22,15 @@ import {
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Home, GitBranch, Plus, Search, RefreshCw, Loader2, ChevronRight, ChevronDown, Trash2, Edit, Eye } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import toast from 'react-hot-toast'
 import TaskDetailDialog from '@/components/dialogs/task-detail-dialog'
 
@@ -34,9 +43,13 @@ export default function TaskParentsPage() {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
   const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [taskGroupFilter, setTaskGroupFilter] = useState<string>('all')
+  const [assetFilter, setAssetFilter] = useState<string>('all')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set())
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false)
@@ -50,7 +63,35 @@ export default function TaskParentsPage() {
   const loadTasks = async () => {
     setLoading(true)
     try {
-      const response = await tasksApi.getTasks({})
+      // Build filter parameters for backend
+      const filterParams: {
+        name?: string
+        asset_id?: string
+        role_id?: number
+        task_group_id?: number
+      } = {}
+
+      // Add search term if provided
+      if (searchTerm.trim()) {
+        filterParams.name = searchTerm.trim()
+      }
+
+      // Add asset filter if selected
+      if (assetFilter !== 'all') {
+        filterParams.asset_id = assetFilter
+      }
+
+      // Add role filter if selected
+      if (roleFilter !== 'all') {
+        filterParams.role_id = parseInt(roleFilter)
+      }
+
+      // Add task group filter if selected
+      if (taskGroupFilter !== 'all') {
+        filterParams.task_group_id = parseInt(taskGroupFilter)
+      }
+
+      const response = await tasksApi.getTasks(filterParams)
       
       if (response.success && response.data) {
         const responseData = response.data as any
@@ -109,10 +150,43 @@ export default function TaskParentsPage() {
     }
   }
 
+  const loadAssets = async () => {
+    try {
+      const response = await assetsApi.getAssets()
+      if (response.success && response.data) {
+        const responseData = response.data as any
+        const assetsData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        setAssets(assetsData)
+      }
+    } catch (error) {
+      console.error('Load assets error:', error)
+    }
+  }
+
+  const loadRoles = async () => {
+    try {
+      const response = await rolesApi.getRoles()
+      if (response.success && response.data) {
+        const responseData = response.data as any
+        const rolesData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        setRoles(rolesData)
+      }
+    } catch (error) {
+      console.error('Load roles error:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadTaskGroups()
+    loadAssets()
+    loadRoles()
+  }, [])
+
+  // Reload tasks when filters change
   useEffect(() => {
     loadTasks()
-    loadTaskGroups()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, assetFilter, roleFilter, taskGroupFilter])
 
   // Build hierarchy from tasks
   const buildHierarchy = (): TaskWithChildren[] => {
@@ -156,45 +230,9 @@ export default function TaskParentsPage() {
     return rootTasks
   }
 
-  // Filter tasks based on search and filters
+  // Build hierarchy from filtered tasks (filtering is done on backend)
   const getFilteredHierarchy = (): TaskWithChildren[] => {
-    let filtered = buildHierarchy()
-
-    // Filter by task group
-    if (taskGroupFilter !== 'all') {
-      const groupId = parseInt(taskGroupFilter)
-      filtered = filtered.filter(task => {
-        const taskGroupId = typeof task.task_group_id === 'string' ? parseInt(task.task_group_id) : task.task_group_id
-        return taskGroupId === groupId
-      })
-    }
-
-    // Filter by search term (recursive)
-    const filterBySearch = (tasks: TaskWithChildren[]): TaskWithChildren[] => {
-      return tasks.filter(task => {
-        const matchesSearch = searchTerm === '' || 
-          task.name.toLowerCase().includes(searchTerm.toLowerCase())
-        
-        const filteredChildren = task.children ? filterBySearch(task.children) : []
-        
-        if (matchesSearch || filteredChildren.length > 0) {
-          return {
-            ...task,
-            children: filteredChildren
-          }
-        }
-        return false
-      }).map(task => ({
-        ...task,
-        children: task.children ? filterBySearch(task.children) : []
-      }))
-    }
-
-    if (searchTerm) {
-      filtered = filterBySearch(filtered)
-    }
-
-    return filtered
+    return buildHierarchy()
   }
 
   const toggleExpand = (taskId: number) => {
@@ -302,64 +340,60 @@ export default function TaskParentsPage() {
     }
   }
 
-  const renderTaskTree = (task: TaskWithChildren, level: number = 0) => {
+  const renderTaskRows = (task: TaskWithChildren, level: number = 0): React.ReactNode[] => {
     const hasChildren = task.children && task.children.length > 0
     const isExpanded = expandedTasks.has(task.id as number)
-    const taskGroupId = typeof task.task_group_id === 'string' ? parseInt(task.task_group_id) : task.task_group_id
-    const taskGroup = taskGroups.find(tg => tg.id === taskGroupId)
 
-    return (
-      <div key={task.id} className="space-y-1">
-        <div 
-          className={`flex items-center gap-2 p-3 rounded-lg border bg-white hover:bg-gray-50 transition-colors ${
-            level > 0 ? 'ml-6' : ''
-          }`}
-        >
-          <div className="flex items-center gap-2 flex-1">
-            {hasChildren && (
-              <button
-                onClick={() => toggleExpand(task.id as number)}
-                className="p-1 hover:bg-gray-200 rounded"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
-            
-            <div className="flex-1">
-              <div className="font-medium">{task.name}</div>
-              <div className="text-sm text-muted-foreground flex items-center gap-4">
-                {taskGroup && (
-                  <span>Group: {taskGroup.name}</span>
-                )}
-                <span>Duration: {task.duration} menit</span>
-                {task.is_main_task && (
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
-                    Main Task
-                  </span>
-                )}
-              </div>
+    const rows: React.ReactNode[] = []
+
+    // Main task row
+    rows.push(
+      <TableRow key={task.id} className={isExpanded && hasChildren ? 'bg-muted/50' : level > 0 ? 'bg-muted/30' : ''}>
+        <TableCell>
+          {hasChildren ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => toggleExpand(task.id as number)}
+              className="h-8 w-8 p-0"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </Button>
+          ) : level > 0 ? (
+            <div className="w-8 flex items-center justify-center">
+              <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300"></div>
             </div>
-          </div>
-          
+          ) : null}
+        </TableCell>
+        <TableCell className="font-medium" style={{ paddingLeft: level > 0 ? `${level * 2}rem` : undefined }}>
+          {task.name}
+        </TableCell>
+        <TableCell>{task.duration} menit</TableCell>
+        <TableCell>
+          <Badge variant={task.is_main_task ? 'default' : 'outline'}>
+            {task.is_main_task ? 'Main Task' : 'Child Task'}
+          </Badge>
+        </TableCell>
+        <TableCell>{task.role?.name || '-'}</TableCell>
+        <TableCell>{task.asset?.name || '-'}</TableCell>
+        <TableCell>
           <div className="flex items-center gap-2">
-            {task.parent_task_ids && task.parent_task_ids.length > 0 && (
+            {/* {task.parent_task_ids && task.parent_task_ids.length > 0 && (
               <span className="text-xs text-muted-foreground">
                 {task.parent_task_ids.length} parent{task.parent_task_ids.length > 1 ? 's' : ''}
               </span>
-            )}
+            )} */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleView(task)}
               className="text-blue-600 hover:text-blue-700"
             >
-              <Eye className="h-4 w-4 mr-1" />
-              View
+              <Eye className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
@@ -367,16 +401,14 @@ export default function TaskParentsPage() {
               onClick={() => handleEdit(task)}
               className="text-green-600 hover:text-green-700"
             >
-              <Edit className="h-4 w-4 mr-1" />
-              Edit
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleManageParents(task)}
             >
-              <GitBranch className="h-4 w-4 mr-1" />
-              Kelola Parents
+              <GitBranch className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
@@ -384,19 +416,22 @@ export default function TaskParentsPage() {
               onClick={() => handleDeleteClick(task)}
               className="text-red-600 hover:text-red-700"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-        
-        {hasChildren && isExpanded && (
-          <div className="ml-6 border-l-2 border-gray-200 pl-2">
-            {task.children!.map(child => renderTaskTree(child, level + 1))}
-          </div>
-        )}
-      </div>
+        </TableCell>
+      </TableRow>
     )
+
+    // Child task rows
+    if (hasChildren && isExpanded) {
+      task.children!.forEach(child => {
+        const childRows = renderTaskRows(child, level + 1)
+        rows.push(...childRows)
+      })
+    }
+
+    return rows
   }
 
   const filteredHierarchy = getFilteredHierarchy()
@@ -469,6 +504,34 @@ export default function TaskParentsPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={assetFilter} onValueChange={setAssetFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Asset" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Asset</SelectItem>
+                {assets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Role</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id.toString()}>
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             <Button 
               variant="outline" 
@@ -493,8 +556,23 @@ export default function TaskParentsPage() {
               <p className="text-muted-foreground">Tidak ada task ditemukan</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredHierarchy.map(task => renderTaskTree(task))}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Task Type</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Asset</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredHierarchy.map(task => renderTaskRows(task)).flat()}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
