@@ -405,9 +405,11 @@ export interface TenantPaymentLog {
   tenant_id: string
   amount?: number
   payment_date?: string
+  payment_deadline?: string
   payment_method?: string
   notes?: string
-  created_by?: {
+  status?: number // 0 for unpaid, 1 for paid, 2 for expired
+  updatedBy?: {
     id: string
     name: string
     email: string
@@ -419,6 +421,13 @@ export interface TenantPaymentLog {
 export interface CreateTenantPaymentData {
   amount: number
   payment_method: string
+  notes?: string
+}
+
+// Update Tenant Payment Data interface
+export interface UpdateTenantPaymentData {
+  payment_date?: string
+  payment_method?: string
   notes?: string
 }
 
@@ -851,6 +860,7 @@ export interface Unit {
   is_toilet_exist: boolean
   description?: string
   is_deleted: boolean
+  status?: string // 0 for available, 1 for rented, etc.
   created_by?: string
   updated_by?: string
   created_at: string
@@ -889,6 +899,7 @@ export const unitsApi = {
     name?: string
     asset_id?: string
     is_deleted?: boolean
+    status?: number
     size_min?: number
     size_max?: number
     order?: string
@@ -899,6 +910,7 @@ export const unitsApi = {
     if (params?.name) queryParams.append('name', params.name)
     if (params?.asset_id) queryParams.append('asset_id', params.asset_id)
     if (params?.is_deleted !== undefined) queryParams.append('is_deleted', params.is_deleted.toString())
+    if (params?.status !== undefined && params?.status !== null) queryParams.append('status', params.status.toString())
     if (params?.size_min) queryParams.append('size_min', params.size_min.toString())
     if (params?.size_max) queryParams.append('size_max', params.size_max.toString())
     if (params?.order) queryParams.append('order', params.order)
@@ -965,15 +977,15 @@ export interface CreateTenantData {
   user_id: string
   contract_begin_at: string
   rent_duration: number
-  rent_duration_unit: string
+  rent_duration_unit: number
   tenant_identifications: string[]
   contract_documents: string[]
   unit_ids: string[]
-  categories: number[]
+  category_id: number
   rent_price?: number
   down_payment?: number
   deposit?: number
-  payment_term?: string
+  payment_term?: number
   price_per_term?: number
 }
 
@@ -1066,12 +1078,26 @@ export const tenantsApi = {
     return apiClient.get<TenantDepositLog[]>(`/api/tenants/${tenantId}/deposito-logs`)
   },
 
-  async getTenantPaymentLogs(tenantId: string): Promise<ApiResponse<TenantPaymentLog[]>> {
-    return apiClient.get<TenantPaymentLog[]>(`/api/tenants/${tenantId}/payments`)
+  async getTenantPaymentLogs(tenantId: string, params?: {
+    limit?: number
+    offset?: number
+    status?: number
+  }): Promise<ApiResponse<TenantPaymentLog[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.status !== undefined && params?.status !== null) queryParams.append('status', params.status.toString())
+    
+    const endpoint = `/api/tenants/${tenantId}/payments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<TenantPaymentLog[]>(endpoint)
   },
 
   async createTenantPayment(tenantId: string, data: CreateTenantPaymentData): Promise<ApiResponse<TenantPaymentLog>> {
     return apiClient.post<TenantPaymentLog>(`/api/tenants/${tenantId}/payments`, data)
+  },
+
+  async updateTenantPayment(tenantId: string, paymentId: number, data: UpdateTenantPaymentData): Promise<ApiResponse<TenantPaymentLog>> {
+    return apiClient.put<TenantPaymentLog>(`/api/tenants/${tenantId}/payments/${paymentId}`, data)
   },
 }
 

@@ -96,8 +96,30 @@ export default function UnitsTable({
     }).format(amount)
   }
 
-  const getStatusBadgeVariant = (isDeleted: boolean) => {
-    return isDeleted ? 'destructive' : 'default'
+  const getStatusBadge = (status?: string) => {
+    if (status === undefined || status === null) {
+      return {
+        label: 'Unknown',
+        className: 'bg-gray-600/15 text-gray-600 dark:text-white border-gray-400'
+      }
+    }
+    switch (status) {
+      case 'available':
+        return {
+          label: 'Available',
+          className: 'bg-green-600/15 text-green-600 border-green-600'
+        }
+      case 'occupied':
+        return {
+          label: 'Occupied',
+          className: 'bg-blue-600/15 text-blue-600 border-blue-600'
+        }
+      default:
+        return {
+          label: 'Unknown',
+          className: 'bg-gray-600/15 text-gray-600 dark:text-white border-gray-400'
+        }
+    }
   }
 
   if (loading) {
@@ -161,14 +183,16 @@ export default function UnitsTable({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <span
-                          className={`px-3 py-1.5 rounded text-sm font-medium border ${!unit.is_deleted
-                              ? "bg-green-600/15 text-green-600 border-green-600"
-                              : "bg-gray-600/15 text-gray-600 dark:text-white border-gray-400"
-                              }`}
-                      >
-                          {unit.is_deleted ? 'Dihapus' : 'Aktif'}
-                      </span>
+                    {(() => {
+                      const statusInfo = getStatusBadge(unit.status)
+                      return (
+                        <span
+                          className={`px-3 py-1.5 rounded text-sm font-medium border ${statusInfo.className}`}
+                        >
+                          {statusInfo.label}
+                        </span>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(unit.created_at)}
