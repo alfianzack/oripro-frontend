@@ -243,9 +243,10 @@ export default function UpdateTenantPaymentPage() {
                   <SelectValue placeholder="Pilih metode pembayaran" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qris">QRIS</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
               {errors.payment_method && (

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi } from '@/lib/api'
+import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi, UpdateTenantPaymentData } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,9 +13,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
+import toast from 'react-hot-toast'
 
 interface TenantDetailDialogProps {
   open: boolean
@@ -32,6 +50,19 @@ export default function TenantDetailDialog({
   const [activeTab, setActiveTab] = useState('info')
   const [depositLogs, setDepositLogs] = useState<TenantDepositLog[]>([])
   const [paymentLogs, setPaymentLogs] = useState<TenantPaymentLog[]>([])
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentPage, setPaymentPage] = useState(1)
+  const [paymentTotal, setPaymentTotal] = useState(0)
+  const [paymentLimit] = useState(10)
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<number | undefined>(undefined)
+  const [updatePaymentDialogOpen, setUpdatePaymentDialogOpen] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<TenantPaymentLog | null>(null)
+  const [updatePaymentData, setUpdatePaymentData] = useState<UpdateTenantPaymentData>({
+    payment_date: '',
+    payment_method: '',
+    notes: ''
+  })
+  const [updatingPayment, setUpdatingPayment] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -58,25 +89,95 @@ export default function TenantDetailDialog({
     loadDepositLogs()
   }, [open, tenant?.id])
 
+  // Reset pagination when dialog opens or tenant changes
+  useEffect(() => {
+    if (open && tenant?.id) {
+      setPaymentPage(1)
+      setPaymentTotal(0)
+      setPaymentStatusFilter(undefined)
+    }
+  }, [open, tenant?.id])
+
+  // Reset page when status filter changes
+  useEffect(() => {
+    if (open && tenant?.id) {
+      setPaymentPage(1)
+    }
+  }, [paymentStatusFilter, open, tenant?.id])
+
   // Fetch payment logs when dialog opens and tenant is available
   useEffect(() => {
     const loadPaymentLogs = async () => {
       if (open && tenant?.id) {
+        setPaymentLoading(true)
         try {
-          const response = await tenantsApi.getTenantPaymentLogs(tenant.id)
+          const offset = (paymentPage - 1) * paymentLimit
+          const response = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+            limit: paymentLimit,
+            offset: offset,
+            status: paymentStatusFilter
+          })
           if (response.success && response.data) {
             const logsData = response.data as any
             const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
             setPaymentLogs(logs)
+            
+            // Debug: Log the response structure to understand the format
+            console.log('Payment logs response:', { response, logsData, logs })
+            
+            // Try to get total from various possible response formats
+            let total: number | null = logsData.pagination.total
+            
+            // Check response.data directly first (most common format: { data: [...], total: 11 })
+            if (response.data && typeof response.data === 'object') {
+              const responseData = response.data as any
+              if (typeof responseData.total === 'number' && responseData.total > 0) {
+                total = responseData.total
+              } else if (typeof responseData.count === 'number' && responseData.count > 0) {
+                total = responseData.count
+              }
+            }
+            
+            // Check logsData (nested data structure: { data: { data: [...], total: 11 } })
+            if (total === null && logsData && typeof logsData === 'object') {
+              if (typeof logsData.total === 'number' && logsData.total > 0) {
+                total = logsData.total
+              } else if (typeof logsData.count === 'number' && logsData.count > 0) {
+                total = logsData.count
+              }
+            }
+            
+            // Check if total is in the message or other fields
+            if (total === null && response && typeof response === 'object') {
+              const responseAny = response as any
+              if (typeof responseAny.total === 'number' && responseAny.total > 0) {
+                total = responseAny.total
+              }
+            }
+            
+            // Update total if we found it, otherwise keep existing total or use current count
+            if (total !== null && total > 0) {
+              setPaymentTotal(total)
+              console.log('Payment total set to:', total)
+            } else {
+              console.log('No total found in response, keeping existing total or using current count')
+              // Only update if we're on first page and don't have a total yet
+              if (paymentPage === 1 && paymentTotal === 0) {
+                setPaymentTotal(logs.length)
+              }
+            }
           }
         } catch (error) {
           console.error('Load payment logs error:', error)
+          toast.error('Gagal memuat history pembayaran')
+        } finally {
+          setPaymentLoading(false)
         }
       }
     }
 
     loadPaymentLogs()
-  }, [open, tenant?.id])
+  }, [open, tenant?.id, paymentPage, paymentLimit, paymentStatusFilter])
 
   useEffect(() => {
     if (open) {
@@ -137,6 +238,78 @@ export default function TenantDetailDialog({
     }
   }
 
+  const getPaymentStatusBadge = (status?: number) => {
+    if (status === undefined || status === null) {
+      return <Badge variant="secondary">Unknown</Badge>
+    }
+    switch (status) {
+      case 0:
+        return <Badge variant="destructive">Unpaid</Badge>
+      case 1:
+        return <Badge variant="default" className="bg-green-600">Paid</Badge>
+      case 2:
+        return <Badge variant="secondary">Expired</Badge>
+      default:
+        return <Badge variant="secondary">Unknown</Badge>
+    }
+  }
+
+  const handleUpdatePayment = (payment: TenantPaymentLog) => {
+    setSelectedPayment(payment)
+    setUpdatePaymentData({
+      payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString().split('T')[0] : '',
+      payment_method: payment.payment_method || '',
+      notes: payment.notes || ''
+    })
+    setUpdatePaymentDialogOpen(true)
+  }
+
+  const handleUpdatePaymentSubmit = async () => {
+    if (!selectedPayment || !tenant) return
+
+    setUpdatingPayment(true)
+    try {
+      const response = await tenantsApi.updateTenantPayment(tenant.id, selectedPayment.id, updatePaymentData)
+      
+      if (response.success) {
+        toast.success('Status pembayaran berhasil diperbarui')
+        setUpdatePaymentDialogOpen(false)
+        // Reload payment logs and total
+        const offset = (paymentPage - 1) * paymentLimit
+        const reloadResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+          limit: paymentLimit,
+          offset: offset,
+          status: paymentStatusFilter
+        })
+        if (reloadResponse.success && reloadResponse.data) {
+          const logsData = reloadResponse.data as any
+          const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+          setPaymentLogs(logs)
+          
+          // Update total from reload response
+          if (reloadResponse.data && typeof reloadResponse.data === 'object') {
+            const responseData = reloadResponse.data as any
+            if (typeof responseData.total === 'number' && responseData.total > 0) {
+              setPaymentTotal(responseData.total)
+            } else if (typeof responseData.count === 'number' && responseData.count > 0) {
+              setPaymentTotal(responseData.count)
+            } else if (logsData && typeof logsData.total === 'number' && logsData.total > 0) {
+              setPaymentTotal(logsData.total)
+            }
+          }
+        }
+      } else {
+        toast.error(response.error || 'Gagal memperbarui status pembayaran')
+      }
+    } catch (error) {
+      toast.error('Terjadi kesalahan saat memperbarui status pembayaran')
+    } finally {
+      setUpdatingPayment(false)
+    }
+  }
+
+  const totalPaymentPages = Math.ceil(paymentTotal / paymentLimit)
+
   if (!tenant || !open) return null
 
   const contractStatus = getContractStatus(tenant.contract_end_at)
@@ -179,12 +352,6 @@ export default function TenantDetailDialog({
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" asChild>
-                  <Link href={`/tenants/payment/${tenant.id}`}>
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Update Payment
-                  </Link>
-                </Button>
                 <Button asChild>
                   <Link href={`/tenants/edit/${tenant.id}`}>
                     <Edit className="mr-2 h-4 w-4" />
@@ -542,69 +709,144 @@ export default function TenantDetailDialog({
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <CreditCard className="h-5 w-5" />
-                          History Pembayaran
-                        </CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            <CreditCard className="h-5 w-5" />
+                            History Pembayaran
+                          </CardTitle>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="status-filter" className="text-sm">Filter Status:</Label>
+                            <Select
+                              value={paymentStatusFilter !== undefined ? String(paymentStatusFilter) : 'all'}
+                              onValueChange={(value) => {
+                                setPaymentStatusFilter(value === 'all' ? undefined : parseInt(value))
+                              }}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="Semua Status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Semua Status</SelectItem>
+                                <SelectItem value="0">Unpaid</SelectItem>
+                                <SelectItem value="1">Paid</SelectItem>
+                                <SelectItem value="2">Expired</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        {paymentLogs.length > 0 ? (
-                          <div className="overflow-x-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Tanggal</TableHead>
-                                  <TableHead>Tanggal Pembayaran</TableHead>
-                                  <TableHead>Jumlah</TableHead>
-                                  <TableHead>Metode Pembayaran</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead>Catatan</TableHead>
-                                  <TableHead>Dibuat Oleh</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {paymentLogs.map((log) => {
-                                  const amount = log.amount || 0
-                                  const formattedAmount = new Intl.NumberFormat('id-ID', {
-                                    style: 'currency',
-                                    currency: 'IDR',
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  }).format(amount)
-
-                                  return (
-                                    <TableRow key={log.id}>
-                                      <TableCell className="text-sm">
-                                        {formatDate(log.created_at)}
-                                      </TableCell>
-                                      <TableCell>
-                                        {log.payment_date ? formatDate(log.payment_date) : '-'}
-                                      </TableCell>
-                                      <TableCell>
-                                        {amount > 0 ? formattedAmount : '-'}
-                                      </TableCell>
-                                      <TableCell>
-                                        {log.payment_method || '-'}
-                                      </TableCell>
-                                      <TableCell>
-                                        {log.notes || '-'}
-                                      </TableCell>
-                                      <TableCell>
-                                        {log.created_by ? (
-                                          <div>
-                                            <p className="font-medium text-sm">{log.created_by.name}</p>
-                                            <p className="text-xs text-muted-foreground">{log.created_by.email}</p>
-                                          </div>
-                                        ) : (
-                                          <span className="text-muted-foreground">-</span>
-                                        )}
-                                      </TableCell>
-                                    </TableRow>
-                                  )
-                                })}
-                              </TableBody>
-                            </Table>
+                        {paymentLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                            <span>Memuat data...</span>
                           </div>
+                        ) : paymentLogs.length > 0 ? (
+                          <>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Batas Pembayaran</TableHead>
+                                    <TableHead>Jumlah</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Tanggal Pembayaran</TableHead>
+                                    <TableHead>Metode Pembayaran</TableHead>
+                                    <TableHead>Catatan</TableHead>
+                                    <TableHead>Diubah Oleh</TableHead>
+                                    <TableHead>Aksi</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {paymentLogs.map((log) => {
+                                    const amount = log.amount || 0
+                                    const formattedAmount = new Intl.NumberFormat('id-ID', {
+                                      style: 'currency',
+                                      currency: 'IDR',
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    }).format(amount)
+
+                                    return (
+                                      <TableRow key={log.id}>
+                                        <TableCell>
+                                          {log.payment_deadline ? formatDate(log.payment_deadline) : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {amount > 0 ? formattedAmount : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {getPaymentStatusBadge(log.status)}
+                                        </TableCell>
+                                        <TableCell>
+                                          {log.payment_date ? formatDate(log.payment_date) : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {log.payment_method || '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {log.notes || '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {log.updatedBy ? (
+                                            <div>
+                                              <p className="font-medium text-sm">{log.updatedBy.name}</p>
+                                              <p className="text-xs text-muted-foreground">{log.updatedBy.email}</p>
+                                            </div>
+                                          ) : (
+                                            <span className="text-muted-foreground">-</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleUpdatePayment(log)}
+                                          >
+                                            <Edit className="h-4 w-4 mr-1" />
+                                            Update
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                            {/* Pagination */}
+                            {(paymentPage > 1 || paymentLogs.length === paymentLimit || totalPaymentPages > 1) && (
+                              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                <div className="text-sm text-muted-foreground">
+                                  {paymentTotal > 0 ? (
+                                    <>Menampilkan {((paymentPage - 1) * paymentLimit) + 1} - {Math.min(paymentPage * paymentLimit, paymentTotal)} dari {paymentTotal} pembayaran</>
+                                  ) : (
+                                    <>Menampilkan {((paymentPage - 1) * paymentLimit) + 1} - {((paymentPage - 1) * paymentLimit) + paymentLogs.length} pembayaran</>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPaymentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={paymentPage === 1 || paymentLoading}
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                  </Button>
+                                  <span className="text-sm">
+                                    Halaman {paymentPage} {totalPaymentPages > 1 ? `dari ${totalPaymentPages}` : (paymentPage > 1 ? '(terakhir)' : '')}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPaymentPage(prev => prev + 1)}
+                                    disabled={paymentLoading || (paymentLogs.length < paymentLimit && paymentPage > 1)}
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -620,6 +862,81 @@ export default function TenantDetailDialog({
           </div>
         </div>
       </div>
+
+      {/* Update Payment Dialog */}
+      <Dialog open={updatePaymentDialogOpen} onOpenChange={setUpdatePaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Status Pembayaran</DialogTitle>
+            <DialogDescription>
+              Perbarui status pembayaran untuk {selectedPayment?.amount ? new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+              }).format(selectedPayment.amount) : 'pembayaran ini'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="payment_date">Tanggal Pembayaran</Label>
+              <Input
+                id="payment_date"
+                type="date"
+                value={updatePaymentData.payment_date}
+                onChange={(e) => setUpdatePaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="payment_method">Metode Pembayaran</Label>
+              <Select
+                value={updatePaymentData.payment_method || ''}
+                onValueChange={(value) => setUpdatePaymentData(prev => ({ ...prev, payment_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih metode pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Catatan</Label>
+              <Input
+                id="notes"
+                value={updatePaymentData.notes}
+                onChange={(e) => setUpdatePaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Masukkan catatan (opsional)"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUpdatePaymentDialogOpen(false)}
+              disabled={updatingPayment}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleUpdatePaymentSubmit}
+              disabled={updatingPayment}
+            >
+              {updatingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

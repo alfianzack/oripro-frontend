@@ -186,16 +186,35 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         contract_begin_at: tenant.contract_begin_at ? new Date(tenant.contract_begin_at).toISOString().split('T')[0] : '',
         contract_end_at: tenant.contract_end_at ? new Date(tenant.contract_end_at).toISOString().split('T')[0] : '',
         rent_duration: tenant.rent_duration ? tenant.rent_duration.toString() : '',
-        rent_duration_unit: tenant.rent_duration_unit ? 
-          (tenant.rent_duration_unit === DURATION_UNITS.YEAR || String(tenant.rent_duration_unit).toLowerCase() === 'year' ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH) : 
-          DURATION_UNITS.MONTH,
+        rent_duration_unit: (() => {
+          // Convert rent_duration_unit from number (1 for month, 0 for year) to string ('month' or 'year')
+          if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
+            if (typeof tenant.rent_duration_unit === 'number') {
+              return tenant.rent_duration_unit === 1 ? DURATION_UNITS.MONTH : DURATION_UNITS.YEAR
+            } else if (typeof tenant.rent_duration_unit === 'string') {
+              return tenant.rent_duration_unit === DURATION_UNITS.YEAR || String(tenant.rent_duration_unit).toLowerCase() === 'year' ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+            }
+          }
+          return DURATION_UNITS.MONTH
+        })(),
         unit_ids: unitIds,
         category: categoryValue,
         rent_price: tenant.rent_price || 0,
         down_payment: tenant.down_payment || 0,
         deposit: tenant.deposit || 0,
         deposit_reason: '',
-        payment_term: tenant.payment_term || (tenant.rent_duration_unit === DURATION_UNITS.MONTH ? DURATION_UNITS.MONTH : (tenant.rent_duration_unit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH)),
+        payment_term: (() => {
+          // Convert payment_term from number (0 or 1) to string ('year' or 'month')
+          if (tenant.payment_term !== undefined && tenant.payment_term !== null) {
+            if (typeof tenant.payment_term === 'number') {
+              return tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+            } else if (typeof tenant.payment_term === 'string') {
+              return tenant.payment_term
+            }
+          }
+          // Default based on rent_duration_unit
+          return tenant.rent_duration_unit === DURATION_UNITS.MONTH ? DURATION_UNITS.MONTH : (tenant.rent_duration_unit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH)
+        })(),
         status: (tenant as any).status || 'pending',
       })
       
@@ -364,19 +383,39 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         throw new Error('User ID tidak tersedia. Pastikan user sudah dipilih atau dibuat.')
       }
       
+      // Convert payment_term from string to number: 0 for year, 1 for month
+      let paymentTermValue: number | undefined = undefined
+      if (formData.payment_term && !tenant) {
+        if (formData.payment_term === DURATION_UNITS.YEAR) {
+          paymentTermValue = 0
+        } else if (formData.payment_term === DURATION_UNITS.MONTH) {
+          paymentTermValue = 1
+        }
+      }
+
+      // Convert rent_duration_unit from string to number: 1 for month, 0 for year
+      let rentDurationUnitValue: number
+      if (formData.rent_duration_unit === DURATION_UNITS.MONTH) {
+        rentDurationUnitValue = 1
+      } else if (formData.rent_duration_unit === DURATION_UNITS.YEAR) {
+        rentDurationUnitValue = 0
+      } else {
+        rentDurationUnitValue = 1 // default to month
+      }
+
       const submitData = {
         name: formData.name.trim(),
         user_id: effectiveUserId,
         contract_begin_at: formData.contract_begin_at,
         contract_end_at: formData.contract_end_at,
         rent_duration: parseInt(formData.rent_duration) || 0,
-        rent_duration_unit: formData.rent_duration_unit,
+        rent_duration_unit: rentDurationUnitValue,
         unit_ids: formData.unit_ids,
-        categories: [formData.category],
+        category_id: formData.category,
         rent_price: formData.rent_price,
         ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
         ...(formData.deposit > 0 ? { deposit: formData.deposit } : {}),
-        ...(formData.payment_term && !tenant ? { payment_term: formData.payment_term } : {}),
+        ...(paymentTermValue !== undefined ? { payment_term: paymentTermValue } : {}),
         ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
         tenant_identifications: identificationUrls,
         contract_documents: contractUrls,
@@ -1070,7 +1109,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               )}
 
               {/* Price Per Term Display - Show when creating or editing, when all required fields are filled */}
-              {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && formData.payment_term.trim() !== '' && (
+              {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
                 <div className="space-y-2">
                   <Label>
                     Harga Dibayar per {formData.payment_term === DURATION_UNITS.YEAR ? 'Tahun' : 'Bulan'}
