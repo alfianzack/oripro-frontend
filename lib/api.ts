@@ -1552,6 +1552,96 @@ export const userTasksApi = {
   },
 }
 
+// Dashboard API interfaces
+export interface DashboardComplaint {
+  id: number
+  unit: string
+  reporter: string
+  date: string
+  status: 'pending' | 'in_progress' | 'resolved' | 'closed'
+}
+
+export interface DashboardComplaintStats {
+  total: number
+  pending: number
+  in_progress: number
+  resolved: number
+  closed: number
+}
+
+export interface DashboardExpiringTenant {
+  id: string
+  name: string
+  unit: string
+  monthsRemaining: number
+  daysRemaining: number
+  contractEndAt: string
+}
+
+export interface DashboardWorker {
+  id: string
+  name: string
+  email: string
+  role: string
+  attendance: number
+  taskCompletion: number
+}
+
+export interface DashboardDailyTaskCompletion {
+  day: string
+  date: string
+  completion: number
+  total: number
+  completed: number
+}
+
+export interface DashboardData {
+  complaints: {
+    recent: DashboardComplaint[]
+    stats: DashboardComplaintStats
+  }
+  expiringTenants: DashboardExpiringTenant[]
+  workers: DashboardWorker[]
+  dailyTaskCompletion: DashboardDailyTaskCompletion[]
+}
+
+export interface DashboardStats {
+  totalRevenue: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalAssets: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalUnits: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalTenants: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+}
+
+// Dashboard API functions
+export const dashboardApi = {
+  async getDashboardData(): Promise<ApiResponse<DashboardData>> {
+    return apiClient.get<DashboardData>('/api/dashboard')
+  },
+  async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
+    return apiClient.get<DashboardStats>('/api/dashboard/stats')
+  },
+}
+
 // Predefined menu structure for access control
 export const MENU_STRUCTURE: MenuAccess[] = [
   {

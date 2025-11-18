@@ -40,8 +40,18 @@ export default function TenantStatsCards({ tenants, units }: TenantStatsCardsPro
     const expiringContracts = tenants.filter(tenant => getContractStatus(tenant) === 'expiring').length
     const expiredContracts = tenants.filter(tenant => getContractStatus(tenant) === 'expired').length
 
+    // Calculate rented units correctly (tenant can have multiple units)
+    const rentedUnitIds = new Set<string>()
+    tenants.forEach(tenant => {
+      if (tenant.units && tenant.units.length > 0) {
+        tenant.units.forEach(unit => rentedUnitIds.add(unit.id))
+      } else if (tenant.unit_ids && tenant.unit_ids.length > 0) {
+        tenant.unit_ids.forEach(id => rentedUnitIds.add(id))
+      }
+    })
+    const rentedUnits = rentedUnitIds.size
+
     const totalUnits = units.length
-    const rentedUnits = tenants.length // Assuming each tenant has one unit
     const availableUnits = totalUnits - rentedUnits
 
     const totalRevenue = tenants.reduce((sum, tenant) => {
@@ -144,8 +154,18 @@ export default function TenantStatsCards({ tenants, units }: TenantStatsCardsPro
 
 export function UnitStatsCards({ tenants, units }: TenantStatsCardsProps) {
   const getStats = () => {
+    // Calculate rented units correctly (tenant can have multiple units)
+    const rentedUnitIds = new Set<string>()
+    tenants.forEach(tenant => {
+      if (tenant.units && tenant.units.length > 0) {
+        tenant.units.forEach(unit => rentedUnitIds.add(unit.id))
+      } else if (tenant.unit_ids && tenant.unit_ids.length > 0) {
+        tenant.unit_ids.forEach(id => rentedUnitIds.add(id))
+      }
+    })
+    const rentedUnits = rentedUnitIds.size
+
     const totalUnits = units.length
-    const rentedUnits = tenants.length // Assuming each tenant has one unit
     const availableUnits = totalUnits - rentedUnits
 
     const totalRevenue = tenants.reduce((sum, tenant) => {
