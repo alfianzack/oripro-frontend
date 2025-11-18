@@ -1,15 +1,42 @@
 "use client";
 
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import React from "react";
 import { ApexOptions } from "apexcharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User } from "lucide-react";
+import { dashboardApi, RevenueGrowth } from "@/lib/api"
+import LoadingSkeleton from "@/components/loading-skeleton"
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false })
 
 const RevenueGrowthChart = () => {
+    const [revenueData, setRevenueData] = useState<RevenueGrowth | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        loadRevenueGrowth()
+    }, [])
+
+    const loadRevenueGrowth = async () => {
+        try {
+            setLoading(true)
+            const response = await dashboardApi.getRevenueGrowth()
+            console.log('Revenue Growth API Response:', response)
+            
+            if (response.success && response.data) {
+                const responseData = response.data as any;
+                setRevenueData(responseData.data)
+            }
+        } catch (err) {
+            console.error('Error loading revenue growth:', err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const chartOptions: ApexOptions = {
         chart: {
             type: 'area',
@@ -64,7 +91,7 @@ const RevenueGrowthChart = () => {
             }
         },
         xaxis: {
-            categories: ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'],
+            categories: revenueData?.years || [],
             labels: {
                 style: {
                     fontSize: '14px',
@@ -103,9 +130,24 @@ const RevenueGrowthChart = () => {
     const chartSeries = [
         {
             name: 'Revenue',
-            data: [750000000, 1500000000, 400000000, 600000000, 800000000, 1200000000, 1500000000, 1900000000],
+            data: revenueData?.revenue || [],
         },
     ]
+
+    if (loading) {
+        return (
+            <Card className="p-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <CardTitle className="text-lg font-semibold text-gray-700">
+                        Revenue Growth
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <LoadingSkeleton height="h-[300px]" text="Memuat chart..." />
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card className="p-6">
@@ -126,12 +168,18 @@ const RevenueGrowthChart = () => {
                 </Select>
             </CardHeader>
             <CardContent>
-                <Chart
-                    options={chartOptions}
-                    series={chartSeries}
-                    type="area"
-                    height={300}
-                />
+                {revenueData && revenueData.revenue.length > 0 ? (
+                    <Chart
+                        options={chartOptions}
+                        series={chartSeries}
+                        type="area"
+                        height={300}
+                    />
+                ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <p>Tidak ada data revenue growth</p>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

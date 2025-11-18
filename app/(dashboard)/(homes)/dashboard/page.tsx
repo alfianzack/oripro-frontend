@@ -28,6 +28,8 @@ export default function DashboardPage() {
       setError(null)
       const response = await dashboardApi.getDashboardData()
       const responseData = response.data as any;
+      const responseDataDashboard = responseData.data as any;
+      
       if (responseData) {
         const data: DashboardData = {
           complaints: responseData.complaints || {
@@ -40,9 +42,9 @@ export default function DashboardPage() {
               closed: 0,
             }
           },
-          expiringTenants: responseData.expiringTenants || [],
-          workers: responseData.workers || [],
-          dailyTaskCompletion: responseData.dailyTaskCompletion || [],
+          expiringTenants: responseDataDashboard.expiringTenants || [],
+          workers: responseDataDashboard.workers || [],
+          dailyTaskCompletion: responseDataDashboard.dailyTaskCompletion || [],
         }
         setDashboardData(data)
       } else {

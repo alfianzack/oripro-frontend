@@ -18,11 +18,34 @@ export default function DashboardStatCards() {
     try {
       setLoading(true)
       const response = await dashboardApi.getDashboardStats()
-      console.log('Dashboard Stats API Response:', response)
-      if (response.data) {
-        setStats(response.data)
+      console.log('Dashboard Stats API Response (full):', JSON.stringify(response, null, 2))
+      
+      // Handle different response formats
+      let statsData = null
+      
+      if (response.success && response.data) {
+        // Response format: { success: true, data: {...} }
+        statsData = response.data
+      } else if (response.data) {
+        // Check if response.data has nested data structure
+        if (typeof response.data === 'object' && 'data' in response.data) {
+          statsData = response.data.data
+        } else {
+          statsData = response.data
+        }
+      }
+      
+      if (statsData) {
+        console.log('Dashboard Stats Data (parsed):', JSON.stringify(statsData, null, 2))
+        setStats(statsData)
       } else {
         console.warn('Dashboard stats response has no data:', response)
+        console.warn('Response structure:', {
+          success: response.success,
+          hasData: !!response.data,
+          dataType: typeof response.data,
+          dataKeys: response.data ? Object.keys(response.data) : []
+        })
       }
     } catch (err) {
       console.error('Error loading dashboard stats:', err)

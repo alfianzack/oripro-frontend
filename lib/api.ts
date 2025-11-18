@@ -1632,6 +1632,17 @@ export interface DashboardStats {
   }
 }
 
+export interface TopAssetRevenue {
+  name: string
+  revenue: number
+  formatted: string
+}
+
+export interface RevenueGrowth {
+  years: string[]
+  revenue: number[]
+}
+
 // Dashboard API functions
 export const dashboardApi = {
   async getDashboardData(): Promise<ApiResponse<DashboardData>> {
@@ -1639,6 +1650,12 @@ export const dashboardApi = {
   },
   async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
     return apiClient.get<DashboardStats>('/api/dashboard/stats')
+  },
+  async getTopAssetRevenue(): Promise<ApiResponse<TopAssetRevenue[]>> {
+    return apiClient.get<TopAssetRevenue[]>('/api/dashboard/top-asset-revenue')
+  },
+  async getRevenueGrowth(): Promise<ApiResponse<RevenueGrowth>> {
+    return apiClient.get<RevenueGrowth>('/api/dashboard/revenue-growth')
   },
 }
 
