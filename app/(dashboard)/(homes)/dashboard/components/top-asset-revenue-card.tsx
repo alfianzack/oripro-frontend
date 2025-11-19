@@ -18,15 +18,16 @@ export default function TopAssetRevenueCard() {
     try {
       setLoading(true)
       const response = await dashboardApi.getTopAssetRevenue()
-      console.log('Top Asset Revenue API Response:', response)
       
       if (response.success && response.data) {
+        // Response.data should be the array directly from createResponse
         const responseData = response.data as any;
         const data = Array.isArray(responseData.data) ? responseData.data : []
         setTopAssets(data)
       }
     } catch (err) {
       console.error('Error loading top asset revenue:', err)
+      setTopAssets([])
     } finally {
       setLoading(false)
     }

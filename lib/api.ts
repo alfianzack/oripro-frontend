@@ -963,6 +963,7 @@ export interface Tenant {
   down_payment?: number
   deposit?: number
   payment_term?: string
+  status?: string // 'inactive' | 'active' | 'pending' | 'expired' | 'terminated' | 'blacklisted'
   created_by?: string
   updated_by?: string
   created_at: string
@@ -1010,6 +1011,7 @@ export interface UpdateTenantData {
   down_payment?: number
   deposit?: number
   deposit_reason?: string
+  status?: string // 'inactive' | 'active' | 'pending' | 'expired' | 'terminated' | 'blacklisted'
 }
 
 // Duration unit constants

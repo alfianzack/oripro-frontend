@@ -417,6 +417,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         ...(formData.deposit > 0 ? { deposit: formData.deposit } : {}),
         ...(paymentTermValue !== undefined ? { payment_term: paymentTermValue } : {}),
         ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
+        ...(formData.status ? { status: formData.status } : {}),
         tenant_identifications: identificationUrls,
         contract_documents: contractUrls,
       }

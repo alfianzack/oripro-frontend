@@ -98,21 +98,6 @@ export default function TenantsTable({
     })
   }
 
-  const getContractStatus = (contractEndAt: string) => {
-    const endDate = new Date(contractEndAt)
-    const now = new Date()
-    const diffTime = endDate.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
-    if (diffDays < 0) {
-      return { status: 'expired', label: 'Kadaluarsa', variant: 'destructive' as const }
-    } else if (diffDays <= 30) {
-      return { status: 'expiring', label: 'Akan Kadaluarsa', variant: 'warning' as const }
-    } else {
-      return { status: 'active', label: 'Aktif', variant: 'default' as const }
-    }
-  }
-
   const getTenantStatus = (status: string) => {
     switch (status) {
       case 'inactive':
@@ -184,7 +169,6 @@ export default function TenantsTable({
               <TableHead>Mulai Kontrak</TableHead>
               <TableHead>Berakhir Kontrak</TableHead>
               <TableHead>Durasi Sewa</TableHead>
-              <TableHead>Status Kontrak</TableHead>
               <TableHead>Dibuat</TableHead>
               <TableHead className="w-[70px]">Aksi</TableHead>
             </TableRow>
@@ -192,20 +176,28 @@ export default function TenantsTable({
           <TableBody>
             {!Array.isArray(tenants) || tenants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Tidak ada data tenant
                 </TableCell>
               </TableRow>
             ) : (
               tenants.map((tenant, index) => {
                 const isLast = index === tenants.length - 1;
-                const contractStatus = getContractStatus(tenant.contract_end_at);
-                // Use contract status as tenant status since Tenant interface doesn't have status field
-                const tenantStatus = contractStatus.status === 'expired' ? 'expired' : 
-                                   contractStatus.status === 'expiring' ? 'pending' : 'active';
-                
-                // Debug: Log tenant data to identify the problematic field
-                console.log('Tenant data:', tenant);
+                // Use status from database if available, otherwise calculate based on contract_end_at
+                let tenantStatus: string;
+                if (tenant.status) {
+                  // Use status from database
+                  tenantStatus = tenant.status;
+                } else {
+                  // Fallback: Calculate tenant status based on contract_end_at
+                  const endDate = new Date(tenant.contract_end_at);
+                  const now = new Date();
+                  const diffTime = endDate.getTime() - now.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  tenantStatus = diffDays < 0 ? 'expired' : 
+                               diffDays <= 30 ? 'pending' : 'active';
+                }
                 
                 return (
                 <TableRow key={tenant.id}>
@@ -267,11 +259,6 @@ export default function TenantsTable({
                         return '-';
                       }
                     })()}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={contractStatus.variant}>
-                      {contractStatus.label}
-                    </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(tenant.created_at)}
