@@ -45,14 +45,17 @@ const ForgotPasswordComponent = () => {
         const result = await handleForgotPasswordAction(formData)
 
         if (result?.success) {
-          toast.success('Password Reset code has been sent to your email')
-          router.push('/auth/create-password')
+          toast.success('Link reset password telah dikirim ke email Anda')
+          router.push('/auth/login')
         } else {
-          toast.error('Please enter a valid email')
+          const errorMessage = typeof result?.error === 'string' 
+            ? result.error 
+            : 'Silakan masukkan email yang valid'
+          toast.error(errorMessage)
         }
       } catch (error) {
         console.error('Forgot password error:', error)
-        toast.error('Something went wrong. Please try again.')
+        toast.error('Terjadi kesalahan. Silakan coba lagi.')
       } finally {
         setTimeout(() => setLoading(false), 1000)
       }
@@ -99,10 +102,10 @@ const ForgotPasswordComponent = () => {
             {loading || isPending ? (
               <>
                 <Loader2 className="animate-spin h-4.5 w-4.5 mr-2" />
-                Sending...
+                Mengirim...
               </>
             ) : (
-              'Send Recovery Email'
+              'Kirim Email Reset Password'
             )}
           </Button>
         </form>
@@ -110,12 +113,12 @@ const ForgotPasswordComponent = () => {
 
       <div className="mt-8 text-center text-sm">
         <p>
-          Forget it. Send me back to{' '}
+          Ingat password Anda?{' '}
           <Link
             href="/auth/login"
             className="text-primary font-semibold hover:underline"
           >
-            Sign In
+            Masuk
           </Link>
         </p>
       </div>

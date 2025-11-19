@@ -212,13 +212,7 @@ const LoginForm = () => {
           {/* Remember Me & Forgot Password */}
           <div className="mt-2 flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="remember"
-                className="border border-neutral-500 w-4.5 h-4.5"
-              />
-              <label htmlFor="remember" className="text-sm">
-                Remember me
-              </label>
+              
             </div>
             <Link
               href="/auth/forgot-password"

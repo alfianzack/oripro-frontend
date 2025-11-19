@@ -381,42 +381,38 @@ export default function TaskParentsPage() {
         <TableCell>{task.role?.name || '-'}</TableCell>
         <TableCell>{task.asset?.name || '-'}</TableCell>
         <TableCell>
-          <div className="flex items-center gap-2">
-            {/* {task.parent_task_ids && task.parent_task_ids.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {task.parent_task_ids.length} parent{task.parent_task_ids.length > 1 ? 's' : ''}
-              </span>
-            )} */}
+          <div className="flex justify-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
+              size="icon"
+              variant="ghost"
               onClick={() => handleView(task)}
-              className="text-blue-600 hover:text-blue-700"
+              className="rounded-[50%] text-blue-500 bg-blue-500/10"
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="w-5 h-5" />
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              size="icon"
+              variant="ghost"
               onClick={() => handleEdit(task)}
-              className="text-green-600 hover:text-green-700"
+              className="rounded-[50%] text-green-600 bg-green-600/10"
             >
-              <Edit className="h-4 w-4" />
+              <Edit className="w-5 h-5" />
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              size="icon"
+              variant="ghost"
               onClick={() => handleManageParents(task)}
+              className="rounded-[50%] text-blue-500 bg-blue-500/10"
             >
-              <GitBranch className="h-4 w-4" />
+              <GitBranch className="w-5 h-5" />
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              size="icon"
+              variant="ghost"
               onClick={() => handleDeleteClick(task)}
-              className="text-red-600 hover:text-red-700"
+              className="rounded-[50%] text-red-500 bg-red-500/10"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="w-5 h-5" />
             </Button>
           </div>
         </TableCell>
@@ -451,7 +447,7 @@ export default function TaskParentsPage() {
           <BreadcrumbItem>
             <BreadcrumbPage className="flex items-center gap-2">
               <GitBranch className="h-4 w-4" />
-              Task Parents
+              Task
             </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
@@ -460,9 +456,9 @@ export default function TaskParentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Task Parents</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Task</h1>
           <p className="text-muted-foreground">
-            Kelola hierarki relasi parent-child antar tasks
+            Kelola task dan relasi parent-child
           </p>
         </div>
         <Button onClick={() => router.push('/tasks/create')}>

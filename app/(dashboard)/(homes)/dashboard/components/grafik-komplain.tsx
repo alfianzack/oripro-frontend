@@ -24,9 +24,7 @@ export default function GrafikKomplain({ stats }: GrafikKomplainProps) {
       position: 'bottom',
       fontSize: '14px',
       markers: {
-        width: 12,
-        height: 12,
-        radius: 6,
+        size: 6,
       },
     },
     plotOptions: {

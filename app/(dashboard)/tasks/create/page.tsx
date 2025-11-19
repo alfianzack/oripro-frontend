@@ -27,7 +27,7 @@ export default function CreateTaskPage() {
       
       if (response.success) {
         toast.success('Task created successfully')
-        router.push('/tasks')
+        router.push('/task-parents')
       } else {
         toast.error(response.error || 'Failed to create task')
       }
@@ -40,7 +40,7 @@ export default function CreateTaskPage() {
   }
 
   const handleCancel = () => {
-    router.push('/tasks')
+    router.push('/task-parents')
   }
 
   return (

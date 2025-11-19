@@ -53,6 +53,19 @@ export const createPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+// Reset Password Schema
+export const resetPasswordSchema = z
+  .object({
+    password: passwordField.min(6, { message: "Password must be at least 6 characters" }),
+    confirmPassword: z.string({
+      required_error: "Confirm Password is required",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Password tidak cocok",
+    path: ["confirmPassword"],
+  });
+
 export const formSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),

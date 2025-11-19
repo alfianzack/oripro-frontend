@@ -84,7 +84,7 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
         y: 85,
         borderColor: '#EF4444',
         borderWidth: 2,
-        borderDashArray: 5,
+        strokeDashArray: 5,
         label: {
           text: 'Target',
           style: {

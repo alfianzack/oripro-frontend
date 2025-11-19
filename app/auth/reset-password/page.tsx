@@ -1,10 +1,33 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import ThemeLogo from "@/components/shared/theme-logo";
-import ForgotPasswordComponent from "@/components/auth/forgot-password";
+import ResetPasswordComponent from "@/components/auth/reset-password";
 
-const ForgotPassword = () => {
+const ResetPassword = () => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tokenParam = searchParams.get('token');
+    const uidParam = searchParams.get('uid');
+
+    if (!tokenParam || !uidParam) {
+      router.push('/auth/forgot-password');
+      return;
+    }
+
+    setToken(tokenParam);
+    setUid(uidParam);
+  }, [searchParams, router]);
+
+  if (!token || !uid) {
+    return null;
+  }
+
   return (
     <section className="bg-white dark:bg-slate-900 flex flex-wrap min-h-screen">
       {/* Left Image */}
@@ -40,19 +63,19 @@ const ForgotPassword = () => {
               <ThemeLogo />
             </div>
 
-            <h4 className="font-semibold mb-3">Lupa Password</h4>
+            <h4 className="font-semibold mb-3">Reset Password</h4>
             <p className="mb-8 text-secondary-light text-lg">
-              Masukkan alamat email yang terdaftar pada akun Anda dan kami akan
-              mengirimkan tautan untuk mereset password Anda.
+              Masukkan password baru untuk akun Anda.
             </p>
           </div>
 
-          {/* Forgot Password Form */}
-          <ForgotPasswordComponent />
+          {/* Reset Password Form */}
+          <ResetPasswordComponent token={token} uid={uid} />
         </div>
       </div>
     </section>
   );
 };
 
-export default ForgotPassword;
+export default ResetPassword;
+

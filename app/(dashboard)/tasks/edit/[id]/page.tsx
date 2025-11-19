@@ -76,7 +76,7 @@ export default function EditTaskPage() {
       
       if (response.success) {
         toast.success('Task updated successfully')
-        router.push('/tasks')
+        router.push('/task-parents')
       } else {
         toast.error(response.error || 'Failed to update task')
       }
@@ -89,7 +89,7 @@ export default function EditTaskPage() {
   }
 
   const handleCancel = () => {
-    router.push('/tasks')
+    router.push('/task-parents')
   }
 
   if (initialLoading) {
