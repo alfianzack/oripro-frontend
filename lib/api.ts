@@ -7,6 +7,11 @@ export interface ApiResponse<T = any> {
   data?: T
   error?: string
   message?: string
+  pagination?: {
+    total: number
+    limit: number
+    offset: number
+  }
 }
 
 export class ApiClient {
@@ -115,13 +120,15 @@ export class ApiClient {
 
       // Handle backend response format
       if (data && typeof data === 'object' && 'data' in data && 'success' in data) {
-        // Backend returns { data: actualData, success: true, message: "..." }
+        // Backend returns { data: actualData, success: true, message: "...", pagination: {...} }
         return {
           success: data.success,
           data: data.data,
           message: data.message,
           // Include error/message in error field for consistency
           error: data.success ? undefined : (data.message || data.error),
+          // Include pagination if present
+          pagination: data.pagination,
         }
       }
 
@@ -1542,6 +1549,113 @@ export const userTasksApi = {
 
   async completeUserTaskWithFiles(id: number, formData: FormData): Promise<ApiResponse<UserTask>> {
     return apiClient.putFormData<UserTask>(`/api/user-tasks/${id}/complete`, formData)
+  },
+}
+
+// Dashboard API interfaces
+export interface DashboardComplaint {
+  id: number
+  unit: string
+  reporter: string
+  date: string
+  status: 'pending' | 'in_progress' | 'resolved' | 'closed'
+}
+
+export interface DashboardComplaintStats {
+  total: number
+  pending: number
+  in_progress: number
+  resolved: number
+  closed: number
+}
+
+export interface DashboardExpiringTenant {
+  id: string
+  name: string
+  unit: string
+  monthsRemaining: number
+  daysRemaining: number
+  contractEndAt: string
+}
+
+export interface DashboardWorker {
+  id: string
+  name: string
+  email: string
+  role: string
+  attendance: number
+  taskCompletion: number
+}
+
+export interface DashboardDailyTaskCompletion {
+  day: string
+  date: string
+  completion: number
+  total: number
+  completed: number
+}
+
+export interface DashboardData {
+  complaints: {
+    recent: DashboardComplaint[]
+    stats: DashboardComplaintStats
+  }
+  expiringTenants: DashboardExpiringTenant[]
+  workers: DashboardWorker[]
+  dailyTaskCompletion: DashboardDailyTaskCompletion[]
+}
+
+export interface DashboardStats {
+  totalRevenue: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalAssets: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalUnits: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+  totalTenants: {
+    value: number
+    formatted: string
+    change: string
+    changeType: 'positive' | 'negative'
+  }
+}
+
+export interface TopAssetRevenue {
+  name: string
+  revenue: number
+  formatted: string
+}
+
+export interface RevenueGrowth {
+  years: string[]
+  revenue: number[]
+}
+
+// Dashboard API functions
+export const dashboardApi = {
+  async getDashboardData(): Promise<ApiResponse<DashboardData>> {
+    return apiClient.get<DashboardData>('/api/dashboard')
+  },
+  async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
+    return apiClient.get<DashboardStats>('/api/dashboard/stats')
+  },
+  async getTopAssetRevenue(): Promise<ApiResponse<TopAssetRevenue[]>> {
+    return apiClient.get<TopAssetRevenue[]>('/api/dashboard/top-asset-revenue')
+  },
+  async getRevenueGrowth(): Promise<ApiResponse<RevenueGrowth>> {
+    return apiClient.get<RevenueGrowth>('/api/dashboard/revenue-growth')
   },
 }
 

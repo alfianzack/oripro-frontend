@@ -1,18 +1,79 @@
-import type { Metadata } from "next";
+'use client'
+
+import { useEffect, useState } from 'react'
 import { Suspense } from "react";
 import LoadingSkeleton from "@/components/loading-skeleton";
 import DashboardStatCards from "@/app/(dashboard)/(homes)/dashboard/components/dashboard-stat-cards";
 import RevenueGrowthChart from "@/app/(dashboard)/(homes)/dashboard/components/revenue-growth-chart";
 import TopAssetRevenueCard from "@/app/(dashboard)/(homes)/dashboard/components/top-asset-revenue-card";
+import HandlingKomplain from "@/app/(dashboard)/(homes)/dashboard/components/handling-komplain";
+import GrafikKomplain from "@/app/(dashboard)/(homes)/dashboard/components/grafik-komplain";
+import TenantKontrak from "@/app/(dashboard)/(homes)/dashboard/components/tenant-kontrak";
+import Pekerja from "@/app/(dashboard)/(homes)/dashboard/components/pekerja";
+import DailyTaskCompletion from "@/app/(dashboard)/(homes)/dashboard/components/daily-task-completion";
+import { dashboardApi, DashboardData } from '@/lib/api'
 
-const metadata: Metadata = {
-  title: "Dashboard Overview | Oripro Property Management",
-  description:
-    "Dashboard overview untuk monitoring revenue, asset, units, dan tenant dalam sistem manajemen properti Oripro.",
-};
+export default function DashboardPage() {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
-export default async function DashboardPage() {
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await dashboardApi.getDashboardData()
+      const responseData = response.data as any;
+      const responseDataDashboard = responseData.data as any;
+      
+      if (responseData) {
+        const data: DashboardData = {
+          complaints: responseData.complaints || {
+            recent: [],
+            stats: {
+              total: 0,
+              pending: 0,
+              in_progress: 0,
+              resolved: 0,
+              closed: 0,
+            }
+          },
+          expiringTenants: responseDataDashboard.expiringTenants || [],
+          workers: responseDataDashboard.workers || [],
+          dailyTaskCompletion: responseDataDashboard.dailyTaskCompletion || [],
+        }
+        setDashboardData(data)
+      } else {
+        setError(response.error || response.message || 'Gagal memuat data dashboard')
+      }
+    } catch (err) {
+      setError('Terjadi kesalahan saat memuat data dashboard')
+      console.error('Error loading dashboard data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Safe defaults untuk menghindari undefined errors
+  const complaints = dashboardData?.complaints || {
+    recent: [],
+    stats: {
+      total: 0,
+      pending: 0,
+      in_progress: 0,
+      resolved: 0,
+      closed: 0,
+    }
+  }
+
+  const expiringTenants = dashboardData?.expiringTenants || []
+  const workers = dashboardData?.workers || []
+  const dailyTaskCompletion = dashboardData?.dailyTaskCompletion || []
+
   return (
     <>
       {/* Dashboard Title */}
@@ -28,7 +89,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Revenue Growth Chart */}
         <div className="lg:col-span-1">
           <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat chart..." />}>
@@ -43,6 +104,54 @@ export default async function DashboardPage() {
           </Suspense>
         </div>
       </div>
+
+      {/* Dashboard Content - Complaints, Tenants, Workers, Tasks */}
+      {loading ? (
+        <LoadingSkeleton height="h-96" text="Memuat data dashboard..." />
+      ) : error ? (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600">{error}</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Top Section - Three Columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Handling Komplain */}
+            <div className="lg:col-span-1">
+              <HandlingKomplain complaints={complaints.recent || []} />
+            </div>
+
+            {/* Grafik Komplain */}
+            <div className="lg:col-span-1">
+              <GrafikKomplain stats={complaints.stats || {
+                total: 0,
+                pending: 0,
+                in_progress: 0,
+                resolved: 0,
+                closed: 0,
+              }} />
+            </div>
+
+            {/* Tenant Kontrak */}
+            <div className="lg:col-span-1">
+              <TenantKontrak tenants={expiringTenants} />
+            </div>
+          </div>
+
+          {/* Bottom Section - Two Rows */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pekerja */}
+            <div className="lg:col-span-1">
+              <Pekerja workers={workers} />
+            </div>
+
+            {/* Daily Task Completion */}
+            <div className="lg:col-span-1">
+              <DailyTaskCompletion data={dailyTaskCompletion} />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

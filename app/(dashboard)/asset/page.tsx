@@ -24,22 +24,29 @@ export default function AssetsPage() {
   
   // Filter dan sorting states
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
-  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [order, setOrder] = useState<string>('a-z')
+  
+  // Pagination states
+  const [limit] = useState<number>(10)
+  const [offset, setOffset] = useState<number>(0)
+  const [pagination, setPagination] = useState<{ total: number; limit: number; offset: number } | null>(null)
 
   const loadAssets = async () => {
     setLoading(true)
     try {
       // Prepare filter parameters
-      const filterParams: any = {}
+      const filterParams: any = {
+        limit,
+        offset
+      }
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
       if (assetTypeFilter !== 'all') {
         filterParams.asset_type = parseInt(assetTypeFilter)
       }
-      if (sortBy && sortOrder) {
-        filterParams.order = `${sortBy}_${sortOrder}`
+      if (order) {
+        filterParams.order = order
       }
       
       const response = await assetsApi.getAssets(filterParams)
@@ -48,13 +55,38 @@ export default function AssetsPage() {
         // Handle new nested structure: response.data.data contains the array
         const responseData = response.data as any
         const assetsData = Array.isArray(responseData.data) ? responseData.data : []
+        
+        // Extract pagination from response
+        let paginationData: { total: number; limit: number; offset: number } | null = null
+        if (response.pagination) {
+          paginationData = {
+            total: response.pagination.total || 0,
+            limit: response.pagination.limit || limit,
+            offset: response.pagination.offset || offset
+          }
+        } else if (responseData.pagination) {
+          paginationData = {
+            total: responseData.pagination.total || 0,
+            limit: responseData.pagination.limit || limit,
+            offset: responseData.pagination.offset || offset
+          }
+        } else {
+          paginationData = {
+            total: assetsData.length,
+            limit: limit,
+            offset: offset
+          }
+        }
+        
         setAssets(assetsData)
         setFilteredAssets(assetsData)
+        setPagination(paginationData)
       } else {
         toast.error(response.error || 'Gagal memuat data assets')
         // Set empty array on error to prevent filter errors
         setAssets([])
         setFilteredAssets([])
+        setPagination(null)
       }
     } catch (error) {
       console.error('Load assets error:', error)
@@ -62,6 +94,7 @@ export default function AssetsPage() {
       // Set empty array on error to prevent filter errors
       setAssets([])
       setFilteredAssets([])
+      setPagination(null)
     } finally {
       setLoading(false)
     }
@@ -71,10 +104,15 @@ export default function AssetsPage() {
     loadAssets()
   }, [])
 
-  // Reload data when filters change
+  // Reload data when filters or pagination change
   useEffect(() => {
     loadAssets()
-  }, [searchTerm, assetTypeFilter, sortBy, sortOrder])
+  }, [searchTerm, assetTypeFilter, order, offset])
+
+  const handlePageChange = (newOffset: number) => {
+    setOffset(newOffset)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Remove the old client-side filtering since we're using server-side filtering
   // useEffect(() => {
@@ -291,26 +329,15 @@ export default function AssetsPage() {
               </SelectContent>
             </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Nama</SelectItem>
-                <SelectItem value="code">Kode</SelectItem>
-                <SelectItem value="asset_type">Tipe Asset</SelectItem>
-                <SelectItem value="area">Luas</SelectItem>
-                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Urutan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">A - Z</SelectItem>
-                <SelectItem value="desc">Z - A</SelectItem>
+                <SelectItem value="a-z">Nama A - Z</SelectItem>
+                <SelectItem value="z-a">Nama Z - A</SelectItem>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
               </SelectContent>
             </Select>
             
@@ -320,8 +347,8 @@ export default function AssetsPage() {
               onClick={() => {
                 setSearchTerm('')
                 setAssetTypeFilter('all')
-                setSortBy('name')
-                setSortOrder('asc')
+                setOrder('a-z')
+                setOffset(0)
               }}
             >
               Reset
@@ -343,6 +370,8 @@ export default function AssetsPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
+              pagination={pagination || undefined}
+              onPageChange={handlePageChange}
             />
           )}
         </CardContent>

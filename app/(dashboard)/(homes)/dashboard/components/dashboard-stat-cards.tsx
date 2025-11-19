@@ -1,43 +1,135 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Building2, Home, Users } from "lucide-react"
+import { dashboardApi, DashboardStats } from "@/lib/api"
+import LoadingSkeleton from "@/components/loading-skeleton"
 
 export default function DashboardStatCards() {
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  const loadStats = async () => {
+    try {
+      setLoading(true)
+      const response = await dashboardApi.getDashboardStats()
+      console.log('Dashboard Stats API Response (full):', JSON.stringify(response, null, 2))
+      
+      // Handle different response formats
+      let statsData = null
+      
+      if (response.success && response.data) {
+        // Response format: { success: true, data: {...} }
+        statsData = response.data
+      } else if (response.data) {
+        // Check if response.data has nested data structure
+        if (typeof response.data === 'object' && 'data' in response.data) {
+          statsData = response.data.data
+        } else {
+          statsData = response.data
+        }
+      }
+      
+      if (statsData) {
+        console.log('Dashboard Stats Data (parsed):', JSON.stringify(statsData, null, 2))
+        setStats(statsData)
+      } else {
+        console.warn('Dashboard stats response has no data:', response)
+        console.warn('Response structure:', {
+          success: response.success,
+          hasData: !!response.data,
+          dataType: typeof response.data,
+          dataKeys: response.data ? Object.keys(response.data) : []
+        })
+      }
+    } catch (err) {
+      console.error('Error loading dashboard stats:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        {[1, 2, 3, 4].map((i) => (
+          <LoadingSkeleton key={i} height="h-32" text="Loading..." />
+        ))}
+      </>
+    )
+  }
+
+  if (!stats) {
+    return null
+  }
+
+  // Safe defaults untuk menghindari undefined errors
+  const safeStats = {
+    totalRevenue: stats.totalRevenue || {
+      value: 0,
+      formatted: 'Rp 0',
+      change: '+0% vs last year',
+      changeType: 'positive' as const,
+    },
+    totalAssets: stats.totalAssets || {
+      value: 0,
+      formatted: '0',
+      change: '+0% vs last year',
+      changeType: 'positive' as const,
+    },
+    totalUnits: stats.totalUnits || {
+      value: 0,
+      formatted: '0',
+      change: '+0% vs last year',
+      changeType: 'positive' as const,
+    },
+    totalTenants: stats.totalTenants || {
+      value: 0,
+      formatted: '0',
+      change: '+0% vs last year',
+      changeType: 'positive' as const,
+    },
+  }
+
+  const statCards = [
     {
       title: "Total Revenue",
-      value: "Rp 2.000.000.000",
-      change: "+2% vs last year",
-      changeType: "positive" as const,
+      value: safeStats.totalRevenue.formatted,
+      change: safeStats.totalRevenue.change,
+      changeType: safeStats.totalRevenue.changeType as "positive" | "negative",
       icon: DollarSign,
     },
     {
       title: "Total Asset",
-      value: "8",
-      change: "+2% vs last year",
-      changeType: "positive" as const,
+      value: safeStats.totalAssets.formatted,
+      change: safeStats.totalAssets.change,
+      changeType: safeStats.totalAssets.changeType as "positive" | "negative",
       icon: Building2,
     },
     {
       title: "Total Units",
-      value: "38",
-      change: "+2% vs last year",
-      changeType: "positive" as const,
+      value: safeStats.totalUnits.formatted,
+      change: safeStats.totalUnits.change,
+      changeType: safeStats.totalUnits.changeType as "positive" | "negative",
       icon: Home,
     },
     {
       title: "Total Tenant",
-      value: "30",
-      change: "-2% vs last year",
-      changeType: "negative" as const,
+      value: safeStats.totalTenants.formatted,
+      change: safeStats.totalTenants.change,
+      changeType: safeStats.totalTenants.changeType as "positive" | "negative",
       icon: Users,
     }
   ]
 
   return (
     <>
-      {stats.map((stat, index) => (
+      {statCards.map((stat, index) => (
         <Card key={index} className="p-6">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-700">

@@ -13,7 +13,8 @@ import {
   FileText,
   Edit,
   Eye,
-  Building2
+  Building2,
+  CreditCard
 } from 'lucide-react'
 import Link from 'next/link'
 import { Tenant, Unit, Asset, DURATION_UNIT_LABELS } from '@/lib/api'
@@ -22,9 +23,11 @@ interface ContractInfoCardProps {
   tenant: Tenant
   unit?: Unit
   asset?: Asset
+  pendingPayments?: any[]
+  totalPendingAmount?: number
 }
 
-export default function ContractInfoCard({ tenant, unit, asset }: ContractInfoCardProps) {
+export default function ContractInfoCard({ tenant, unit, asset, pendingPayments, totalPendingAmount }: ContractInfoCardProps) {
   const getContractStatus = (tenant: Tenant) => {
     const now = new Date()
     const endDate = new Date(tenant.contract_end_at)
@@ -168,6 +171,25 @@ export default function ContractInfoCard({ tenant, unit, asset }: ContractInfoCa
              contractStatus.status === 'expiring' ? 'Perhatian: Akan Kadaluarsa' : 'Kontrak Kadaluarsa'}
           </span>
         </div>
+
+        {/* Pending Payment Info */}
+        {pendingPayments && pendingPayments.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-orange-900">
+              <CreditCard className="h-4 w-4" />
+              <span>Pending Payment</span>
+              <Badge variant="destructive" className="ml-auto">
+                {pendingPayments.length} unpaid
+              </Badge>
+            </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Total: </span>
+              <span className="font-bold text-orange-600">
+                {formatCurrency(totalPendingAmount || 0)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2 pt-2">

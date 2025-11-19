@@ -26,15 +26,22 @@ export default function UnitsPage() {
   const [assetFilter, setAssetFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sizeFilter, setSizeFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
-  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [order, setOrder] = useState<string>('a-z')
   const [assets, setAssets] = useState<Asset[]>([])
+  
+  // Pagination states
+  const [limit] = useState<number>(10)
+  const [offset, setOffset] = useState<number>(0)
+  const [pagination, setPagination] = useState<{ total: number; limit: number; offset: number } | null>(null)
 
   const loadUnits = async () => {
     setLoading(true)
     try {
       // Prepare filter parameters
-      const filterParams: any = {}
+      const filterParams: any = {
+        limit,
+        offset
+      }
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
@@ -51,8 +58,8 @@ export default function UnitsPage() {
           filterParams.size_max = parseInt(sizeRange[1])
         }
       }
-      if (sortBy && sortOrder) {
-        filterParams.order = `${sortBy}_${sortOrder}`
+      if (order) {
+        filterParams.order = order
       }
       
       const response = await unitsApi.getUnits(filterParams)
@@ -60,14 +67,44 @@ export default function UnitsPage() {
       if (response.success && response.data) {
         const responseData = response.data as any
         const unitsData = Array.isArray(responseData.data) ? responseData.data : []
+        
+        // Extract pagination from response
+        let paginationData: { total: number; limit: number; offset: number } | null = null
+        if (response.pagination) {
+          paginationData = {
+            total: response.pagination.total || 0,
+            limit: response.pagination.limit || limit,
+            offset: response.pagination.offset || offset
+          }
+        } else if (responseData.pagination) {
+          paginationData = {
+            total: responseData.pagination.total || 0,
+            limit: responseData.pagination.limit || limit,
+            offset: responseData.pagination.offset || offset
+          }
+        } else {
+          paginationData = {
+            total: unitsData.length,
+            limit: limit,
+            offset: offset
+          }
+        }
+        
         setUnits(unitsData)
         setFilteredUnits(unitsData)
+        setPagination(paginationData)
       } else {
         toast.error(response.error || 'Gagal memuat data units')
+        setUnits([])
+        setFilteredUnits([])
+        setPagination(null)
       }
     } catch (error) {
       console.error('Load units error:', error)
       toast.error('Terjadi kesalahan saat memuat data units')
+      setUnits([])
+      setFilteredUnits([])
+      setPagination(null)
     } finally {
       setLoading(false)
     }
@@ -91,10 +128,15 @@ export default function UnitsPage() {
     loadAssets()
   }, [])
 
-  // Reload data when filters change
+  // Reload data when filters or pagination change
   useEffect(() => {
     loadUnits()
-  }, [searchTerm, assetFilter, statusFilter, sizeFilter, sortBy, sortOrder])
+  }, [searchTerm, assetFilter, statusFilter, sizeFilter, order, offset])
+
+  const handlePageChange = (newOffset: number) => {
+    setOffset(newOffset)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Remove the old client-side filtering since we're using server-side filtering
   // useEffect(() => {
@@ -305,25 +347,15 @@ export default function UnitsPage() {
               </SelectContent>
             </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Nama Unit</SelectItem>
-                <SelectItem value="size">Ukuran</SelectItem>
-                <SelectItem value="rent_price">Harga Sewa</SelectItem>
-                <SelectItem value="created_at">Tanggal Dibuat</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Urutan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">A - Z</SelectItem>
-                <SelectItem value="desc">Z - A</SelectItem>
+                <SelectItem value="a-z">Nama A - Z</SelectItem>
+                <SelectItem value="z-a">Nama Z - A</SelectItem>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
               </SelectContent>
             </Select>
             
@@ -335,8 +367,8 @@ export default function UnitsPage() {
                 setAssetFilter('all')
                 setStatusFilter('all')
                 setSizeFilter('all')
-                setSortBy('name')
-                setSortOrder('asc')
+                setOrder('a-z')
+                setOffset(0)
               }}
             >
               Reset
@@ -358,6 +390,8 @@ export default function UnitsPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
+              pagination={pagination || undefined}
+              onPageChange={handlePageChange}
             />
           )}
         </CardContent>
