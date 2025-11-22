@@ -1486,6 +1486,100 @@ export const scanInfoApi = {
   },
 }
 
+// Complaint Report API interface
+export interface ComplaintReport {
+  id: number
+  type: 'complaint' | 'report'
+  title: string
+  description: string
+  reporter_id: string
+  tenant_id?: string | null
+  status: string | number // 'pending' | 'in_progress' | 'resolved' | 'closed' or 0-3
+  priority: string | number // 'low' | 'medium' | 'high' | 'urgent' or 0-3
+  created_by?: string | null
+  updated_by?: string | null
+  created_at?: string
+  updated_at?: string
+  reporter?: User
+  tenant?: Tenant
+  createdBy?: User
+  updatedBy?: User
+  evidences?: Array<{ url: string } | string> // Array of evidence objects with url property or string URLs
+}
+
+export interface CreateComplaintReportData {
+  type: 'complaint' | 'report'
+  title: string
+  description: string
+  reporter_id: string
+  tenant_id?: string | null
+  status?: number // 0=pending, 1=in_progress, 2=resolved, 3=closed
+  priority?: number // 0=low, 1=medium, 2=high, 3=urgent
+  evidences?: string[] // Array of URLs
+}
+
+export interface UpdateComplaintReportData {
+  type?: 'complaint' | 'report'
+  title?: string
+  description?: string
+  reporter_id?: string
+  tenant_id?: string | null
+  status?: number | string // 0=pending, 1=in_progress, 2=resolved, 3=closed or 'pending'|'in_progress'|'resolved'|'closed'
+  priority?: number | string // 0=low, 1=medium, 2=high, 3=urgent or 'low'|'medium'|'high'|'urgent'
+}
+
+// Complaint Report-specific API functions
+export const complaintReportsApi = {
+  async getComplaintReports(params?: {
+    title?: string
+    type?: 'complaint' | 'report'
+    status?: string | number
+    priority?: string | number
+    tenant_id?: string
+    reporter_id?: string
+    order?: string
+    limit?: number
+    offset?: number
+  }): Promise<ApiResponse<ComplaintReport[]>> {
+    const queryParams = new URLSearchParams()
+    if (params?.title) queryParams.append('title', params.title)
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.status !== undefined && params?.status !== null) queryParams.append('status', String(params.status))
+    if (params?.priority !== undefined && params?.priority !== null) queryParams.append('priority', String(params.priority))
+    if (params?.tenant_id) queryParams.append('tenant_id', params.tenant_id)
+    if (params?.reporter_id) queryParams.append('reporter_id', params.reporter_id)
+    if (params?.order) queryParams.append('order', params.order)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const endpoint = `/api/complaint-reports${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    return apiClient.get<ComplaintReport[]>(endpoint)
+  },
+
+  async getComplaintReport(id: number): Promise<ApiResponse<ComplaintReport>> {
+    return apiClient.get<ComplaintReport>(`/api/complaint-reports/${id}`)
+  },
+
+  async createComplaintReport(data: CreateComplaintReportData): Promise<ApiResponse<ComplaintReport>> {
+    return apiClient.post<ComplaintReport>('/api/complaint-reports', data)
+  },
+
+  async uploadComplaintReportFile(file: File): Promise<ApiResponse<{url: string, filename: string}>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    return apiClient.post<{url: string, filename: string}>('/api/uploads/complaint-reports', formData)
+  },
+
+  async updateComplaintReport(id: number, data: UpdateComplaintReportData): Promise<ApiResponse<ComplaintReport>> {
+    return apiClient.put<ComplaintReport>(`/api/complaint-reports/${id}`, data)
+  },
+
+  async deleteComplaintReport(id: number): Promise<ApiResponse<void>> {
+    return apiClient.delete<void>(`/api/complaint-reports/${id}`)
+  },
+}
+
 // User Task API interface
 export interface UserTask {
   id?: number
