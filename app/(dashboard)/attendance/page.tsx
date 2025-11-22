@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Clock, MapPin, Loader2 } from 'lucide-react'
 import AttendanceWidget from '@/components/attendance/attendance-widget'
 import AttendanceCard from '@/components/attendance/attendance-card'
+import AttendanceHistoryTable from '@/components/attendance/attendance-history-table'
 import { assetsApi } from '@/lib/api'
 
 interface Asset {
@@ -76,10 +77,11 @@ export default function AttendancePage() {
         </Card>
       ) : viewMode === 'auto' ? (
         // Auto Detection Mode - menggunakan AttendanceCard
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-          <div className="lg:col-span-2">
+        <div className="space-y-6">
+          <div>
             <AttendanceCard />
           </div>
+          <AttendanceHistoryTable />
         </div>
       ) : (
         // Manual Selection Mode - menggunakan AttendanceWidget
