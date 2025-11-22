@@ -411,6 +411,7 @@ export interface TenantPaymentLog {
   id: number
   tenant_id: string
   amount?: number
+  paid_amount?: number
   payment_date?: string
   payment_deadline?: string
   payment_method?: string
@@ -436,6 +437,7 @@ export interface UpdateTenantPaymentData {
   payment_date?: string
   payment_method?: string
   notes?: string
+  paid_amount?: number
 }
 
 // Roles-specific API functions

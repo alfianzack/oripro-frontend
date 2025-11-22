@@ -60,9 +60,11 @@ export default function TenantDetailDialog({
   const [updatePaymentData, setUpdatePaymentData] = useState<UpdateTenantPaymentData>({
     payment_date: '',
     payment_method: '',
-    notes: ''
+    notes: '',
+    paid_amount: undefined
   })
   const [updatingPayment, setUpdatingPayment] = useState(false)
+  const [allPaidPayments, setAllPaidPayments] = useState<TenantPaymentLog[]>([])
 
   useEffect(() => {
     setMounted(true)
@@ -87,6 +89,29 @@ export default function TenantDetailDialog({
     }
 
     loadDepositLogs()
+  }, [open, tenant?.id])
+
+  // Fetch all paid payments to calculate total amount due
+  useEffect(() => {
+    const loadAllPaidPayments = async () => {
+      if (open && tenant?.id) {
+        try {
+          const response = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+            status: 1, // Only paid payments
+            limit: 1000 // Fetch all paid payments
+          })
+          if (response.success && response.data) {
+            const logsData = response.data as any
+            const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+            setAllPaidPayments(logs)
+          }
+        } catch (error) {
+          console.error('Load paid payments error:', error)
+        }
+      }
+    }
+
+    loadAllPaidPayments()
   }, [open, tenant?.id])
 
   // Reset pagination when dialog opens or tenant changes
@@ -259,7 +284,8 @@ export default function TenantDetailDialog({
     setUpdatePaymentData({
       payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString().split('T')[0] : '',
       payment_method: payment.payment_method || '',
-      notes: payment.notes || ''
+      notes: payment.notes || '',
+      paid_amount: payment.paid_amount
     })
     setUpdatePaymentDialogOpen(true)
   }
@@ -298,6 +324,17 @@ export default function TenantDetailDialog({
             }
           }
         }
+        
+        // Reload paid payments to update summary
+        const paidResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+          status: 1,
+          limit: 1000
+        })
+        if (paidResponse.success && paidResponse.data) {
+          const paidLogsData = paidResponse.data as any
+          const paidLogs = Array.isArray(paidLogsData.data) ? paidLogsData.data : (Array.isArray(paidLogsData) ? paidLogsData : [])
+          setAllPaidPayments(paidLogs)
+        }
       } else {
         toast.error(response.error || 'Gagal memperbarui status pembayaran')
       }
@@ -309,6 +346,25 @@ export default function TenantDetailDialog({
   }
 
   const totalPaymentPages = Math.ceil(paymentTotal / paymentLimit)
+
+  // Calculate total amount due
+  const calculateTotalAmountDue = () => {
+    if (!tenant) return { totalMustPay: 0, totalPaid: 0, remaining: 0 }
+    
+    const rentPrice = tenant.rent_price || 0
+    const downPayment = tenant.down_payment || 0
+    const totalMustPay = rentPrice - downPayment
+    
+    const totalPaid = allPaidPayments.reduce((sum, payment) => {
+      return sum + (payment.paid_amount || 0)
+    }, 0)
+    
+    const remaining = totalMustPay - totalPaid
+    
+    return { totalMustPay, totalPaid, remaining }
+  }
+
+  const { totalMustPay, totalPaid, remaining } = calculateTotalAmountDue()
 
   if (!tenant || !open) return null
 
@@ -707,6 +763,70 @@ export default function TenantDetailDialog({
 
                 {activeTab === 'payment' && (
                   <div className="space-y-6">
+                    {/* Payment Summary Card */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <DollarSign className="h-5 w-5" />
+                          Ringkasan Pembayaran
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="text-sm text-muted-foreground mb-1">Total Harus Dibayar</div>
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                              {new Intl.NumberFormat('id-ID', {
+                                style: 'currency',
+                                currency: 'IDR',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(totalMustPay)}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              (Harga Sewa - Uang Muka)
+                            </div>
+                          </div>
+                          <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="text-sm text-muted-foreground mb-1">Total Sudah Dibayar</div>
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                              {new Intl.NumberFormat('id-ID', {
+                                style: 'currency',
+                                currency: 'IDR',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(totalPaid)}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              ({allPaidPayments.length} pembayaran)
+                            </div>
+                          </div>
+                          <div className={`p-4 rounded-lg border ${
+                            remaining > 0 
+                              ? 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800' 
+                              : 'bg-gray-50 dark:bg-gray-950 border-gray-200 dark:border-gray-800'
+                          }`}>
+                            <div className="text-sm text-muted-foreground mb-1">Sisa Pembayaran</div>
+                            <div className={`text-2xl font-bold ${
+                              remaining > 0 
+                                ? 'text-orange-600 dark:text-orange-400' 
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {new Intl.NumberFormat('id-ID', {
+                                style: 'currency',
+                                currency: 'IDR',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(remaining)}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {remaining > 0 ? 'Belum Lunas' : 'Lunas'}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
                     <Card>
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -749,6 +869,7 @@ export default function TenantDetailDialog({
                                   <TableRow>
                                     <TableHead>Batas Pembayaran</TableHead>
                                     <TableHead>Jumlah</TableHead>
+                                    <TableHead>Jumlah Dibayar</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Tanggal Pembayaran</TableHead>
                                     <TableHead>Metode Pembayaran</TableHead>
@@ -760,12 +881,19 @@ export default function TenantDetailDialog({
                                 <TableBody>
                                   {paymentLogs.map((log) => {
                                     const amount = log.amount || 0
+                                    const paidAmount = log.paid_amount || 0
                                     const formattedAmount = new Intl.NumberFormat('id-ID', {
                                       style: 'currency',
                                       currency: 'IDR',
                                       minimumFractionDigits: 0,
                                       maximumFractionDigits: 0,
                                     }).format(amount)
+                                    const formattedPaidAmount = new Intl.NumberFormat('id-ID', {
+                                      style: 'currency',
+                                      currency: 'IDR',
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    }).format(paidAmount)
 
                                     return (
                                       <TableRow key={log.id}>
@@ -774,6 +902,9 @@ export default function TenantDetailDialog({
                                         </TableCell>
                                         <TableCell>
                                           {amount > 0 ? formattedAmount : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                          {paidAmount > 0 ? formattedPaidAmount : '-'}
                                         </TableCell>
                                         <TableCell>
                                           {getPaymentStatusBadge(log.status)}
@@ -798,14 +929,18 @@ export default function TenantDetailDialog({
                                           )}
                                         </TableCell>
                                         <TableCell>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleUpdatePayment(log)}
-                                          >
-                                            <Edit className="h-4 w-4 mr-1" />
-                                            Update
-                                          </Button>
+                                          {log.status === 1 ? (
+                                            <span className="text-muted-foreground text-sm">-</span>
+                                          ) : (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => handleUpdatePayment(log)}
+                                            >
+                                              <Edit className="h-4 w-4 mr-1" />
+                                              Update
+                                            </Button>
+                                          )}
                                         </TableCell>
                                       </TableRow>
                                     )
@@ -902,6 +1037,21 @@ export default function TenantDetailDialog({
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paid_amount">Jumlah Dibayar</Label>
+              <Input
+                id="paid_amount"
+                type="number"
+                value={updatePaymentData.paid_amount !== undefined ? updatePaymentData.paid_amount : ''}
+                onChange={(e) => setUpdatePaymentData(prev => ({ 
+                  ...prev, 
+                  paid_amount: e.target.value ? parseFloat(e.target.value) : undefined 
+                }))}
+                placeholder="Masukkan jumlah yang dibayar"
+                min="0"
+                step="0.01"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Catatan</Label>

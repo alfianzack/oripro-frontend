@@ -94,7 +94,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       try {
         const [usersResponse, unitsResponse, rolesResponse] = await Promise.all([
           usersApi.getUsers(),
-          unitsApi.getUnits({ status: 0 }),
+          // When editing, load all units to show selected ones; when creating, only load available units
+          tenant ? unitsApi.getUnits() : unitsApi.getUnits({ status: 0 }),
           rolesApi.getRoles()
         ])
         
@@ -706,122 +707,139 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             <div className="space-y-2">
               <Label htmlFor="user_selection">User *</Label>
               
-              {/* User Selection Type Toggle */}
-              <div className="flex gap-2 mb-4">
-                <Button
-                  type="button"
-                  variant={userSelectionType === 'existing' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setUserSelectionType('existing')}
-                  className="flex items-center gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  User yang Ada
-                </Button>
-                <Button
-                  type="button"
-                  variant={userSelectionType === 'new' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setUserSelectionType('new')}
-                  className="flex items-center gap-2"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  User Baru
-                </Button>
-              </div>
+              {tenant ? (
+                /* Read-only display when editing */
+                <div className="p-3 bg-muted/50 border rounded-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">
+                        {tenant.user?.name || users.find(u => u.id === formData.user_id)?.name || 'User tidak ditemukan'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {tenant.user?.email || users.find(u => u.id === formData.user_id)?.email || ''}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">Tidak dapat diubah</Badge>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* User Selection Type Toggle */}
+                  <div className="flex gap-2 mb-4">
+                    <Button
+                      type="button"
+                      variant={userSelectionType === 'existing' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setUserSelectionType('existing')}
+                      className="flex items-center gap-2"
+                    >
+                      <Users className="h-4 w-4" />
+                      User yang Ada
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={userSelectionType === 'new' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setUserSelectionType('new')}
+                      className="flex items-center gap-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      User Baru
+                    </Button>
+                  </div>
 
-              {/* Existing User Selection */}
-              {userSelectionType === 'existing' && (
-                <div className="space-y-3">
-                  {/* Selected User Display */}
-                  {formData.user_id && (
-                    <div className="p-3 bg-primary/10 border border-primary rounded-md">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-primary">
-                            {users.find(u => u.id === formData.user_id)?.name || 'User tidak ditemukan'}
-                          </p>
-                          <p className="text-sm text-primary/70">
-                            {users.find(u => u.id === formData.user_id)?.email || ''}
-                          </p>
+                  {/* Existing User Selection */}
+                  {userSelectionType === 'existing' && (
+                    <div className="space-y-3">
+                      {/* Selected User Display */}
+                      {formData.user_id && (
+                        <div className="p-3 bg-primary/10 border border-primary rounded-md">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-primary">
+                                {users.find(u => u.id === formData.user_id)?.name || 'User tidak ditemukan'}
+                              </p>
+                              <p className="text-sm text-primary/70">
+                                {users.find(u => u.id === formData.user_id)?.email || ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="default" className="bg-primary text-primary-foreground">
+                                Dipilih
+                              </Badge>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleInputChange('user_id', '')}
+                                className="text-xs"
+                              >
+                                Ubah
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default" className="bg-primary text-primary-foreground">
-                            Dipilih
-                          </Badge>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInputChange('user_id', '')}
-                            className="text-xs"
-                          >
-                            Ubah
-                          </Button>
-                        </div>
+                      )}
+
+                      {/* Search Input */}
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Cari user..."
+                          value={userSearchTerm}
+                          onChange={(e) => setUserSearchTerm(e.target.value)}
+                          className="pl-8"
+                        />
+                      </div>
+                      
+                      {/* User List */}
+                      <div className="max-h-40 overflow-y-auto border rounded-md">
+                        {usersLoading ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                            Memuat users...
+                          </div>
+                        ) : users.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            Tidak ada user tersedia
+                          </div>
+                        ) : filteredUsers.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            {userSearchTerm ? `Tidak ada user yang cocok dengan "${userSearchTerm}"` : 'Tidak ada user tersedia'}
+                          </div>
+                        ) : (
+                          filteredUsers.map((user) => {
+                            const isSelected = formData.user_id === user.id
+                            
+                            return (
+                              <div
+                                key={user.id}
+                                className={`p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
+                                  isSelected ? 'bg-primary/10 border-primary' : ''
+                                }`}
+                                onClick={() => {
+                                  handleInputChange('user_id', user.id)
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-medium">{user.name || 'Nama tidak tersedia'}</p>
+                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                  </div>
+                                  {isSelected && (
+                                    <Badge variant="default">Dipilih</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Search Input */}
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari user..."
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                  
-                  {/* User List */}
-                  <div className="max-h-40 overflow-y-auto border rounded-md">
-                    {usersLoading ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                        Memuat users...
-                      </div>
-                    ) : users.length === 0 ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        Tidak ada user tersedia
-                      </div>
-                    ) : filteredUsers.length === 0 ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        {userSearchTerm ? `Tidak ada user yang cocok dengan "${userSearchTerm}"` : 'Tidak ada user tersedia'}
-                      </div>
-                    ) : (
-                      filteredUsers.map((user) => {
-                        const isSelected = formData.user_id === user.id
-                        
-                        return (
-                          <div
-                            key={user.id}
-                            className={`p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
-                              isSelected ? 'bg-primary/10 border-primary' : ''
-                            }`}
-                            onClick={() => {
-                              handleInputChange('user_id', user.id)
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{user.name || 'Nama tidak tersedia'}</p>
-                                <p className="text-sm text-muted-foreground">{user.email}</p>
-                              </div>
-                              {isSelected && (
-                                <Badge variant="default">Dipilih</Badge>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* New User Form */}
-              {userSelectionType === 'new' && (
+                  {/* New User Form */}
+                  {userSelectionType === 'new' && (
                 <div className="space-y-4 p-4 border rounded-md bg-muted/30">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -905,6 +923,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   </div>
                   
                 </div>
+                  )}
+                </>
               )}
 
             {errors.user_id && (
@@ -922,40 +942,84 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               {errors.unit_ids && (
                 <p className="text-sm text-red-500">{errors.unit_ids}</p>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {Array.isArray(units) && units.map((unit) => (
-                  <div
-                    key={unit.id}
-                    className={`p-3 border rounded cursor-pointer transition-colors ${
-                      (formData.unit_ids || []).includes(unit.id)
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                    onClick={() => toggleUnit(unit.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{unit.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {unit.asset?.name && (
-                            <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
-                            style: 'currency',
-                            currency: 'IDR',
-                            minimumFractionDigits: 0,
-                          }).format(unit.rent_price) : 'Harga tidak tersedia'}
-                        </p>
+              {tenant ? (
+                /* Read-only display when editing */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {(() => {
+                    // Use tenant.units if available, otherwise filter from loaded units
+                    const displayUnits = tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0
+                      ? tenant.units.filter((unit: any) => unit != null)
+                      : (Array.isArray(units) ? units.filter(unit => (formData.unit_ids || []).includes(unit.id)) : [])
+                    
+                    return displayUnits.length > 0 ? (
+                      displayUnits.map((unit: any) => (
+                        <div
+                          key={unit.id}
+                          className="p-3 border rounded bg-muted/50 border-primary"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{unit.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {unit.asset?.name && (
+                                  <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
+                                  style: 'currency',
+                                  currency: 'IDR',
+                                  minimumFractionDigits: 0,
+                                }).format(unit.rent_price) : 'Harga tidak tersedia'}
+                              </p>
+                            </div>
+                            <Badge variant="secondary">Tidak dapat diubah</Badge>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-muted-foreground col-span-2">
+                        Tidak ada unit yang dipilih
                       </div>
-                      {(formData.unit_ids || []).includes(unit.id) && (
-                        <Badge variant="default">Dipilih</Badge>
-                      )}
+                    )
+                  })()}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {Array.isArray(units) && units.map((unit) => (
+                    <div
+                      key={unit.id}
+                      className={`p-3 border rounded cursor-pointer transition-colors ${
+                        (formData.unit_ids || []).includes(unit.id)
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => toggleUnit(unit.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{unit.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {unit.asset?.name && (
+                              <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
+                            )}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              minimumFractionDigits: 0,
+                            }).format(unit.rent_price) : 'Harga tidak tersedia'}
+                          </p>
+                        </div>
+                        {(formData.unit_ids || []).includes(unit.id) && (
+                          <Badge variant="default">Dipilih</Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -980,8 +1044,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   type="date"
                   value={formData.contract_begin_at}
                   onChange={(e) => handleInputChange('contract_begin_at', e.target.value)}
-                  className={errors.contract_begin_at ? 'border-red-500' : ''}
+                  disabled={!!tenant}
+                  className={errors.contract_begin_at ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
                 />
+                {tenant && (
+                  <p className="text-xs text-muted-foreground">Tidak dapat diubah saat edit</p>
+                )}
                 {errors.contract_begin_at && (
                   <p className="text-sm text-red-500">{errors.contract_begin_at}</p>
                 )}
@@ -997,13 +1065,15 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     value={formData.rent_duration}
                     onChange={(e) => handleInputChange('rent_duration', e.target.value)}
                     placeholder="Masukkan durasi"
-                    className={errors.rent_duration ? 'border-red-500' : ''}
+                    disabled={!!tenant}
+                    className={errors.rent_duration ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
                   />
                   <Select
                     value={formData.rent_duration_unit}
                     onValueChange={(value) => handleInputChange('rent_duration_unit', value)}
+                    disabled={!!tenant}
                   >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className={`w-32 ${tenant ? 'bg-gray-50 cursor-not-allowed' : ''}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1015,6 +1085,9 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     </SelectContent>
                   </Select>
                 </div>
+                {tenant && (
+                  <p className="text-xs text-muted-foreground">Tidak dapat diubah saat edit</p>
+                )}
                 {errors.rent_duration && (
                   <p className="text-sm text-red-500">{errors.rent_duration}</p>
                 )}
