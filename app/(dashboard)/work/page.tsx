@@ -126,14 +126,14 @@ function WorkContent() {
   const hasTasksToday = hasUserTasksToday(userTasks)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-4 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             {getPageTitle()}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground mt-1">
             Kelola tugas dan selesaikan task sesuai dengan task group
           </p>
         </div>
@@ -142,12 +142,14 @@ function WorkContent() {
       {/* Generate Button - Show if no tasks for today */}
       {!isLoading && !hasTasksToday && (
         <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <p className="text-muted-foreground">
+          <CardContent className="flex items-center justify-center py-8 md:py-12 px-4">
+            <div className="text-center space-y-4 w-full max-w-md">
+              <p className="text-sm md:text-base text-muted-foreground">
                 Belum ada user task untuk hari ini
               </p>
-              <GenerateTaskButton onGenerateSuccess={handleGenerateSuccess} />
+              <div className="flex justify-center">
+                <GenerateTaskButton onGenerateSuccess={handleGenerateSuccess} />
+              </div>
             </div>
           </CardContent>
         </Card>
