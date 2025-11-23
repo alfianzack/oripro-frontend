@@ -10,7 +10,9 @@ import {
   RefreshCw,
   Loader2,
   CreditCard,
-  Wallet
+  Wallet,
+  FileText,
+  Download
 } from 'lucide-react'
 import Link from 'next/link'
 import { Tenant, tenantsApi, Unit, unitsApi, Asset, assetsApi, TenantPaymentLog, TenantDepositLog, authApi } from '@/lib/api'
@@ -452,6 +454,7 @@ export default function DashboardTenantPage() {
                           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                             {tenantUnits.map((unit) => {
                               const asset = assets.find(a => a.id === unit.asset_id)
+                              const contractDocuments = tenant.contract_documents || []
                               return (
                                 <div key={unit.id} className="bg-gray-50 p-3 rounded-lg border">
                                   <div className="flex items-start justify-between mb-2">
@@ -465,7 +468,7 @@ export default function DashboardTenantPage() {
                                       Disewa
                                     </Badge>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-3">
                                     <div>Ukuran: {unit.size} m²</div>
                                     <div>
                                       Harga: {new Intl.NumberFormat('id-ID', {
@@ -475,6 +478,28 @@ export default function DashboardTenantPage() {
                                       }).format(unit.rent_price || 0)}
                                     </div>
                                   </div>
+                                  {contractDocuments.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <FileText className="h-4 w-4 text-muted-foreground" />
+                                        <p className="text-xs font-medium text-gray-700">Contract Document:</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        {contractDocuments.map((docUrl, index) => (
+                                          <a
+                                            key={index}
+                                            href={docUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                          >
+                                            <Download className="h-3 w-3" />
+                                            <span>Document {index + 1}</span>
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })}

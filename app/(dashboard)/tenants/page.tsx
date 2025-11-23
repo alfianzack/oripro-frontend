@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tenant, tenantsApi, User, usersApi } from '@/lib/api'
+import { Tenant, tenantsApi, User, usersApi, authApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,8 @@ export default function TenantsPage() {
   const [userFilter, setUserFilter] = useState<string>('all')
   const [order, setOrder] = useState<string>('a-z')
   const [users, setUsers] = useState<User[]>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [isTenantUser, setIsTenantUser] = useState(false)
   
   // Pagination states
   const [limit] = useState<number>(10)
@@ -36,14 +38,22 @@ export default function TenantsPage() {
     setLoading(true)
     try {
       // Prepare filter parameters
-      const filterParams: any = {
-        limit,
-        offset
+      const filterParams: any = {}
+      
+      // For tenant users, always filter by their user_id and don't use pagination
+      if (isTenantUser && currentUser?.id) {
+        filterParams.user_id = currentUser.id
+        // Don't add limit/offset for tenant users - load all their tenants
+      } else {
+        // For admin users, use pagination and filters
+        filterParams.limit = limit
+        filterParams.offset = offset
       }
+      
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
-      if (userFilter !== 'all') {
+      if (!isTenantUser && userFilter !== 'all') {
         filterParams.user_id = userFilter
       }
       if (order) {
@@ -99,6 +109,12 @@ export default function TenantsPage() {
   }
 
   const loadUsers = async () => {
+    // Only load users if not a tenant user (for filter dropdown)
+    if (isTenantUser) {
+      setUsers([])
+      return
+    }
+    
     try {
       const response = await usersApi.getUsers()
       if (response.success && response.data) {
@@ -113,15 +129,50 @@ export default function TenantsPage() {
     }
   }
 
+  const loadCurrentUser = async () => {
+    try {
+      const user = await authApi.getCurrentUser()
+      setCurrentUser(user)
+      
+      // Check if user is a tenant by checking if they have tenants associated with them
+      if (user && user.id) {
+        try {
+          const tenantsResponse = await tenantsApi.getTenants({ user_id: user.id, limit: 1 })
+          if (tenantsResponse.success && tenantsResponse.data) {
+            const tenantsData = tenantsResponse.data as any
+            const tenants = Array.isArray(tenantsData.data) 
+              ? tenantsData.data 
+              : (Array.isArray(tenantsData) ? tenantsData : [])
+            if (tenants.length > 0) {
+              setIsTenantUser(true)
+            }
+          }
+        } catch (error) {
+          console.error('Error checking tenant status:', error)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error)
+    }
+  }
+
   useEffect(() => {
-    loadTenants()
-    loadUsers()
+    loadCurrentUser()
   }, [])
+
+  useEffect(() => {
+    if (currentUser) {
+      loadTenants()
+      loadUsers()
+    }
+  }, [currentUser, isTenantUser])
 
   // Reload data when filters or pagination change
   useEffect(() => {
-    loadTenants()
-  }, [searchTerm, userFilter, order, offset])
+    if (currentUser) {
+      loadTenants()
+    }
+  }, [searchTerm, userFilter, order, offset, currentUser, isTenantUser])
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset)
@@ -214,10 +265,12 @@ export default function TenantsPage() {
             Kelola data tenant dan kontrak sewa
           </p>
         </div>
-        <Button onClick={() => router.push('/tenants/create')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Tenant
-        </Button>
+        {!isTenantUser && (
+          <Button onClick={() => router.push('/tenants/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Tenant
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -284,57 +337,74 @@ export default function TenantsPage() {
             </div>
           </div>
           
-          {/* Filter Bar - Horizontal Layout */}
-          <div className="flex flex-wrap items-center gap-4 mt-4 p-4 bg-gray-50 rounded-lg border">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari tenant..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
+          {/* Filter Bar - Hidden for tenant users */}
+          {!isTenantUser && (
+            <div className="flex flex-wrap items-center gap-4 mt-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari tenant..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="User" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua User</SelectItem>
+                  {Array.isArray(users) && users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={order} onValueChange={setOrder}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Urutkan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a-z">Nama A - Z</SelectItem>
+                  <SelectItem value="z-a">Nama Z - A</SelectItem>
+                  <SelectItem value="newest">Terbaru</SelectItem>
+                  <SelectItem value="oldest">Terlama</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setSearchTerm('')
+                  setUserFilter('all')
+                  setOrder('a-z')
+                  setOffset(0)
+                }}
+              >
+                Reset
+              </Button>
             </div>
-            
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="User" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua User</SelectItem>
-                {Array.isArray(users) && users.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name || user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={order} onValueChange={setOrder}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Urutkan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="a-z">Nama A - Z</SelectItem>
-                <SelectItem value="z-a">Nama Z - A</SelectItem>
-                <SelectItem value="newest">Terbaru</SelectItem>
-                <SelectItem value="oldest">Terlama</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                setSearchTerm('')
-                setUserFilter('all')
-                setOrder('a-z')
-                setOffset(0)
-              }}
-            >
-              Reset
-            </Button>
-          </div>
+          )}
+          
+          {/* Simple search for tenant users */}
+          {isTenantUser && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari tenant..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -351,7 +421,7 @@ export default function TenantsPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
-              pagination={pagination || undefined}
+              pagination={!isTenantUser ? (pagination || undefined) : undefined}
               onPageChange={handlePageChange}
             />
           )}
