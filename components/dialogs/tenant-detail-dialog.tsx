@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi, UpdateTenantPaymentData } from '@/lib/api'
+import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi, UpdateTenantPaymentData, CreateTenantPaymentData } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react'
 import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
 import toast from 'react-hot-toast'
@@ -65,6 +65,14 @@ export default function TenantDetailDialog({
   })
   const [updatingPayment, setUpdatingPayment] = useState(false)
   const [allPaidPayments, setAllPaidPayments] = useState<TenantPaymentLog[]>([])
+  const [createPaymentDialogOpen, setCreatePaymentDialogOpen] = useState(false)
+  const [createPaymentData, setCreatePaymentData] = useState<CreateTenantPaymentData & { payment_date?: string }>({
+    amount: 0,
+    payment_method: '',
+    notes: '',
+    payment_date: ''
+  })
+  const [creatingPayment, setCreatingPayment] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -342,6 +350,98 @@ export default function TenantDetailDialog({
       toast.error('Terjadi kesalahan saat memperbarui status pembayaran')
     } finally {
       setUpdatingPayment(false)
+    }
+  }
+
+  const handleCreatePayment = () => {
+    setCreatePaymentData({
+      amount: 0,
+      payment_method: '',
+      notes: '',
+      payment_date: ''
+    })
+    setCreatePaymentDialogOpen(true)
+  }
+
+  const handleCreatePaymentSubmit = async () => {
+    if (!tenant) return
+
+    if (!createPaymentData.amount || createPaymentData.amount <= 0) {
+      toast.error('Jumlah pembayaran harus diisi dan lebih dari 0')
+      return
+    }
+
+    if (!createPaymentData.payment_method) {
+      toast.error('Metode pembayaran harus dipilih')
+      return
+    }
+
+    if (!createPaymentData.notes || !createPaymentData.notes.trim()) {
+      toast.error('Catatan harus diisi')
+      return
+    }
+
+    setCreatingPayment(true)
+    try {
+      const response = await tenantsApi.createTenantPayment(tenant.id, {
+        amount: createPaymentData.amount,
+        payment_method: createPaymentData.payment_method,
+        notes: createPaymentData.notes.trim(),
+        ...(createPaymentData.payment_date ? { payment_date: createPaymentData.payment_date } : {})
+      } as CreateTenantPaymentData & { payment_date?: string })
+      
+      if (response.success) {
+        toast.success('Pembayaran berhasil ditambahkan')
+        setCreatePaymentDialogOpen(false)
+        setCreatePaymentData({
+          amount: 0,
+          payment_method: '',
+          notes: '',
+          payment_date: ''
+        })
+        
+        // Reload payment logs and total
+        const offset = (paymentPage - 1) * paymentLimit
+        const reloadResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+          limit: paymentLimit,
+          offset: offset,
+          status: paymentStatusFilter
+        })
+        if (reloadResponse.success && reloadResponse.data) {
+          const logsData = reloadResponse.data as any
+          const logs = Array.isArray(logsData.data) ? logsData.data : (Array.isArray(logsData) ? logsData : [])
+          setPaymentLogs(logs)
+          
+          // Update total from reload response
+          if (reloadResponse.data && typeof reloadResponse.data === 'object') {
+            const responseData = reloadResponse.data as any
+            if (typeof responseData.total === 'number' && responseData.total > 0) {
+              setPaymentTotal(responseData.total)
+            } else if (typeof responseData.count === 'number' && responseData.count > 0) {
+              setPaymentTotal(responseData.count)
+            } else if (logsData && typeof logsData.total === 'number' && logsData.total > 0) {
+              setPaymentTotal(logsData.total)
+            }
+          }
+        }
+        
+        // Reload paid payments to update summary
+        const paidResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
+          status: 1,
+          limit: 1000
+        })
+        if (paidResponse.success && paidResponse.data) {
+          const paidLogsData = paidResponse.data as any
+          const paidLogs = Array.isArray(paidLogsData.data) ? paidLogsData.data : (Array.isArray(paidLogsData) ? paidLogsData : [])
+          setAllPaidPayments(paidLogs)
+        }
+      } else {
+        toast.error(response.error || 'Gagal menambahkan pembayaran')
+      }
+    } catch (error) {
+      toast.error('Terjadi kesalahan saat menambahkan pembayaran')
+    } finally {
+      setCreatingPayment(false)
     }
   }
 
@@ -835,6 +935,14 @@ export default function TenantDetailDialog({
                             History Pembayaran
                           </CardTitle>
                           <div className="flex items-center gap-2">
+                            <Button
+                              onClick={handleCreatePayment}
+                              size="sm"
+                              className="flex items-center gap-2"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Tambah Pembayaran
+                            </Button>
                             <Label htmlFor="status-filter" className="text-sm">Filter Status:</Label>
                             <Select
                               value={paymentStatusFilter !== undefined ? String(paymentStatusFilter) : 'all'}
@@ -868,7 +976,6 @@ export default function TenantDetailDialog({
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead>Batas Pembayaran</TableHead>
-                                    <TableHead>Jumlah</TableHead>
                                     <TableHead>Jumlah Dibayar</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Tanggal Pembayaran</TableHead>
@@ -880,14 +987,7 @@ export default function TenantDetailDialog({
                                 </TableHeader>
                                 <TableBody>
                                   {paymentLogs.map((log) => {
-                                    const amount = log.amount || 0
                                     const paidAmount = log.paid_amount || 0
-                                    const formattedAmount = new Intl.NumberFormat('id-ID', {
-                                      style: 'currency',
-                                      currency: 'IDR',
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    }).format(amount)
                                     const formattedPaidAmount = new Intl.NumberFormat('id-ID', {
                                       style: 'currency',
                                       currency: 'IDR',
@@ -899,9 +999,6 @@ export default function TenantDetailDialog({
                                       <TableRow key={log.id}>
                                         <TableCell>
                                           {log.payment_deadline ? formatDate(log.payment_deadline) : '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                          {amount > 0 ? formattedAmount : '-'}
                                         </TableCell>
                                         <TableCell>
                                           {paidAmount > 0 ? formattedPaidAmount : '-'}
@@ -1082,6 +1179,101 @@ export default function TenantDetailDialog({
                 </>
               ) : (
                 'Simpan'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Payment Dialog */}
+      <Dialog open={createPaymentDialogOpen} onOpenChange={setCreatePaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Pembayaran</DialogTitle>
+            <DialogDescription>
+              Tambahkan catatan pembayaran baru untuk tenant ini
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="create_amount">
+                Jumlah Pembayaran <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_amount"
+                type="number"
+                value={createPaymentData.amount || ''}
+                onChange={(e) => setCreatePaymentData(prev => ({ 
+                  ...prev, 
+                  amount: e.target.value ? parseFloat(e.target.value) : 0 
+                }))}
+                placeholder="Masukkan jumlah pembayaran"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create_payment_date">Tanggal Pembayaran</Label>
+              <Input
+                id="create_payment_date"
+                type="date"
+                value={createPaymentData.payment_date || ''}
+                onChange={(e) => setCreatePaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create_payment_method">
+                Metode Pembayaran <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={createPaymentData.payment_method}
+                onValueChange={(value) => setCreatePaymentData(prev => ({ ...prev, payment_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih metode pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create_notes">
+                Catatan <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_notes"
+                value={createPaymentData.notes}
+                onChange={(e) => setCreatePaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Masukkan catatan pembayaran"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreatePaymentDialogOpen(false)}
+              disabled={creatingPayment}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleCreatePaymentSubmit}
+              disabled={creatingPayment}
+            >
+              {creatingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Tambah Pembayaran
+                </>
               )}
             </Button>
           </DialogFooter>

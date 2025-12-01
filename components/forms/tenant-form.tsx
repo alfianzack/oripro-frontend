@@ -415,7 +415,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         category_id: formData.category,
         rent_price: formData.rent_price,
         ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
-        ...(formData.deposit > 0 ? { deposit: formData.deposit } : {}),
+        // When updating, always include deposit (even if 0) to allow emptying the value
+        // When creating, only include if > 0
+        ...(tenant 
+          ? { deposit: formData.deposit } 
+          : (formData.deposit > 0 ? { deposit: formData.deposit } : {})
+        ),
         ...(paymentTermValue !== undefined ? { payment_term: paymentTermValue } : {}),
         ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
         ...(formData.status ? { status: formData.status } : {}),
@@ -454,7 +459,9 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   const formatPrice = (value: number | string): string => {
     if (value === null || value === undefined || value === '') return ''
     const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '')) : value
-    if (isNaN(numValue) || numValue === 0) return ''
+    if (isNaN(numValue)) return ''
+    // Allow 0 to be displayed (needed for deposit field when updating)
+    if (numValue === 0) return '0'
     // Convert to integer string and add thousand separators
     const integerPart = Math.floor(numValue).toString()
     return integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
