@@ -55,7 +55,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     contract_end_at: '',
     rent_duration: '',
     rent_duration_unit: DURATION_UNITS.MONTH,
-    unit_ids: [] as string[],
+    unit_id: '',
     category: 0,
     rent_price: 0,
     down_payment: 0,
@@ -142,8 +142,15 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   // Initialize form data when tenant prop changes
   useEffect(() => {
     if (tenant) {
-      // Extract unit IDs from units array if it exists, otherwise use unit_ids
-      const unitIds = tenant.units && Array.isArray(tenant.units) ? tenant.units.filter(unit => unit != null).map((unit: any) => unit.id) : (tenant.unit_ids || [])
+      // Extract unit ID from units array if it exists, otherwise use unit_ids (take first one if array)
+      let unitId = ''
+      if (tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0) {
+        const firstUnit = tenant.units.find(unit => unit != null)
+        unitId = firstUnit?.id || ''
+      } else if (tenant.unit_ids) {
+        // If unit_ids is array, take first one; if string, use directly
+        unitId = Array.isArray(tenant.unit_ids) ? (tenant.unit_ids[0] || '') : tenant.unit_ids
+      }
       
       // Extract category value from tenant.category object
       let categoryValue: number = 0
@@ -198,7 +205,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           }
           return DURATION_UNITS.MONTH
         })(),
-        unit_ids: unitIds,
+        unit_id: unitId,
         category: categoryValue,
         rent_price: tenant.rent_price || 0,
         down_payment: tenant.down_payment || 0,
@@ -265,8 +272,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       newErrors.contractFiles = 'Minimal satu dokumen kontrak harus diupload'
     }
 
-    if (!formData.unit_ids || formData.unit_ids.length === 0) {
-      newErrors.unit_ids = 'Minimal satu unit harus dipilih'
+    if (!formData.unit_id || formData.unit_id.trim() === '') {
+      newErrors.unit_id = 'Unit harus dipilih'
     }
 
     if (!formData.category || formData.category === 0) {
@@ -411,7 +418,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         contract_end_at: formData.contract_end_at,
         rent_duration: parseInt(formData.rent_duration) || 0,
         rent_duration_unit: rentDurationUnitValue,
-        unit_ids: formData.unit_ids,
+        unit_ids: [formData.unit_id], // Backend expects array, so wrap single unit_id in array
         category_id: formData.category,
         rent_price: formData.rent_price,
         ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
@@ -591,12 +598,10 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   }
 
 
-  const toggleUnit = (unitId: string) => {
-    const currentUnitIds = formData.unit_ids || []
-    const newList = currentUnitIds.includes(unitId)
-      ? currentUnitIds.filter(id => id !== unitId)
-      : [...currentUnitIds, unitId]
-    handleInputChange('unit_ids', newList)
+  const selectUnit = (unitId: string) => {
+    // Single selection: if clicking the same unit, deselect it; otherwise select the new one
+    const newUnitId = formData.unit_id === unitId ? '' : unitId
+    handleInputChange('unit_id', newUnitId)
   }
 
   const selectCategory = (categoryId: number) => {
@@ -946,44 +951,45 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               <CardTitle>Pilih Unit *</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {errors.unit_ids && (
-                <p className="text-sm text-red-500">{errors.unit_ids}</p>
+              {errors.unit_id && (
+                <p className="text-sm text-red-500">{errors.unit_id}</p>
               )}
               {tenant ? (
                 /* Read-only display when editing */
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {(() => {
-                    // Use tenant.units if available, otherwise filter from loaded units
-                    const displayUnits = tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0
-                      ? tenant.units.filter((unit: any) => unit != null)
-                      : (Array.isArray(units) ? units.filter(unit => (formData.unit_ids || []).includes(unit.id)) : [])
+                    // Use tenant.units if available, otherwise filter from loaded units using formData.unit_id
+                    let displayUnit: any = null
+                    if (tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0) {
+                      displayUnit = tenant.units.find((unit: any) => unit != null)
+                    } else if (formData.unit_id) {
+                      displayUnit = units.find(unit => unit.id === formData.unit_id)
+                    }
                     
-                    return displayUnits.length > 0 ? (
-                      displayUnits.map((unit: any) => (
-                        <div
-                          key={unit.id}
-                          className="p-3 border rounded bg-muted/50 border-primary"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{unit.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {unit.asset?.name && (
-                                  <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
-                                )}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
-                                  style: 'currency',
-                                  currency: 'IDR',
-                                  minimumFractionDigits: 0,
-                                }).format(unit.rent_price) : 'Harga tidak tersedia'}
-                              </p>
-                            </div>
-                            <Badge variant="secondary">Tidak dapat diubah</Badge>
+                    return displayUnit ? (
+                      <div
+                        key={displayUnit.id}
+                        className="p-3 border rounded bg-muted/50 border-primary"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{displayUnit.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {displayUnit.asset?.name && (
+                                <span className="text-blue-600 font-medium">Asset: {displayUnit.asset.name}</span>
+                              )}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {displayUnit.size} m² - {displayUnit.rent_price ? new Intl.NumberFormat('id-ID', {
+                                style: 'currency',
+                                currency: 'IDR',
+                                minimumFractionDigits: 0,
+                              }).format(displayUnit.rent_price) : 'Harga tidak tersedia'}
+                            </p>
                           </div>
+                          <Badge variant="secondary">Tidak dapat diubah</Badge>
                         </div>
-                      ))
+                      </div>
                     ) : (
                       <div className="p-4 text-center text-muted-foreground col-span-2">
                         Tidak ada unit yang dipilih
@@ -997,11 +1003,11 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     <div
                       key={unit.id}
                       className={`p-3 border rounded cursor-pointer transition-colors ${
-                        (formData.unit_ids || []).includes(unit.id)
+                        formData.unit_id === unit.id
                           ? 'border-primary bg-primary/10'
                           : 'border-border hover:border-primary/50'
                       }`}
-                      onClick={() => toggleUnit(unit.id)}
+                      onClick={() => selectUnit(unit.id)}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -1019,7 +1025,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                             }).format(unit.rent_price) : 'Harga tidak tersedia'}
                           </p>
                         </div>
-                        {(formData.unit_ids || []).includes(unit.id) && (
+                        {formData.unit_id === unit.id && (
                           <Badge variant="default">Dipilih</Badge>
                         )}
                       </div>

@@ -62,71 +62,33 @@ const LoginForm = () => {
           // Update apiClient token immediately so it can be used in the next request
           apiClient.setToken(res.token)
           
-          // Check if user has access to dashboard
-          try {
-            const permissionsResponse = await usersApi.getUserPermissions()
-            
-            if (permissionsResponse.success && permissionsResponse.data) {
-              const permissions = permissionsResponse.data.permissions || permissionsResponse.data || []
-              
-              // Check if user has view access to dashboard menu
-              // Dashboard menu has id: 1 in database, title: 'Dashboard'
-              const hasDashboardAccess = permissions.some(
-                (perm: any) => {
-                  const menuId = perm.menu_id || perm.menu?.id
-                  const menuTitle = perm.menu?.title
-                  
-                  // Check if this is dashboard menu (id: 1 or '1' or 'dashboard', title: 'Dashboard')
-                  const isDashboard = 
-                    menuId === 1 || 
-                    menuId === '1' || 
-                    menuId === 'dashboard' ||
-                    menuTitle === 'Dashboard'
-                  
-                  return isDashboard && perm.can_view === true
-                }
-              )
-              
-              // Use NextAuth signIn with custom credentials
-              await signIn('credentials', {
-                redirect: false,
-                email: values.email,
-                password: values.password,
-                token: res.token,
-                user: res.user,
-              })
-              
-              showToast.success('Login berhasil!')
-              
-              // Redirect based on dashboard access
-              if (hasDashboardAccess) {
-                router.push('/dashboard')
-              } else {
-                router.push('/welcome')
-              }
-            } else {
-              // If unable to fetch permissions, redirect to welcome as fallback
-              await signIn('credentials', {
-                redirect: false,
-                email: values.email,
-                password: values.password,
-                token: res.token,
-                user: res.user,
-              })
-              showToast.success('Login berhasil!')
-              router.push('/welcome')
-            }
-          } catch (permError) {
-            console.error('Error checking dashboard access:', permError)
-            // If error checking permissions, redirect to welcome as fallback
-            await signIn('credentials', {
-              redirect: false,
-              email: values.email,
-              password: values.password,
-              token: res.token,
-              user: res.user,
-            })
-            showToast.success('Login berhasil!')
+          // Get user role from response
+          const userRole = res.user?.role?.name || res.user?.roleName || ''
+          const roleName = userRole.toLowerCase()
+          
+          // Use NextAuth signIn with custom credentials
+          await signIn('credentials', {
+            redirect: false,
+            email: values.email,
+            password: values.password,
+            token: res.token,
+            user: res.user,
+          })
+          
+          showToast.success('Login berhasil!')
+          
+          // Redirect based on user role
+          if (roleName === 'admin' || roleName === 'super_admin') {
+            // Admin dan super_admin -> dashboard admin
+            router.push('/dashboard')
+          } else if (roleName === 'tenant') {
+            // Tenant -> dashboard tenant
+            router.push('/dashboard-tenant')
+          } else if (roleName === 'worker' || roleName === 'user') {
+            // Worker atau user -> dashboard worker
+            router.push('/dashboard-worker')
+          } else {
+            // Fallback untuk role lain atau jika role tidak ditemukan
             router.push('/welcome')
           }
         } else {
