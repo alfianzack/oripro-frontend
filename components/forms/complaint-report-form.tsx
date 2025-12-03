@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { CreateComplaintReportData, UpdateComplaintReportData, authApi, User, complaintReportsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Upload, Image, X } from 'lucide-react'
+import { Loader2, Upload, Image, X, Camera } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -46,6 +46,10 @@ interface ComplaintReportFormProps {
 export default function ComplaintReportForm({ onSubmit, onCancel, loading = false }: ComplaintReportFormProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
+  const [cameraModalOpen, setCameraModalOpen] = useState(false)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const form = useForm<ComplaintReportFormData>({
     resolver: zodResolver(complaintReportSchema),
@@ -70,6 +74,75 @@ export default function ComplaintReportForm({ onSubmit, onCancel, loading = fals
     }
     loadCurrentUser()
   }, [])
+
+  // Cleanup camera stream when modal closes
+  useEffect(() => {
+    if (!cameraModalOpen && cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop())
+      setCameraStream(null)
+    }
+  }, [cameraModalOpen, cameraStream])
+
+  // Initialize camera when modal opens
+  useEffect(() => {
+    if (cameraModalOpen && videoRef.current) {
+      const startCamera = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } // Prefer back camera on mobile
+          })
+          setCameraStream(stream)
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error)
+          toast.error('Failed to access camera. Please check permissions.')
+          setCameraModalOpen(false)
+        }
+      }
+      startCamera()
+    }
+  }, [cameraModalOpen])
+
+  const openCamera = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error('Camera is not supported in this browser')
+      return
+    }
+    setCameraModalOpen(true)
+  }
+
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop())
+      setCameraStream(null)
+    }
+    setCameraModalOpen(false)
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+
+    if (!context) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    context.drawImage(video, 0, 0)
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' })
+        setEvidenceFiles(prev => [...prev, file])
+        toast.success('Photo captured successfully')
+        closeCamera()
+      }
+    }, 'image/jpeg', 0.9)
+  }
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,6 +346,7 @@ export default function ComplaintReportForm({ onSubmit, onCancel, loading = fals
                 type="file"
                 accept="image/*"
                 multiple
+                capture="environment"
                 onChange={handleFileChange}
                 className="hidden"
                 id="evidence-upload"
@@ -285,6 +359,15 @@ export default function ComplaintReportForm({ onSubmit, onCancel, loading = fals
               >
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Photos
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer"
+                onClick={openCamera}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Take Photo
               </Button>
             </div>
 
@@ -325,6 +408,42 @@ export default function ComplaintReportForm({ onSubmit, onCancel, loading = fals
           </Button>
         </div>
       </form>
+
+      {/* Camera Modal */}
+      {cameraModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg max-w-md w-full mx-4">
+            <div className="mb-4">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full rounded-lg"
+                style={{ maxHeight: '400px', objectFit: 'contain' }}
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={capturePhoto}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Capture
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeCamera}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Form>
   )
 }

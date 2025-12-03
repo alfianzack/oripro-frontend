@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ComplaintReport, complaintReportsApi } from '@/lib/api'
+import { ComplaintReport, ComplaintReportLog, complaintReportsApi } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { X, AlertTriangle, Calendar, User, Building2, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { X, AlertTriangle, Calendar, User, Building2, Image as ImageIcon, Loader2, FileText, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ComplaintReportDetailDialogProps {
@@ -22,6 +22,9 @@ export default function ComplaintReportDetailDialog({
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fullReport, setFullReport] = useState<ComplaintReport | null>(null)
+  const [activeTab, setActiveTab] = useState('details')
+  const [logs, setLogs] = useState<ComplaintReportLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -57,6 +60,42 @@ export default function ComplaintReportDetailDialog({
 
     loadFullReport()
   }, [open, complaintReport])
+
+  // Reset logs when dialog closes or report changes
+  useEffect(() => {
+    if (!open) {
+      setLogs([])
+      setActiveTab('details')
+    }
+  }, [open, complaintReport?.id])
+
+  // Load logs when logs tab is active
+  useEffect(() => {
+    const loadLogs = async () => {
+      if (open && activeTab === 'logs' && complaintReport?.id) {
+        setLogsLoading(true)
+        try {
+          const response = await complaintReportsApi.getComplaintReportLogs(complaintReport.id)
+          if (response.success && response.data) {
+            const logsData = response.data as any
+            const logsArray = Array.isArray(logsData) ? logsData : (logsData.data || [])
+            setLogs(logsArray)
+          } else {
+            toast.error(response.error || 'Failed to load logs')
+            setLogs([])
+          }
+        } catch (error) {
+          console.error('Load logs error:', error)
+          toast.error('An error occurred while loading logs')
+          setLogs([])
+        } finally {
+          setLogsLoading(false)
+        }
+      }
+    }
+
+    loadLogs()
+  }, [open, activeTab, complaintReport?.id])
 
   useEffect(() => {
     if (open) {
@@ -226,15 +265,44 @@ export default function ComplaintReportDetailDialog({
           </Button>
         </div>
 
+        {/* Tabs */}
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'details'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'logs'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              Logs
+            </button>
+          </div>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <span>Loading details...</span>
-            </div>
-          ) : (
-            <div className="space-y-6">
+          {activeTab === 'details' && (
+            loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading details...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
               {/* Basic Information */}
               <Card>
                 <CardHeader>
@@ -412,6 +480,108 @@ export default function ComplaintReportDetailDialog({
                   </div>
                 </CardContent>
               </Card>
+              </div>
+            )
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="space-y-4">
+              {logsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading logs...</span>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No logs found for this complaint report.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {logs.map((log) => (
+                    <Card key={log.id}>
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          {/* Status Change */}
+                          {(log.old_status || log.new_status) && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Status:</span>
+                              {log.old_status && (
+                                <Badge variant="outline" className="bg-gray-100">
+                                  {log.old_status}
+                                </Badge>
+                              )}
+                              <span className="text-sm text-muted-foreground">→</span>
+                              {log.new_status && (
+                                <Badge variant="default" className="bg-blue-600">
+                                  {log.new_status}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {log.notes && (
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground">
+                                Notes
+                              </label>
+                              <p className="text-sm mt-1 whitespace-pre-wrap">{log.notes}</p>
+                            </div>
+                          )}
+
+                          {/* Photo Evidence */}
+                          {log.photo_evidence_url && (
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                Photo Evidence
+                              </label>
+                              <div className="relative group">
+                                <div className="aspect-video rounded-lg overflow-hidden border bg-gray-100 max-w-md">
+                                  <img
+                                    src={log.photo_evidence_url}
+                                    alt="Log evidence"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                    }}
+                                  />
+                                </div>
+                                <a
+                                  href={log.photo_evidence_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <ImageIcon className="h-8 w-8 text-white" />
+                                </a>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Created By and Date */}
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div>
+                              {log.createdBy ? (
+                                <div>
+                                  <p className="text-sm font-medium">{log.createdBy.name || '-'}</p>
+                                  <p className="text-xs text-muted-foreground">{log.createdBy.email || '-'}</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">{log.created_by || '-'}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(log.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

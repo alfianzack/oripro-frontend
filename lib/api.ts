@@ -1,6 +1,6 @@
 // Utility functions for API calls to oripro-backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_BASE_URL = 'http://localhost:3001' 
 
 export interface ApiResponse<T = any> {
   success?: boolean
@@ -1535,6 +1535,21 @@ export interface UpdateComplaintReportData {
   tenant_id?: string | null
   status?: number | string // 0=pending, 1=in_progress, 2=resolved, 3=closed or 'pending'|'in_progress'|'resolved'|'closed'
   priority?: number | string // 0=low, 1=medium, 2=high, 3=urgent or 'low'|'medium'|'high'|'urgent'
+  notes?: string // Notes for the log entry
+  photo_evidence?: File | string // Photo evidence file or URL
+}
+
+// Complaint Report Log interface
+export interface ComplaintReportLog {
+  id: number
+  complaint_report_id: number
+  old_status?: string | null
+  new_status?: string | null
+  notes?: string | null
+  photo_evidence_url?: string | null
+  created_by?: string | null
+  created_at?: string
+  createdBy?: User
 }
 
 // Complaint Report-specific API functions
@@ -1586,6 +1601,10 @@ export const complaintReportsApi = {
 
   async deleteComplaintReport(id: number): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(`/api/complaint-reports/${id}`)
+  },
+
+  async getComplaintReportLogs(id: number): Promise<ApiResponse<ComplaintReportLog[]>> {
+    return apiClient.get<ComplaintReportLog[]>(`/api/complaint-reports/${id}/logs`)
   },
 }
 

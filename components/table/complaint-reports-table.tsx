@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ComplaintReport, complaintReportsApi } from '@/lib/api'
+import { ComplaintReport, complaintReportsApi, authApi, User } from '@/lib/api'
 import {
   Table,
   TableBody,
@@ -47,10 +47,63 @@ export default function ComplaintReportsTable({
   const [complaintReportToDelete, setComplaintReportToDelete] = useState<ComplaintReport | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
 
   useEffect(() => {
     setMounted(true)
+    loadCurrentUser()
   }, [])
+
+  const loadCurrentUser = async () => {
+    try {
+      const user = await authApi.getCurrentUser()
+      setCurrentUser(user)
+    } catch (error) {
+      console.error('Load current user error:', error)
+    }
+  }
+
+  // Get status as string
+  const getStatusString = (status?: number | string): string => {
+    if (status === undefined || status === null) return ''
+    
+    if (typeof status === 'string') {
+      return status.toLowerCase()
+    } else if (typeof status === 'number') {
+      // Map number to string
+      const statusMap: Record<number, string> = {
+        0: 'pending',
+        1: 'in_progress',
+        2: 'resolved',
+        3: 'closed'
+      }
+      return statusMap[status] || ''
+    }
+    return ''
+  }
+
+  // Check if edit button should be shown (not resolved or closed)
+  const canEdit = (report: ComplaintReport): boolean => {
+    const statusString = getStatusString(report.status)
+    return statusString !== 'resolved' && statusString !== 'closed'
+  }
+
+  // Check if delete button should be enabled
+  const canDelete = (report: ComplaintReport): boolean => {
+    if (!currentUser || !currentUser.id) return false
+
+    // Check if report was created by current user
+    const isCreatedByUser = 
+      report.reporter_id === currentUser.id || 
+      report.created_by === currentUser.id ||
+      report.reporter?.id === currentUser.id
+
+    if (!isCreatedByUser) return false
+
+    // Check if status is pending or in_progress
+    const statusString = getStatusString(report.status)
+    return statusString === 'pending' || statusString === 'in_progress' || statusString === 'inprogress'
+  }
 
   const handleDeleteClick = (complaintReport: ComplaintReport) => {
     setComplaintReportToDelete(complaintReport)
@@ -242,22 +295,26 @@ export default function ComplaintReportsTable({
                     >
                       <Eye className="w-5 h-5" />
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onEdit(report)}
-                      className="rounded-[50%] text-green-600 bg-green-600/10"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDeleteClick(report)}
-                      className="rounded-[50%] text-red-500 bg-red-500/10"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
+                    {canEdit(report) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => onEdit(report)}
+                        className="rounded-[50%] text-green-600 bg-green-600/10"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </Button>
+                    )}
+                    {canDelete(report) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteClick(report)}
+                        className="rounded-[50%] text-red-500 bg-red-500/10"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -324,24 +381,28 @@ export default function ComplaintReportsTable({
                     <Eye className="w-4 h-4 mr-2" />
                     View
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onEdit(report)}
-                    className="flex-1 text-green-600 bg-green-600/10"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteClick(report)}
-                    className="flex-1 text-red-500 bg-red-500/10"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
+                  {canEdit(report) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onEdit(report)}
+                      className="flex-1 text-green-600 bg-green-600/10"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                  {canDelete(report) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteClick(report)}
+                      className="flex-1 text-red-500 bg-red-500/10"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>

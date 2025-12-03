@@ -321,8 +321,7 @@ export default function DashboardTenantPage() {
                     <TableHead>Tenant</TableHead>
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Reason</TableHead>
-                    <TableHead>New Deposit</TableHead>
-                    <TableHead>Old Deposit</TableHead>
+                    <TableHead>Current Deposit</TableHead>
                     <TableHead>Dibuat Oleh</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -331,6 +330,9 @@ export default function DashboardTenantPage() {
                     const reason = log.reason || '-'
                     const newDeposit = log.new_deposit || 0
                     const oldDeposit = log.old_deposit || 0
+                    const delta = newDeposit - oldDeposit
+                    const isIncrease = delta > 0
+                    const isDecrease = delta < 0
                     
                     return (
                       <TableRow key={`${log.tenantId}-${log.id}`}>
@@ -344,7 +346,7 @@ export default function DashboardTenantPage() {
                           <span className="text-sm">{reason}</span>
                         </TableCell>
                         <TableCell>
-                          {newDeposit > 0 ? (
+                          <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
                               {new Intl.NumberFormat('id-ID', {
                                 style: 'currency',
@@ -352,22 +354,19 @@ export default function DashboardTenantPage() {
                                 minimumFractionDigits: 0,
                               }).format(Number(newDeposit))}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {oldDeposit > 0 ? (
-                            <span className="text-sm font-medium">
-                              {new Intl.NumberFormat('id-ID', {
-                                style: 'currency',
-                                currency: 'IDR',
-                                minimumFractionDigits: 0,
-                              }).format(Number(oldDeposit))}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
+                            {delta !== 0 && (
+                              <span className={`text-sm font-semibold ${
+                                isIncrease ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                ({isIncrease ? '+' : '-'}
+                                {new Intl.NumberFormat('id-ID', {
+                                  style: 'currency',
+                                  currency: 'IDR',
+                                  minimumFractionDigits: 0,
+                                }).format(Math.abs(delta))})
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {log.created_by ? (
