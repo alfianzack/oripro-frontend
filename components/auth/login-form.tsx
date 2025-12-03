@@ -62,9 +62,27 @@ const LoginForm = () => {
           // Update apiClient token immediately so it can be used in the next request
           apiClient.setToken(res.token)
           
-          // Get user role from response
-          const userRole = res.user?.role?.name || res.user?.roleName || ''
-          const roleName = userRole.toLowerCase()
+          // Decode JWT token to get roleName (JWT payload is base64 encoded, not encrypted)
+          let roleName = ''
+          try {
+            const tokenParts = res.token.split('.')
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]))
+              roleName = (payload.roleName || '').toLowerCase()
+            }
+          } catch (e) {
+            console.error('Error decoding token:', e)
+          }
+          
+          // Fallback: try to get role from user object
+          if (!roleName) {
+            const userRole = res.user?.role?.name || res.user?.roleName || ''
+            roleName = userRole.toLowerCase()
+          }
+          
+          // Debug logging
+          console.log('User role from token:', roleName)
+          console.log('User object:', res.user)
           
           // Use NextAuth signIn with custom credentials
           await signIn('credentials', {
@@ -89,6 +107,7 @@ const LoginForm = () => {
             router.push('/dashboard-worker')
           } else {
             // Fallback untuk role lain atau jika role tidak ditemukan
+            console.warn('Role tidak dikenali:', roleName, '- redirecting to welcome')
             router.push('/welcome')
           }
         } else {
