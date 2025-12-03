@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,7 +197,8 @@ export default function ComplaintReportsTable({
 
   return (
     <>
-      <div className="rounded-md border">
+      {/* Desktop Table View - hidden on mobile */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -262,6 +264,89 @@ export default function ComplaintReportsTable({
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile Card View - visible only on mobile */}
+      <div className="md:hidden space-y-4">
+        {complaintReports.map((report) => (
+          <Card key={report.id} className="border">
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {/* Header with ID and Type */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm text-muted-foreground">#{report.id}</span>
+                    {showType && (
+                      <Badge variant={report.type === 'complaint' ? 'default' : 'outline'}>
+                        {report.type === 'complaint' ? 'Complaint' : 'Report'}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <h3 className="font-semibold text-base">{report.title || '-'}</h3>
+                </div>
+
+                {/* Status and Priority */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {getStatusBadge(report.status)}
+                  {getPriorityBadge(report.priority)}
+                </div>
+
+                {/* Details */}
+                <div className="space-y-1.5 text-sm">
+                  {report.tenant?.name && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Tenant:</span>
+                      <span className="font-medium">{report.tenant.name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Reported By:</span>
+                    <span className="font-medium">{report.reporter?.name || report.reporter_id || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span className="font-medium">{formatDate(report.created_at)}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onView(report)}
+                    className="flex-1 text-blue-500 bg-blue-500/10"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onEdit(report)}
+                    className="flex-1 text-green-600 bg-green-600/10"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteClick(report)}
+                    className="flex-1 text-red-500 bg-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
