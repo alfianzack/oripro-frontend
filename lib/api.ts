@@ -1,6 +1,11 @@
 // Utility functions for API calls to oripro-backend
 
-const API_BASE_URL = 'http://localhost:3001' 
+// Use environment variable for API URL, fallback to localhost for development
+// In production, set NEXT_PUBLIC_API_URL to your backend URL (must be HTTPS if frontend is HTTPS)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (typeof window !== 'undefined' && window.location.protocol === 'https:' 
+    ? 'https://localhost:3001' 
+    : 'http://localhost:3001') 
 
 export interface ApiResponse<T = any> {
   success?: boolean
