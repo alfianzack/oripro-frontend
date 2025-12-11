@@ -1,11 +1,40 @@
 // Utility functions for API calls to oripro-backend
 
-// Use environment variable for API URL, fallback to localhost for development
-// In production, set NEXT_PUBLIC_API_URL to your backend URL (must be HTTPS if frontend is HTTPS)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
-  (typeof window !== 'undefined' && window.location.protocol === 'https:' 
-    ? 'https://localhost:3001' 
-    : 'http://localhost:3001') 
+// Determine API URL based on environment
+// For development (localhost), always use localhost:3001
+// For production, use NEXT_PUBLIC_API_URL environment variable
+function getApiBaseUrl(): string {
+  // Check if we're accessing from localhost (client-side)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+    
+    if (isLocalhost) {
+      // Always use localhost for development, ignore environment variable
+      const url = window.location.protocol === 'https:' 
+        ? 'https://localhost:3001' 
+        : 'http://localhost:3001'
+      console.log('[API] Development mode - Using localhost:', url)
+      return url
+    }
+  }
+  
+  // For server-side rendering in development mode, use localhost
+  if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
+    const url = 'http://localhost:3001'
+    console.log('[API] Development mode (server-side) - Using localhost:', url)
+    return url
+  }
+  
+  // For production, use environment variable
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  if (typeof window !== 'undefined') {
+    console.log('[API] Production mode - Using URL:', url)
+  }
+  return url
+}
+
+const API_BASE_URL = getApiBaseUrl() 
 
 export interface ApiResponse<T = any> {
   success?: boolean
