@@ -71,4 +71,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true, // Required for production deployments (Vercel, etc.)
+  // NEXTAUTH_URL is automatically detected from request headers
+  // but can be explicitly set via environment variable if needed
 })
