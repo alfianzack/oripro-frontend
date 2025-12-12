@@ -71,7 +71,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // Required for production deployments (Vercel, etc.)
-  // NEXTAUTH_URL is automatically detected from request headers
-  // but can be explicitly set via environment variable if needed
+  trustHost: true, // Required for production deployments (VPS, Vercel, etc.)
+  // Untuk VPS, pastikan NEXTAUTH_URL diset dengan benar di environment variables
+  // Contoh: NEXTAUTH_URL=https://oneprox.id
+  // Jangan gunakan trailing slash di akhir URL
+  pages: {
+    signIn: '/auth/login',
+  },
+  // Konfigurasi untuk mengatasi CSRF error di production
+  useSecureCookies: process.env.NODE_ENV === "production",
+  // Konfigurasi cookies eksplisit untuk production
+  cookies: process.env.NODE_ENV === "production" ? {
+    sessionToken: {
+      name: `authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true, // Hanya di production (HTTPS)
+      },
+    },
+    csrfToken: {
+      name: `authjs.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+  } : undefined,
 })
