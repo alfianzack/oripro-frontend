@@ -241,7 +241,7 @@ export default function ComplaintReportEditDialog({
       const updateData: UpdateComplaintReportData = {
         status: statusValue,
         notes: notes.trim(),
-        photo_evidence: photoUrl || photoFile
+        photo_evidence: photoUrl || (photoFile ?? undefined)
       }
 
       const response = await complaintReportsApi.updateComplaintReport(complaintReport.id, updateData)
