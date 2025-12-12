@@ -152,9 +152,20 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         unitId = Array.isArray(tenant.unit_ids) ? (tenant.unit_ids[0] || '') : tenant.unit_ids
       }
       
-      // Extract category value from tenant.category object
+      // Extract category value from tenant.category object or category_id
       let categoryValue: number = 0
-      if (tenant.category) {
+      
+      // First check category_id (direct field)
+      if ((tenant as any).category_id !== undefined && (tenant as any).category_id !== null) {
+        const catId = (tenant as any).category_id
+        categoryValue = typeof catId === 'number' ? catId : parseInt(String(catId), 10)
+        if (isNaN(categoryValue) || categoryValue <= 0) {
+          categoryValue = 0
+        }
+      }
+      
+      // Then check tenant.category object
+      if (categoryValue === 0 && tenant.category) {
         if (typeof tenant.category === 'object' && tenant.category.id !== undefined) {
           categoryValue = typeof tenant.category.id === 'number' ? tenant.category.id : parseInt(String(tenant.category.id), 10)
         } else if (typeof tenant.category === 'number') {
@@ -188,23 +199,40 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         }
       }
       
+      // Convert rent_duration_unit: backend returns string ('year' or 'month')
+      let rentDurationUnit = DURATION_UNITS.MONTH // default
+      if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
+        if (typeof tenant.rent_duration_unit === 'number') {
+          // If number: 1 = month, 0 = year
+          rentDurationUnit = tenant.rent_duration_unit === 1 ? DURATION_UNITS.MONTH : DURATION_UNITS.YEAR
+        } else if (typeof tenant.rent_duration_unit === 'string') {
+          // If string: normalize to lowercase and match
+          const unitStr = tenant.rent_duration_unit.toLowerCase()
+          rentDurationUnit = (unitStr === 'year' || unitStr === DURATION_UNITS.YEAR) ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+        }
+      }
+
+      // Convert status: backend returns string ('inactive', 'active', 'pending', etc.)
+      let statusValue = 'pending' // default
+      if (tenant.status !== undefined && tenant.status !== null) {
+        const statusStr = String(tenant.status).toLowerCase()
+        // Check if status matches any STATUS_OPTIONS value
+        const validStatus = STATUS_OPTIONS.find(opt => opt.value.toLowerCase() === statusStr)
+        statusValue = validStatus ? validStatus.value : 'pending'
+      }
+
+      // Ensure rent_duration is set correctly
+      const rentDuration = tenant.rent_duration !== undefined && tenant.rent_duration !== null 
+        ? String(tenant.rent_duration) 
+        : ''
+
       setFormData({
         name: tenant.name || '',
         user_id: tenant.user_id || '',
         contract_begin_at: tenant.contract_begin_at ? new Date(tenant.contract_begin_at).toISOString().split('T')[0] : '',
         contract_end_at: tenant.contract_end_at ? new Date(tenant.contract_end_at).toISOString().split('T')[0] : '',
-        rent_duration: tenant.rent_duration ? tenant.rent_duration.toString() : '',
-        rent_duration_unit: (() => {
-          // Convert rent_duration_unit from number (1 for month, 0 for year) to string ('month' or 'year')
-          if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
-            if (typeof tenant.rent_duration_unit === 'number') {
-              return tenant.rent_duration_unit === 1 ? DURATION_UNITS.MONTH : DURATION_UNITS.YEAR
-            } else if (typeof tenant.rent_duration_unit === 'string') {
-              return tenant.rent_duration_unit === DURATION_UNITS.YEAR || String(tenant.rent_duration_unit).toLowerCase() === 'year' ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
-            }
-          }
-          return DURATION_UNITS.MONTH
-        })(),
+        rent_duration: rentDuration,
+        rent_duration_unit: rentDurationUnit,
         unit_id: unitId,
         category: categoryValue,
         rent_price: tenant.rent_price || 0,
@@ -217,13 +245,14 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             if (typeof tenant.payment_term === 'number') {
               return tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
             } else if (typeof tenant.payment_term === 'string') {
-              return tenant.payment_term
+              const termStr = tenant.payment_term.toLowerCase()
+              return (termStr === 'year' || termStr === DURATION_UNITS.YEAR) ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
             }
           }
           // Default based on rent_duration_unit
-          return tenant.rent_duration_unit === DURATION_UNITS.MONTH ? DURATION_UNITS.MONTH : (tenant.rent_duration_unit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH)
+          return rentDurationUnit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH
         })(),
-        status: (tenant as any).status || 'pending',
+        status: statusValue,
       })
       
       // Store original deposit value to detect changes
