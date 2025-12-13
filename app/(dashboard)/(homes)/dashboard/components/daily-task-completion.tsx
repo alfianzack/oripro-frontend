@@ -106,7 +106,7 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
   ]
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold text-gray-700">
           Daily task completion
@@ -121,7 +121,7 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         <Chart
           options={chartOptions}
           series={chartSeries}

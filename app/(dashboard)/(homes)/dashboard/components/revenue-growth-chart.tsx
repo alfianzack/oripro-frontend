@@ -136,13 +136,13 @@ const RevenueGrowthChart = () => {
 
     if (loading) {
         return (
-            <Card className="p-6">
+            <Card className="p-6 h-full flex flex-col">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <CardTitle className="text-lg font-semibold text-gray-700">
                         Revenue Growth
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1">
                     <LoadingSkeleton height="h-[300px]" text="Memuat chart..." />
                 </CardContent>
             </Card>
@@ -150,7 +150,7 @@ const RevenueGrowthChart = () => {
     }
 
     return (
-        <Card className="p-6">
+        <Card className="p-6 h-full flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle className="text-lg font-semibold text-gray-700">
                     Revenue Growth
@@ -167,7 +167,7 @@ const RevenueGrowthChart = () => {
                     </SelectContent>
                 </Select>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 flex flex-col">
                 {revenueData && revenueData.revenue.length > 0 ? (
                     <Chart
                         options={chartOptions}

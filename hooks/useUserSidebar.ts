@@ -15,6 +15,10 @@ import {
   StickyNote,
   Settings,
   Building2,
+  FileText,
+  UserRoundCheck,
+  ListChecks, 
+  CircleAlert, 
 } from "lucide-react"
 
 // Icon mapping untuk konversi dari string ke komponen Lucide
@@ -30,6 +34,10 @@ const iconMap: Record<string, LucideIcon> = {
   'StickyNote': StickyNote,
   'Settings': Settings,
   'Building2': Building2,
+  'FileText': FileText,
+  'UserRoundCheck': UserRoundCheck,
+  'ListChecks': ListChecks,
+  'CircleAlert': CircleAlert,
 }
 
 interface SidebarItem {

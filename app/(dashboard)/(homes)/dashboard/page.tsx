@@ -91,14 +91,14 @@ export default function DashboardPage() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Revenue Growth Chart */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 h-full">
           <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat chart..." />}>
             <RevenueGrowthChart />
           </Suspense>
         </div>
 
         {/* Top Asset Revenue */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 h-full">
           <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat data asset..." />}>
             <TopAssetRevenueCard />
           </Suspense>
@@ -117,12 +117,12 @@ export default function DashboardPage() {
           {/* Top Section - Three Columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Handling Komplain */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 h-full">
               <HandlingKomplain complaints={complaints.recent || []} />
             </div>
 
             {/* Grafik Komplain */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 h-full">
               <GrafikKomplain stats={complaints.stats || {
                 total: 0,
                 pending: 0,
@@ -133,7 +133,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Tenant Kontrak */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 h-full">
               <TenantKontrak tenants={expiringTenants} />
             </div>
           </div>
@@ -141,12 +141,12 @@ export default function DashboardPage() {
           {/* Bottom Section - Two Rows */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pekerja */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 h-full">
               <Pekerja workers={workers} />
             </div>
 
             {/* Daily Task Completion */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 h-full">
               <DailyTaskCompletion data={dailyTaskCompletion} />
             </div>
           </div>

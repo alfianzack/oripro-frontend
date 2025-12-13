@@ -25,7 +25,7 @@ export default function Pekerja({ workers }: PekerjaProps) {
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold text-gray-700">
           Pekerja
@@ -36,7 +36,7 @@ export default function Pekerja({ workers }: PekerjaProps) {
           </Button>
         </Link>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <div className="space-y-4">
           {workers.length === 0 ? (
             <div className="py-8 text-center text-gray-500 text-sm">

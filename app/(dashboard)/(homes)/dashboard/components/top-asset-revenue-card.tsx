@@ -35,13 +35,13 @@ export default function TopAssetRevenueCard() {
 
   if (loading) {
     return (
-      <Card className="p-6">
+      <Card className="p-6 h-full flex flex-col">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold text-gray-700">
             Top Asset Revenue
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <LoadingSkeleton height="h-64" text="Memuat data..." />
         </CardContent>
       </Card>
@@ -49,16 +49,16 @@ export default function TopAssetRevenueCard() {
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 h-full flex flex-col">
       <CardHeader className="pb-4">
         <CardTitle className="text-lg font-semibold text-gray-700">
           Top Asset Revenue
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         {topAssets.length > 0 ? (
           <>
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1">
               {topAssets.map((asset, index) => (
                 <div key={index} className="flex items-center space-x-3">
                   <div className="flex-shrink-0">
@@ -86,9 +86,11 @@ export default function TopAssetRevenueCard() {
             </div>
           </>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <Home className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Tidak ada data asset revenue</p>
+          <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
+            <div>
+              <Home className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Tidak ada data asset revenue</p>
+            </div>
           </div>
         )}
       </CardContent>

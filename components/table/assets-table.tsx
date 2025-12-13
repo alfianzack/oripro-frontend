@@ -209,7 +209,6 @@ export default function AssetsTable({
             <TableRow>
               <TableHead>No</TableHead>
               <TableHead>Nama</TableHead>
-              <TableHead>Code</TableHead>
               <TableHead>Tipe Asset</TableHead>
               <TableHead>Alamat</TableHead>
               <TableHead>Luas (m²)</TableHead>
@@ -234,7 +233,6 @@ export default function AssetsTable({
                   <TableCell className="font-medium">
                     {asset.name || '-'}
                   </TableCell>
-                  <TableCell>{asset.code}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
                       {getAssetTypeLabel(asset.asset_type)}

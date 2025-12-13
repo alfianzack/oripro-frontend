@@ -41,7 +41,7 @@ export default function HandlingKomplain({ complaints }: HandlingKomplainProps) 
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
@@ -59,8 +59,8 @@ export default function HandlingKomplain({ complaints }: HandlingKomplainProps) 
           </Button>
         </Link>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
+      <CardContent className="flex-1 flex flex-col">
+        <div className="overflow-x-auto flex-1">
           <table className="w-full">
             <thead>
               <tr className="border-b">
