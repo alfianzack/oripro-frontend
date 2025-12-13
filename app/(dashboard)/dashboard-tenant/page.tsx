@@ -4,31 +4,38 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { 
   Building2, 
   RefreshCw,
   Loader2,
-  CreditCard,
-  Wallet,
+  Home,
+  AlertCircle,
   FileText,
-  Download
+  Calendar
 } from 'lucide-react'
-import Link from 'next/link'
-import { Tenant, tenantsApi, Unit, unitsApi, Asset, assetsApi, TenantPaymentLog, TenantDepositLog, authApi } from '@/lib/api'
+import { Tenant, tenantsApi, Unit, unitsApi, Asset, assetsApi, TenantPaymentLog, TenantDepositLog, authApi, User, DURATION_UNIT_LABELS } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 interface TenantWithPayment extends Tenant {
   units?: Unit[]
-  pendingPayments?: TenantPaymentLog[]
-  totalPendingAmount?: number
+  allPayments?: TenantPaymentLog[]
+  currentPayment?: TenantPaymentLog | null
   depositLogs?: TenantDepositLog[]
+}
+
+interface PropertyCard {
+  tenant: TenantWithPayment
+  unit: Unit
+  asset: Asset
+  payment: TenantPaymentLog | null
+  status: 'terlambat' | 'jatuh-tempo-hari-ini' | 'lunas' | 'akan-datang'
 }
 
 export default function DashboardTenantPage() {
   const [tenants, setTenants] = useState<TenantWithPayment[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [assets, setAssets] = useState<Asset[]>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -36,26 +43,98 @@ export default function DashboardTenantPage() {
     return new Date(dateString).toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     })
   }
 
-  const getPaymentStatusBadge = (status?: number) => {
-    if (status === undefined || status === null) {
-      return <Badge variant="secondary">Unknown</Badge>
+  const formatDateShort = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  const getPaymentStatus = (payment: TenantPaymentLog | null): 'terlambat' | 'jatuh-tempo-hari-ini' | 'lunas' | 'akan-datang' => {
+    if (!payment) return 'akan-datang'
+    
+    if (payment.status === 1) {
+      return 'lunas'
     }
+
+    if (!payment.payment_deadline) {
+      return 'akan-datang'
+    }
+
+    const deadline = new Date(payment.payment_deadline)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    deadline.setHours(0, 0, 0, 0)
+
+    const diffTime = deadline.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) {
+      return 'terlambat'
+    } else if (diffDays === 0) {
+      return 'jatuh-tempo-hari-ini'
+    } else {
+      return 'akan-datang'
+    }
+  }
+
+  const getStatusBadge = (status: 'terlambat' | 'jatuh-tempo-hari-ini' | 'lunas' | 'akan-datang') => {
     switch (status) {
-      case 0:
-        return <Badge variant="destructive">Unpaid</Badge>
-      case 1:
-        return <Badge variant="default" className="bg-green-600">Paid</Badge>
-      case 2:
-        return <Badge variant="secondary">Expired</Badge>
-      default:
-        return <Badge variant="secondary">Unknown</Badge>
+      case 'terlambat':
+        return <Badge className="bg-red-500 hover:bg-red-600">Terlambat</Badge>
+      case 'jatuh-tempo-hari-ini':
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Jatuh Tempo Hari Ini</Badge>
+      case 'lunas':
+        return <Badge className="bg-green-500 hover:bg-green-600">Lunas</Badge>
+      case 'akan-datang':
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Akan Datang</Badge>
     }
+  }
+
+  const getCurrentPayment = (payments: TenantPaymentLog[]): TenantPaymentLog | null => {
+    if (payments.length === 0) return null
+    
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+
+    // Cari payment yang belum lunas dan deadline terdekat
+    const unpaidPayments = payments.filter(p => p.status === 0 && p.payment_deadline)
+    if (unpaidPayments.length > 0) {
+      unpaidPayments.sort((a, b) => {
+        const dateA = new Date(a.payment_deadline!).getTime()
+        const dateB = new Date(b.payment_deadline!).getTime()
+        return dateA - dateB
+      })
+      return unpaidPayments[0]
+    }
+
+    // Jika semua sudah lunas, ambil yang terbaru
+    const sortedPayments = [...payments].sort((a, b) => {
+      const dateA = new Date(a.payment_deadline || a.created_at).getTime()
+      const dateB = new Date(b.payment_deadline || b.created_at).getTime()
+      return dateB - dateA
+    })
+    return sortedPayments[0]
+  }
+
+  const calculateContractDuration = (tenant: Tenant): string => {
+    const duration = tenant.rent_duration || 0
+    const unit = tenant.rent_duration_unit
+    
+    if (typeof unit === 'number') {
+      const unitLabel = unit === 0 ? 'Tahun' : 'Bulan'
+      return `${duration} ${unitLabel}`
+    } else if (typeof unit === 'string') {
+      const unitLabel = DURATION_UNIT_LABELS[unit] || unit
+      return `${duration} ${unitLabel}`
+    }
+    
+    return `${duration} Bulan`
   }
 
   const loadData = async () => {
@@ -63,16 +142,16 @@ export default function DashboardTenantPage() {
       setRefreshing(true)
       
       // Get current user
-      const currentUser = await authApi.getCurrentUser()
-      if (!currentUser || !currentUser.id) {
+      const user = await authApi.getCurrentUser()
+      if (!user || !user.id) {
         toast.error('User tidak ditemukan. Silakan login kembali.')
         return
       }
+      setCurrentUser(user)
 
       // Load tenants, units, and assets in parallel
-      // Filter tenants by current user's ID
       const [tenantsResponse, unitsResponse, assetsResponse] = await Promise.all([
-        tenantsApi.getTenants({ user_id: currentUser.id }),
+        tenantsApi.getTenants({ user_id: user.id }),
         unitsApi.getUnits(),
         assetsApi.getAssets()
       ])
@@ -100,39 +179,22 @@ export default function DashboardTenantPage() {
         setAssets(assetsData)
       }
 
-      // Load pending payments and deposit logs for each tenant
+      // Load all payments for each tenant (not just unpaid)
       const tenantsWithPayments = await Promise.all(
         tenantsData.map(async (tenant) => {
           try {
-            // Get unpaid payments (status = 0)
+            // Get all payments (not just unpaid)
             const paymentResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
-              status: 0, // unpaid
               limit: 100
             })
 
-            let pendingPayments: TenantPaymentLog[] = []
-            let totalPendingAmount = 0
+            let allPayments: TenantPaymentLog[] = []
             
             if (paymentResponse.success && paymentResponse.data) {
               const paymentData = paymentResponse.data as any;
-              pendingPayments = Array.isArray(paymentData.data) 
+              allPayments = Array.isArray(paymentData.data) 
                 ? paymentData.data 
                 : []
-              
-              totalPendingAmount = pendingPayments.reduce((sum, payment) => {
-                return sum + (payment.amount || 0)
-              }, 0)
-            }
-
-            // Get deposit logs
-            const depositResponse = await tenantsApi.getTenantDepositLogs(tenant.id)
-            let depositLogs: TenantDepositLog[] = []
-
-            if (depositResponse.success && depositResponse.data) {
-              const depositData = depositResponse.data as any
-              depositLogs = Array.isArray(depositData.data) 
-                ? depositData.data 
-                : (Array.isArray(depositData) ? depositData : [])
             }
 
             // Get units for this tenant
@@ -143,21 +205,21 @@ export default function DashboardTenantPage() {
               tenantUnits = unitsData.filter(u => tenant.unit_ids?.includes(u.id))
             }
 
+            const currentPayment = getCurrentPayment(allPayments)
+
             return {
               ...tenant,
               units: tenantUnits,
-              pendingPayments,
-              totalPendingAmount,
-              depositLogs
+              allPayments,
+              currentPayment
             }
           } catch (error) {
             console.error(`Error loading data for tenant ${tenant.id}:`, error)
             return {
               ...tenant,
               units: tenant.units || (tenant.unit_ids ? unitsData.filter(u => tenant.unit_ids?.includes(u.id)) : []),
-              pendingPayments: [],
-              totalPendingAmount: 0,
-              depositLogs: []
+              allPayments: [],
+              currentPayment: null
             }
           }
         })
@@ -188,335 +250,203 @@ export default function DashboardTenantPage() {
     )
   }
 
-  // Get all pending payments from all tenants
-  const allPendingPayments = tenants.flatMap(tenant => 
-    (tenant.pendingPayments || []).map(payment => ({
+  // Calculate statistics
+  const totalProperties = tenants.reduce((sum, tenant) => sum + (tenant.units?.length || 0), 0)
+  
+  const allPayments = tenants.flatMap(tenant => 
+    (tenant.allPayments || []).map(payment => ({
       ...payment,
-      tenantName: tenant.name,
-      tenantId: tenant.id
+      tenant,
+      status: getPaymentStatus(payment)
     }))
   )
 
-  // Get all deposit logs from all tenants
-  const allDepositLogs = tenants.flatMap(tenant => 
-    (tenant.depositLogs || []).map(log => ({
-      ...log,
-      tenantName: tenant.name,
-      tenantId: tenant.id
-    }))
-  )
+  const upcomingBills = allPayments.filter(p => {
+    if (p.status === 'lunas') return false
+    const deadline = p.payment_deadline ? new Date(p.payment_deadline) : null
+    if (!deadline) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    deadline.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return diffDays >= 0 && diffDays <= 3 // Within 3 days (including today)
+  })
+
+  const totalBills = allPayments
+    .filter(p => p.status !== 'lunas')
+    .reduce((sum, p) => sum + (p.amount || 0), 0)
+
+  // Create property cards
+  const propertyCards: PropertyCard[] = tenants.flatMap(tenant => {
+    const tenantUnits = tenant.units || []
+    return tenantUnits.map(unit => {
+      const asset = assets.find(a => a.id === unit.asset_id)
+      const payment = tenant.currentPayment || null
+      const status = getPaymentStatus(payment)
+      
+      return {
+        tenant,
+        unit,
+        asset: asset || {} as Asset,
+        payment,
+        status
+      }
+    })
+  })
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header dengan Greeting */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Tenant</h1>
-          <p className="text-muted-foreground">
-            Informasi lengkap tentang unit yang disewa, pending payment, dan deposit
+          <h1 className="text-3xl font-bold tracking-tight">
+            Halo, {currentUser?.name || 'User'} 👋
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Berikut adalah ringkasan properti dan tagihan Anda
           </p>
         </div>
-        <Button onClick={loadData} disabled={refreshing}>
+        <Button onClick={loadData} disabled={refreshing} variant="outline">
           <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {/* Pending Payment */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Pending Payment
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allPendingPayments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Batas Pembayaran</TableHead>
-                    <TableHead>Jumlah</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Tanggal Pembayaran</TableHead>
-                    <TableHead>Metode Pembayaran</TableHead>
-                    <TableHead>Catatan</TableHead>
-                    <TableHead>Diubah Oleh</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allPendingPayments.map((log) => {
-                    const amount = log.amount || 0
-                    const formattedAmount = new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR',
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }).format(amount)
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Properti</p>
+                <p className="text-2xl font-bold mt-1">{totalProperties}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Home className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                    return (
-                      <TableRow key={`${log.tenantId}-${log.id}`}>
-                        <TableCell className="font-medium">
-                          {log.tenantName}
-                        </TableCell>
-                        <TableCell>
-                          {log.payment_deadline ? formatDate(log.payment_deadline) : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {amount > 0 ? formattedAmount : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {getPaymentStatusBadge(log.status)}
-                        </TableCell>
-                        <TableCell>
-                          {log.payment_date ? formatDate(log.payment_date) : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {log.payment_method || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {log.notes || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {log.updatedBy ? (
-                            <div>
-                              <p className="font-medium text-sm">{log.updatedBy.name}</p>
-                              <p className="text-xs text-muted-foreground">{log.updatedBy.email}</p>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tagihan Terdekat</p>
+                <p className="text-2xl font-bold mt-1">{upcomingBills.length}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Tidak ada pending payment</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Deposit History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
-            History Deposito
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allDepositLogs.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Current Deposit</TableHead>
-                    <TableHead>Dibuat Oleh</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allDepositLogs.map((log) => {
-                    const reason = log.reason || '-'
-                    const newDeposit = log.new_deposit || 0
-                    const oldDeposit = log.old_deposit || 0
-                    const delta = newDeposit - oldDeposit
-                    const isIncrease = delta > 0
-                    const isDecrease = delta < 0
-                    
-                    return (
-                      <TableRow key={`${log.tenantId}-${log.id}`}>
-                        <TableCell className="font-medium">
-                          {log.tenantName}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(log.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{reason}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {new Intl.NumberFormat('id-ID', {
-                                style: 'currency',
-                                currency: 'IDR',
-                                minimumFractionDigits: 0,
-                              }).format(Number(newDeposit))}
-                            </span>
-                            {delta !== 0 && (
-                              <span className={`text-sm font-semibold ${
-                                isIncrease ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                ({isIncrease ? '+' : '-'}
-                                {new Intl.NumberFormat('id-ID', {
-                                  style: 'currency',
-                                  currency: 'IDR',
-                                  minimumFractionDigits: 0,
-                                }).format(Math.abs(delta))})
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {log.created_by ? (
-                            <div>
-                              <p className="font-medium text-sm">{log.created_by.name}</p>
-                              <p className="text-xs text-muted-foreground">{log.created_by.email}</p>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Tagihan</p>
+                <p className="text-2xl font-bold mt-1">
+                  {new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(totalBills)}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-green-600" />
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Tidak ada history deposito</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Unit yang Disewa */}
+      {/* Daftar Properti Sewaan */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Unit yang Disewa
+            Daftar Properti Sewaan
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {tenants.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">Belum ada data tenant</p>
-                <Button asChild>
-                  <Link href="/tenants/create">
-                    Tambah Tenant Pertama
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {tenants.map((tenant) => {
-                  const tenantUnits = tenant.units || []
-                  
-                  if (tenantUnits.length === 0) {
-                    return null
-                  }
+          {propertyCards.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Tidak ada properti yang disewa</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {propertyCards.map((property, index) => {
+                const { tenant, unit, asset, payment, status } = property
+                const totalContract = tenant.rent_price || 0
+                const contractDuration = calculateContractDuration(tenant)
+                const monthlyBill = payment?.amount || unit.rent_price || 0
 
-                  return (
-                    <Card key={tenant.id} className="border-l-4 border-l-blue-500">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-lg">{tenant.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">Kode: {tenant.code}</p>
-                          </div>
-                          {tenant.pendingPayments && tenant.pendingPayments.length > 0 && (
-                            <div className="text-right">
-                              <Badge variant="destructive" className="mb-1">
-                                {tenant.pendingPayments.length} Pending Payment
-                              </Badge>
-                              <p className="text-xs text-muted-foreground">
-                                {new Intl.NumberFormat('id-ID', {
-                                  style: 'currency',
-                                  currency: 'IDR',
-                                  minimumFractionDigits: 0
-                                }).format(tenant.totalPendingAmount || 0)}
-                              </p>
-                            </div>
+                return (
+                  <Card key={`${tenant.id}-${unit.id}-${index}`} className="relative">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 pr-4">
+                          <CardTitle className="text-lg mb-1">{unit.name}</CardTitle>
+                          {asset?.address && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {asset.address}
+                            </p>
                           )}
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <p className="text-sm font-medium text-gray-700">
-                            Unit Disewa ({tenantUnits.length}):
-                          </p>
-                          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {tenantUnits.map((unit) => {
-                              const asset = assets.find(a => a.id === unit.asset_id)
-                              const contractDocuments = tenant.contract_documents || []
-                              return (
-                                <div key={unit.id} className="bg-gray-50 p-3 rounded-lg border">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div>
-                                      <p className="font-medium text-sm">{unit.name}</p>
-                                      {asset && (
-                                        <p className="text-xs text-muted-foreground">{asset.name}</p>
-                                      )}
-                                    </div>
-                                    <Badge variant="outline" className="text-xs">
-                                      Disewa
-                                    </Badge>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-3">
-                                    <div>Ukuran: {unit.size} m²</div>
-                                    <div>
-                                      Harga: {new Intl.NumberFormat('id-ID', {
-                                        style: 'currency',
-                                        currency: 'IDR',
-                                        minimumFractionDigits: 0
-                                      }).format(unit.rent_price || 0)}
-                                    </div>
-                                  </div>
-                                  {contractDocuments.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <FileText className="h-4 w-4 text-muted-foreground" />
-                                        <p className="text-xs font-medium text-gray-700">Contract Document:</p>
-                                      </div>
-                                      <div className="space-y-1">
-                                        {contractDocuments.map((docUrl, index) => (
-                                          <a
-                                            key={index}
-                                            href={docUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                          >
-                                            <Download className="h-3 w-3" />
-                                            <span>Document {index + 1}</span>
-                                          </a>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
+                        <div className="flex-shrink-0">
+                          {getStatusBadge(status)}
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-                {tenants.every(t => (t.units?.length || 0) === 0) && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Tidak ada unit yang disewa</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Total Kontrak</p>
+                          <p className="font-semibold">
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              minimumFractionDigits: 0,
+                            }).format(totalContract)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Durasi Kontrak</p>
+                          <p className="font-semibold">{contractDuration}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-muted-foreground">Tagihan Bulan Ini</p>
+                          <p className="text-sm font-semibold">
+                            {new Intl.NumberFormat('id-ID', {
+                              style: 'currency',
+                              currency: 'IDR',
+                              minimumFractionDigits: 0,
+                            }).format(monthlyBill)}
+                          </p>
+                        </div>
+                        {payment?.payment_deadline && status !== 'lunas' && (
+                          <div className="flex items-center gap-2 mt-2 text-sm">
+                            <Calendar className="h-4 w-4 text-red-500" />
+                            <span className="text-muted-foreground">
+                              Jatuh tempo: {formatDateShort(payment.payment_deadline)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

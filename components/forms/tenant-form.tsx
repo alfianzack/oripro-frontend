@@ -15,7 +15,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, X, File, Search, UserPlus, Users } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Loader2, Plus, X, File, Search, UserPlus, Users, Eye, EyeOff, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface TenantFormProps {
@@ -64,14 +65,16 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     payment_term: '',
     status: 'pending',
   })
-  const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('existing')
+  const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('new')
+  const [showPassword, setShowPassword] = useState(false)
   const [newUserData, setNewUserData] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
     gender: '',
-    role_id: ''
+    role_id: '',
+    status: 'active'
   })
   const [userSearchTerm, setUserSearchTerm] = useState('')
   const [users, setUsers] = useState<User[]>([])
@@ -261,6 +264,9 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       // Set existing file URLs for preview
       setExistingIdentificationUrls(tenant.tenant_identifications || [])
       setExistingContractUrls(tenant.contract_documents || [])
+      
+      // Set user selection type to existing when editing
+      setUserSelectionType('existing')
     }
   }, [tenant])
 
@@ -313,8 +319,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       newErrors.rent_price = 'Harga sewa harus diisi dan lebih dari 0'
     }
 
-    // Validate payment_term (only when creating and rent_duration_unit is year)
-    if (!tenant && formData.rent_duration_unit === DURATION_UNITS.YEAR && !formData.payment_term) {
+    // Validate payment_term (when rent_duration_unit is year)
+    if (formData.rent_duration_unit === DURATION_UNITS.YEAR && !formData.payment_term) {
       newErrors.payment_term = 'Periode pembayaran harus dipilih'
     }
 
@@ -422,7 +428,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       
       // Convert payment_term from string to number: 0 for year, 1 for month
       let paymentTermValue: number | undefined = undefined
-      if (formData.payment_term && !tenant) {
+      if (formData.payment_term) {
         if (formData.payment_term === DURATION_UNITS.YEAR) {
           paymentTermValue = 0
         } else if (formData.payment_term === DURATION_UNITS.MONTH) {
@@ -665,10 +671,10 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
   // Auto-set payment_term to "month" when rent_duration_unit is "month"
   useEffect(() => {
-    if (!tenant && formData.rent_duration_unit === DURATION_UNITS.MONTH) {
+    if (formData.rent_duration_unit === DURATION_UNITS.MONTH) {
       setFormData(prev => ({ ...prev, payment_term: DURATION_UNITS.MONTH }))
     }
-  }, [formData.rent_duration_unit, tenant])
+  }, [formData.rent_duration_unit])
 
   const createNewUser = async () => {
     try {
@@ -686,7 +692,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         toast.success('User berhasil dibuat')
         setFormData(prev => ({ ...prev, user_id: response.data!.id }))
         setUserSelectionType('existing')
-        setNewUserData({ name: '', email: '', password: '', phone: '', gender: '', role_id: '' })
+        setNewUserData({ name: '', email: '', password: '', phone: '', gender: '', role_id: '', status: 'active' })
         // Reload users list
         const usersResponse = await usersApi.getUsers()
         if (usersResponse.success && usersResponse.data) {
@@ -726,9 +732,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         <CardHeader>
           <CardTitle>Informasi Dasar</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Layout Single Column */}
-          <div className="space-y-6">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nama Tenant */}
             <div className="space-y-2">
               <Label htmlFor="name">Nama Tenant *</Label>
@@ -736,7 +741,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                 id="name"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Masukkan nama tenant"
+                placeholder="Enter Name"
                 className={errors.name ? 'border-red-500' : ''}
               />
               {errors.name && (
@@ -744,616 +749,570 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               )}
             </div>
 
-            {/* User Selection */}
+            {/* Nama Penanggung Jawab */}
+            {userSelectionType === 'new' && (
+              <div className="space-y-2">
+                <Label htmlFor="responsible_person">Nama Penanggung Jawab *</Label>
+                <Input
+                  id="responsible_person"
+                  value={newUserData.name}
+                  onChange={(e) => handleNewUserInputChange('name', e.target.value)}
+                  placeholder="Enter Name"
+                />
+              </div>
+            )}
+
+            {/* Nomor Telp */}
+            {userSelectionType === 'new' && (
+              <div className="space-y-2">
+                <Label htmlFor="phone">Nomor Telp *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={newUserData.phone}
+                  onChange={(e) => handleNewUserInputChange('phone', e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            )}
+
+            {/* Jenis Kelamin */}
+            {userSelectionType === 'new' && (
+              <div className="space-y-2">
+                <Label htmlFor="gender">Jenis Kelamin *</Label>
+                <Select
+                  value={newUserData.gender}
+                  onValueChange={(value) => handleNewUserInputChange('gender', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Laki-laki</SelectItem>
+                    <SelectItem value="female">Perempuan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Buat Akses */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Buat Akses</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            {/* User Type Selection */}
             <div className="space-y-2">
-              <Label htmlFor="user_selection">User *</Label>
-              
-              {tenant ? (
-                /* Read-only display when editing */
-                <div className="p-3 bg-muted/50 border rounded-md">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {tenant.user?.name || users.find(u => u.id === formData.user_id)?.name || 'User tidak ditemukan'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {tenant.user?.email || users.find(u => u.id === formData.user_id)?.email || ''}
-                      </p>
-                    </div>
-                    <Badge variant="secondary">Tidak dapat diubah</Badge>
-                  </div>
+              <Label>Pilih Tipe User</Label>
+              <RadioGroup
+                value={userSelectionType}
+                onValueChange={(value) => setUserSelectionType(value as 'existing' | 'new')}
+                className="flex gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="new" id="new" />
+                  <Label htmlFor="new" className="cursor-pointer">User Baru</Label>
                 </div>
-              ) : (
-                <>
-                  {/* User Selection Type Toggle */}
-                  <div className="flex gap-2 mb-4">
-                    <Button
-                      type="button"
-                      variant={userSelectionType === 'existing' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setUserSelectionType('existing')}
-                      className="flex items-center gap-2"
-                    >
-                      <Users className="h-4 w-4" />
-                      User yang Ada
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={userSelectionType === 'new' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setUserSelectionType('new')}
-                      className="flex items-center gap-2"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      User Baru
-                    </Button>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="existing" id="existing" />
+                  <Label htmlFor="existing" className="cursor-pointer">User Yang Sudah Ada</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {userSelectionType === 'new' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUserData.email}
+                      onChange={(e) => handleNewUserInputChange('email', e.target.value)}
+                      placeholder="Masukkan Email"
+                    />
                   </div>
 
-                  {/* Existing User Selection */}
-                  {userSelectionType === 'existing' && (
-                    <div className="space-y-3">
-                      {/* Selected User Display */}
-                      {formData.user_id && (
-                        <div className="p-3 bg-primary/10 border border-primary rounded-md">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-primary">
-                                {users.find(u => u.id === formData.user_id)?.name || 'User tidak ditemukan'}
-                              </p>
-                              <p className="text-sm text-primary/70">
-                                {users.find(u => u.id === formData.user_id)?.email || ''}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="default" className="bg-primary text-primary-foreground">
-                                Dipilih
-                              </Badge>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleInputChange('user_id', '')}
-                                className="text-xs"
-                              >
-                                Ubah
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Search Input */}
-                      <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Cari user..."
-                          value={userSearchTerm}
-                          onChange={(e) => setUserSearchTerm(e.target.value)}
-                          className="pl-8"
-                        />
-                      </div>
-                      
-                      {/* User List */}
-                      <div className="max-h-40 overflow-y-auto border rounded-md">
-                        {usersLoading ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                            Memuat users...
-                          </div>
-                        ) : users.length === 0 ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            Tidak ada user tersedia
-                          </div>
-                        ) : filteredUsers.length === 0 ? (
-                          <div className="p-4 text-center text-muted-foreground">
-                            {userSearchTerm ? `Tidak ada user yang cocok dengan "${userSearchTerm}"` : 'Tidak ada user tersedia'}
-                          </div>
-                        ) : (
-                          filteredUsers.map((user) => {
-                            const isSelected = formData.user_id === user.id
-                            
-                            return (
-                              <div
-                                key={user.id}
-                                className={`p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
-                                  isSelected ? 'bg-primary/10 border-primary' : ''
-                                }`}
-                                onClick={() => {
-                                  handleInputChange('user_id', user.id)
-                                }}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium">{user.name || 'Nama tidak tersedia'}</p>
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                                  </div>
-                                  {isSelected && (
-                                    <Badge variant="default">Dipilih</Badge>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* New User Form */}
-                  {userSelectionType === 'new' && (
-                <div className="space-y-4 p-4 border rounded-md bg-muted/30">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_name">Nama User *</Label>
+                  {/* Password */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password *</Label>
+                    <div className="relative">
                       <Input
-                        id="new_user_name"
-                        value={newUserData.name}
-                        onChange={(e) => handleNewUserInputChange('name', e.target.value)}
-                        placeholder="Masukkan nama user"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_email">Email *</Label>
-                      <Input
-                        id="new_user_email"
-                        type="email"
-                        value={newUserData.email}
-                        onChange={(e) => handleNewUserInputChange('email', e.target.value)}
-                        placeholder="Masukkan email user"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_password">Password *</Label>
-                      <Input
-                        id="new_user_password"
-                        type="password"
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
                         value={newUserData.password}
                         onChange={(e) => handleNewUserInputChange('password', e.target.value)}
-                        placeholder="Masukkan password"
+                        placeholder="Masukkan Password"
+                        className="pr-10"
                       />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_phone">No. Telepon *</Label>
-                      <Input
-                        id="new_user_phone"
-                        type="tel"
-                        value={newUserData.phone}
-                        onChange={(e) => handleNewUserInputChange('phone', e.target.value)}
-                        placeholder="Masukkan nomor telepon"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_gender">Jenis Kelamin *</Label>
-                      <Select
-                        value={newUserData.gender}
-                        onValueChange={(value) => handleNewUserInputChange('gender', value)}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih jenis kelamin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Laki-laki</SelectItem>
-                          <SelectItem value="female">Perempuan</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="new_user_role">Role *</Label>
-              <Select
-                        value={newUserData.role_id}
-                        onValueChange={(value) => handleNewUserInputChange('role_id', value)}
-                        disabled={rolesLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={rolesLoading ? "Memuat roles..." : "Pilih role"} />
-                </SelectTrigger>
-                <SelectContent>
-                          {Array.isArray(roles) && roles.map((role) => (
-                            <SelectItem key={role.id} value={String(role.id)}>
-                              {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-                    </div>
-                  </div>
-                  
-                </div>
-                  )}
-                </>
-              )}
-
-            {errors.user_id && (
-              <p className="text-sm text-red-500">{errors.user_id}</p>
-            )}
-            </div>
-          </div>
-
-          {/* Unit Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Pilih Unit *</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {errors.unit_id && (
-                <p className="text-sm text-red-500">{errors.unit_id}</p>
-              )}
-              {tenant ? (
-                /* Read-only display when editing */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {(() => {
-                    // Use tenant.units if available, otherwise filter from loaded units using formData.unit_id
-                    let displayUnit: any = null
-                    if (tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0) {
-                      displayUnit = tenant.units.find((unit: any) => unit != null)
-                    } else if (formData.unit_id) {
-                      displayUnit = units.find(unit => unit.id === formData.unit_id)
-                    }
-                    
-                    return displayUnit ? (
-                      <div
-                        key={displayUnit.id}
-                        className="p-3 border rounded bg-muted/50 border-primary"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{displayUnit.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {displayUnit.asset?.name && (
-                                <span className="text-blue-600 font-medium">Asset: {displayUnit.asset.name}</span>
-                              )}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {displayUnit.size} m² - {displayUnit.rent_price ? new Intl.NumberFormat('id-ID', {
-                                style: 'currency',
-                                currency: 'IDR',
-                                minimumFractionDigits: 0,
-                              }).format(displayUnit.rent_price) : 'Harga tidak tersedia'}
-                            </p>
-                          </div>
-                          <Badge variant="secondary">Tidak dapat diubah</Badge>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 text-center text-muted-foreground col-span-2">
-                        Tidak ada unit yang dipilih
-                      </div>
-                    )
-                  })()}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {Array.isArray(units) && units.map((unit) => (
-                    <div
-                      key={unit.id}
-                      className={`p-3 border rounded cursor-pointer transition-colors ${
-                        formData.unit_id === unit.id
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => selectUnit(unit.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{unit.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {unit.asset?.name && (
-                              <span className="text-blue-600 font-medium">Asset: {unit.asset.name}</span>
-                            )}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {unit.size} m² - {unit.rent_price ? new Intl.NumberFormat('id-ID', {
-                              style: 'currency',
-                              currency: 'IDR',
-                              minimumFractionDigits: 0,
-                            }).format(unit.rent_price) : 'Harga tidak tersedia'}
-                          </p>
-                        </div>
-                        {formData.unit_id === unit.id && (
-                          <Badge variant="default">Dipilih</Badge>
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
-                      </div>
+                      </Button>
                     </div>
-                  ))}
+                    <p className="text-xs text-muted-foreground">
+                      Masukkan min. 6 karakter dengan kombinasi Huruf Kapital, Huruf Kecil, Angka, dan Simbol
+                    </p>
+                  </div>
+
+                  {/* Pilih Role */}
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Pilih Role *</Label>
+                    <Select
+                      value={newUserData.role_id}
+                      onValueChange={(value) => handleNewUserInputChange('role_id', value)}
+                      disabled={rolesLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={rolesLoading ? "Memuat..." : "Pilih"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.isArray(roles) && roles.map((role) => (
+                          <SelectItem key={role.id} value={String(role.id)}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-2">
+                    <Label htmlFor="user_status">Status *</Label>
+                    <Select
+                      value={newUserData.status}
+                      onValueChange={(value) => handleNewUserInputChange('status', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Aktif</SelectItem>
+                        <SelectItem value="inactive">Tidak Aktif</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {userSelectionType === 'existing' && (
+              <div className="space-y-3">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari user..."
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                
+                {/* User List */}
+                <div className="max-h-40 overflow-y-auto border rounded-md">
+                  {usersLoading ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                      Memuat users...
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      {userSearchTerm ? `Tidak ada user yang cocok dengan "${userSearchTerm}"` : 'Tidak ada user tersedia'}
+                    </div>
+                  ) : (
+                    filteredUsers.map((user) => {
+                      const isSelected = formData.user_id === user.id
+                      
+                      return (
+                        <div
+                          key={user.id}
+                          className={`p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
+                            isSelected ? 'bg-primary/10 border-primary' : ''
+                          }`}
+                          onClick={() => {
+                            handleInputChange('user_id', user.id)
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{user.name || 'Nama tidak tersedia'}</p>
+                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                            </div>
+                            {isSelected && (
+                              <Badge variant="default">Dipilih</Badge>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            <hr />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tipe Kategori Tenant */}
+              <div className="space-y-2">
+                <Label htmlFor="category">Tipe Kategori Tenant *</Label>
+                <Select
+                  value={formData.category > 0 ? String(formData.category) : ''}
+                  onValueChange={(value) => selectCategory(parseInt(value))}
+                >
+                  <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Pilih Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && (
+                  <p className="text-sm text-red-500">{errors.category}</p>
+                )}
+              </div>
+
+              {/* Status Tenant */}
+              <div className="space-y-2">
+                <Label htmlFor="status">Status Tenant *</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => handleInputChange('status', value)}
+                >
+                  <SelectTrigger className={errors.status ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Pilih Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.status && (
+                  <p className="text-sm text-red-500">{errors.status}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+      {/* Informasi Kontrak Sewa */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Informasi Kontrak Sewa</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Pilih Unit Sewa *</Label>
+            {errors.unit_id && (
+              <p className="text-sm text-red-500">{errors.unit_id}</p>
+            )}
+            <RadioGroup
+              value={formData.unit_id}
+              onValueChange={(value) => handleInputChange('unit_id', value)}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+              {Array.isArray(units) && units.length > 0 ? (
+                units.map((unit) => (
+                  <div key={unit.id}>
+                    <RadioGroupItem value={unit.id} id={unit.id} className="peer sr-only" />
+                    <Label
+                      htmlFor={unit.id}
+                      className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        formData.unit_id === unit.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <p className="font-semibold text-lg">{unit.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Asset:</span> {unit.asset?.name || '-'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Luas Area:</span> {unit.size} m²
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Daya Listrik:</span> {unit.electrical_power || 0} {unit.electrical_unit || 'Watt'}
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    Jika tidak tersedia pilihan unit sewa, Anda perlu menambahkannya terlebih dahulu
+                  </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Separator */}
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Informasi Kontrak
-              </span>
-            </div>
+            </RadioGroup>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Informasi Kontrak */}
-          <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="contract_begin_at">Tanggal Mulai Kontrak *</Label>
+      {/* Lama Kontrak */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lama Kontrak</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Tanggal Mulai Kontrak */}
+            <div className="space-y-2">
+              <Label htmlFor="contract_begin_at">Tanggal Mulai Kontrak *</Label>
+              <div className="relative">
+                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   id="contract_begin_at"
                   type="date"
                   value={formData.contract_begin_at}
                   onChange={(e) => handleInputChange('contract_begin_at', e.target.value)}
-                  disabled={!!tenant}
-                  className={errors.contract_begin_at ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
+                  className={`pl-8 ${errors.contract_begin_at ? 'border-red-500' : ''}`}
                 />
-                {tenant && (
-                  <p className="text-xs text-muted-foreground">Tidak dapat diubah saat edit</p>
-                )}
-                {errors.contract_begin_at && (
-                  <p className="text-sm text-red-500">{errors.contract_begin_at}</p>
-                )}
               </div>
+              {errors.contract_begin_at && (
+                <p className="text-sm text-red-500">{errors.contract_begin_at}</p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="rent_duration">Durasi Sewa *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="rent_duration"
-                    type="number"
-                    min="1"
-                    value={formData.rent_duration}
-                    onChange={(e) => handleInputChange('rent_duration', e.target.value)}
-                    placeholder="Masukkan durasi"
-                    disabled={!!tenant}
-                    className={errors.rent_duration ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
-                  />
-                  <Select
-                    value={formData.rent_duration_unit}
-                    onValueChange={(value) => handleInputChange('rent_duration_unit', value)}
-                    disabled={!!tenant}
-                  >
-                    <SelectTrigger className={`w-32 ${tenant ? 'bg-gray-50 cursor-not-allowed' : ''}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(DURATION_UNIT_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {tenant && (
-                  <p className="text-xs text-muted-foreground">Tidak dapat diubah saat edit</p>
-                )}
-                {errors.rent_duration && (
-                  <p className="text-sm text-red-500">{errors.rent_duration}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contract_end_at">Tanggal Berakhir Kontrak</Label>
+            {/* Durasi Sewa */}
+            <div className="space-y-2">
+              <Label htmlFor="rent_duration">Durasi Sewa *</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="contract_end_at"
-                  type="date"
-                  value={formData.contract_end_at}
-                  readOnly
-                  className="bg-gray-50"
+                  id="rent_duration"
+                  type="number"
+                  min="1"
+                  value={formData.rent_duration}
+                  onChange={(e) => handleInputChange('rent_duration', e.target.value)}
+                  placeholder="0"
+                  className={`flex-1 ${errors.rent_duration ? 'border-red-500' : ''}`}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Tanggal berakhir kontrak dihitung otomatis berdasarkan tanggal mulai dan durasi sewa
-                </p>
+                <Select
+                  value={formData.rent_duration_unit}
+                  onValueChange={(value) => handleInputChange('rent_duration_unit', value)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DURATION_UNIT_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              {errors.rent_duration && (
+                <p className="text-sm text-red-500">{errors.rent_duration}</p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="rent_price">
-                  Harga Sewa (Rent Price) <span className="text-red-500">*</span>
-                  {tenant && <span className="text-muted-foreground text-sm ml-2">(tidak dapat diubah saat edit)</span>}
-                </Label>
+            {/* Tanggal Berakhir Kontrak */}
+            <div className="space-y-2">
+              <Label htmlFor="contract_end_at">Tanggal Berakhir Kontrak</Label>
+              <Input
+                id="contract_end_at"
+                type="text"
+                value={formData.contract_end_at ? new Date(formData.contract_end_at).toLocaleDateString('id-ID', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                }) : ''}
+                readOnly
+                className="bg-gray-50"
+                placeholder="DD/MM/YYYY"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tanggal berakhir akan dihitung otomatis berdasarkan tanggal mulai dan durasi sewa
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Harga Sewa Kontrak */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Harga Sewa Kontrak</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Harga Sewa */}
+            <div className="space-y-2">
+              <Label htmlFor="rent_price">
+                Harga Sewa <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
                 <Input
                   id="rent_price"
                   type="text"
                   value={formatPrice(formData.rent_price)}
                   onChange={(e) => handlePriceChange('rent_price', e.target.value)}
-                  placeholder="Masukkan harga sewa"
-                  disabled={!!tenant}
-                  className={errors.rent_price ? 'border-red-500' : tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
+                  placeholder="0"
+                  className={`pl-10 ${errors.rent_price ? 'border-red-500' : ''}`}
                 />
-                {errors.rent_price && (
-                  <p className="text-sm text-red-500">{errors.rent_price}</p>
-                )}
               </div>
+              {errors.rent_price && (
+                <p className="text-sm text-red-500">{errors.rent_price}</p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="down_payment">
-                  Uang Muka (Down Payment)
-                  {tenant && <span className="text-muted-foreground text-sm ml-2">(tidak dapat diubah saat edit)</span>}
-                </Label>
+            {/* Uang Muka */}
+            <div className="space-y-2">
+              <Label htmlFor="down_payment">Uang Muka</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
                 <Input
                   id="down_payment"
                   type="text"
                   value={formatPrice(formData.down_payment)}
                   onChange={(e) => handlePriceChange('down_payment', e.target.value)}
-                  placeholder="Masukkan uang muka"
-                  disabled={!!tenant}
-                  className={tenant ? 'bg-gray-50 cursor-not-allowed' : ''}
+                  placeholder="0"
+                  className="pl-10"
                 />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="deposit">Deposit</Label>
+            {/* Deposit */}
+            <div className="space-y-2">
+              <Label htmlFor="deposit">Deposit</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
                 <Input
                   id="deposit"
                   type="text"
                   value={formatPrice(formData.deposit)}
                   onChange={(e) => handlePriceChange('deposit', e.target.value)}
-                  placeholder="Masukkan deposit"
+                  placeholder="0"
+                  className="pl-10"
                 />
               </div>
+            </div>
 
-              {/* Payment Term - Only show when creating and rent_duration_unit is year */}
-              {!tenant && formData.rent_duration_unit === DURATION_UNITS.YEAR && (
-                <div className="space-y-2">
-                  <Label htmlFor="payment_term">Periode Pembayaran (Payment Term) <span className="text-red-500">*</span></Label>
-                  <Select
-                    value={formData.payment_term}
-                    onValueChange={(value) => handleInputChange('payment_term', value)}
-                  >
-                    <SelectTrigger className={errors.payment_term ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Pilih periode pembayaran" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={DURATION_UNITS.MONTH}>
-                        Monthly
-                      </SelectItem>
-                      <SelectItem value={DURATION_UNITS.YEAR}>
-                        Annual
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.payment_term && (
-                    <p className="text-sm text-red-500">{errors.payment_term}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Pilih apakah pembayaran dilakukan per bulan atau per tahun
-                  </p>
-                </div>
-              )}
-
-              {/* Price Per Term Display - Show when creating or editing, when all required fields are filled */}
-              {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
-                <div className="space-y-2">
-                  <Label>
-                    Harga Dibayar per {formData.payment_term === DURATION_UNITS.YEAR ? 'Tahun' : 'Bulan'}
-                  </Label>
-                  <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="text-lg font-semibold text-gray-900">
-                      {(() => {
-                        const rentPrice = formData.rent_price || 0
-                        const downPayment = formData.down_payment || 0
-                        const duration = parseInt(formData.rent_duration) || 0
-                        const durationUnit = formData.rent_duration_unit
-                        const paymentTerm = formData.payment_term
-                        
-                        if (duration > 0 && paymentTerm) {
-                          // Convert duration to months
-                          let durationInMonths = duration
-                          if (durationUnit === DURATION_UNITS.YEAR) {
-                            durationInMonths = duration * 12
-                          }
-                          
-                          // Calculate number of payments based on payment_term
-                          let numberOfPayments = durationInMonths
-                          if (paymentTerm === DURATION_UNITS.YEAR) {
-                            numberOfPayments = durationInMonths / 12
-                          }
-                          
-                          // Formula: (rent_price - down_payment) / numberOfPayments
-                          const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
-                          
-                          if (numberOfPayments > 0 && pricePerTerm > 0) {
-                            return new Intl.NumberFormat('id-ID', {
-                              style: 'currency',
-                              currency: 'IDR',
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            }).format(pricePerTerm)
-                          }
-                        }
-                        return '-'
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Deposit Reason - Only show when editing and deposit is being updated */}
-              {tenant && formData.deposit !== originalDeposit && (
-                <div className="space-y-2">
-                  <Label htmlFor="deposit_reason">
-                    Alasan Perubahan Deposit <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="deposit_reason"
-                    type="text"
-                    value={formData.deposit_reason}
-                    onChange={(e) => handleInputChange('deposit_reason', e.target.value)}
-                    placeholder="Masukkan alasan perubahan deposit"
-                    className={errors.deposit_reason ? 'border-red-500' : ''}
-                  />
-                  {errors.deposit_reason && (
-                    <p className="text-sm text-red-500">{errors.deposit_reason}</p>
-                  )}
-                </div>
-              )}
+            {/* Periode Pembayaran */}
+            {formData.rent_duration_unit === DURATION_UNITS.YEAR && (
+              <div className="space-y-2">
+                <Label htmlFor="payment_term">
+                  Periode Pembayaran <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={formData.payment_term}
+                  onValueChange={(value) => handleInputChange('payment_term', value)}
+                >
+                  <SelectTrigger className={errors.payment_term ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Pilih Bulanan/Tahunan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={DURATION_UNITS.MONTH}>Bulanan</SelectItem>
+                    <SelectItem value={DURATION_UNITS.YEAR}>Tahunan</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.payment_term && (
+                  <p className="text-sm text-red-500">{errors.payment_term}</p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Separator */}
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Kategori dan Status
-              </span>
-            </div>
-          </div>
-
-          {/* Kategori dan Status */}
-          <div className="space-y-4">
-            {/* Kategori */}
-            <div className='space-y-2'>
-              <Label htmlFor="categories">Kategori *</Label>
-              <Select
-                value={formData.category > 0 ? String(formData.category) : ''}
-                onValueChange={(value) => selectCategory(parseInt(value))}
-              >
-                <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.category && (
-                <p className="text-sm text-red-500">{errors.category}</p>
-              )}
-            </div>
-
-            {/* Status Tenant */}
+          {/* Deposit Reason - Only show when editing and deposit is being updated */}
+          {tenant && formData.deposit !== originalDeposit && (
             <div className="space-y-2">
-              <Label htmlFor="status">Status Tenant *</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleInputChange('status', value)}
-              >
-                <SelectTrigger className={errors.status ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Pilih status tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.status && (
-                <p className="text-sm text-red-500">{errors.status}</p>
+              <Label htmlFor="deposit_reason">
+                Alasan Perubahan Deposit <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="deposit_reason"
+                type="text"
+                value={formData.deposit_reason}
+                onChange={(e) => handleInputChange('deposit_reason', e.target.value)}
+                placeholder="Masukkan alasan perubahan deposit"
+                className={errors.deposit_reason ? 'border-red-500' : ''}
+              />
+              {errors.deposit_reason && (
+                <p className="text-sm text-red-500">{errors.deposit_reason}</p>
               )}
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Harga Bayar Sewa */}
+      {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Harga Bayar Sewa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-2xl font-bold text-gray-900">
+                {(() => {
+                  const rentPrice = formData.rent_price || 0
+                  const downPayment = formData.down_payment || 0
+                  const duration = parseInt(formData.rent_duration) || 0
+                  const durationUnit = formData.rent_duration_unit
+                  const paymentTerm = formData.payment_term
+                  
+                  if (duration > 0 && paymentTerm) {
+                    let durationInMonths = duration
+                    if (durationUnit === DURATION_UNITS.YEAR) {
+                      durationInMonths = duration * 12
+                    }
+                    
+                    let numberOfPayments = durationInMonths
+                    if (paymentTerm === DURATION_UNITS.YEAR) {
+                      numberOfPayments = durationInMonths / 12
+                    }
+                    
+                    const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
+                    
+                    if (numberOfPayments > 0 && pricePerTerm > 0) {
+                      return new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(pricePerTerm)
+                    }
+                  }
+                  return 'Rp0'
+                })()}
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Harga bayar sewa akan otomatis terkalkulasi berdasarkan pilihan periode pembayaran bulanan/tahunan
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
+      {errors.user_id && (
+        <p className="text-sm text-red-500">{errors.user_id}</p>
+      )}
 
       {/* Dokumen Identitas */}
       <Card>
