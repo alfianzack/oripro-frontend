@@ -2,8 +2,7 @@
   "apps": [
     {
       "name": "oripro-frontend",
-      "script": "npm",
-      "args": "start",
+      "script": "node_modules/next/dist/bin/next",
       "instances": 1,
       "exec_mode": "fork",
       "watch": false,
