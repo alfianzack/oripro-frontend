@@ -12,6 +12,32 @@ const publicRoutes = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Security: Detect and block React2Shell (CVE-2025-55182) exploitation attempts
+  // React2Shell targets RSC (React Server Components) endpoints with malicious serialized payloads
+  if (req.method === "POST") {
+    // Check for RSC endpoint patterns that are commonly targeted
+    if (pathname.includes("/_rsc") || pathname.includes("/_next/static/chunks/app")) {
+      const contentType = req.headers.get("content-type") || "";
+      const userAgent = req.headers.get("user-agent") || "";
+      
+      // Block suspicious automated tools attempting to exploit RSC endpoints
+      const suspiciousAgents = ["curl", "wget", "python-requests", "go-http-client", "scanner"];
+      const isSuspiciousAgent = suspiciousAgents.some(agent => 
+        userAgent.toLowerCase().includes(agent)
+      );
+      
+      // Block if suspicious user agent and targeting RSC endpoints
+      if (isSuspiciousAgent) {
+        console.warn(`[SECURITY] Potential React2Shell attack detected from ${req.ip || "unknown"} to ${pathname}`, {
+          userAgent,
+          contentType,
+          pathname
+        });
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+    }
+  }
+
   // Skip middleware for static files and API routes
   if (
     pathname.startsWith("/_next") ||
