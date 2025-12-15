@@ -28,7 +28,11 @@ export async function middleware(req: NextRequest) {
       
       // Block if suspicious user agent and targeting RSC endpoints
       if (isSuspiciousAgent) {
-        console.warn(`[SECURITY] Potential React2Shell attack detected from ${req.ip || "unknown"} to ${pathname}`, {
+        // Get client IP from headers
+        const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+                         req.headers.get("x-real-ip") ||
+                         "unknown";
+        console.warn(`[SECURITY] Potential React2Shell attack detected from ${clientIp} to ${pathname}`, {
           userAgent,
           contentType,
           pathname
