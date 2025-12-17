@@ -123,6 +123,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         if (rolesResponse.success && rolesResponse.data) {
           const rolesData = Array.isArray(rolesResponse.data) ? rolesResponse.data : []
           setRoles(rolesData)
+          
+          // Set default role to "tenant" for new user
+          const tenantRole = rolesData.find((role: any) => role.name?.toLowerCase() === 'tenant')
+          if (tenantRole) {
+            setNewUserData(prev => ({ ...prev, role_id: String(tenantRole.id) }))
+          }
         } else {
           toast.error('Gagal memuat data roles')
           setRoles([])
@@ -367,13 +373,22 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       let createdUserId: string | null = null
       // Jika mode user baru, buat user terlebih dahulu
       if (userSelectionType === 'new' && !formData.user_id) {
+        // Ensure role_id is set (default to tenant role)
+        let roleIdToUse = newUserData.role_id
+        if (!roleIdToUse && roles.length > 0) {
+          const tenantRole = roles.find((role: any) => role.name?.toLowerCase() === 'tenant')
+          if (tenantRole) {
+            roleIdToUse = String(tenantRole.id)
+          }
+        }
+        
         const createUserResponse = await usersApi.createUser({
           name: newUserData.name,
           email: newUserData.email,
           password: newUserData.password,
           phone: newUserData.phone,
           gender: newUserData.gender,
-          roleId: newUserData.role_id ? String(parseInt(newUserData.role_id as any, 10)) : undefined,
+          roleId: roleIdToUse ? String(parseInt(roleIdToUse as any, 10)) : undefined,
           status: 'active'
         })
 
@@ -869,43 +884,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     </p>
                   </div>
 
-                  {/* Pilih Role */}
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Pilih Role *</Label>
-                    <Select
-                      value={newUserData.role_id}
-                      onValueChange={(value) => handleNewUserInputChange('role_id', value)}
-                      disabled={rolesLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={rolesLoading ? "Memuat..." : "Pilih"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.isArray(roles) && roles.map((role) => (
-                          <SelectItem key={role.id} value={String(role.id)}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-2">
-                    <Label htmlFor="user_status">Status *</Label>
-                    <Select
-                      value={newUserData.status}
-                      onValueChange={(value) => handleNewUserInputChange('status', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Aktif</SelectItem>
-                        <SelectItem value="inactive">Tidak Aktif</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </div>
             )}

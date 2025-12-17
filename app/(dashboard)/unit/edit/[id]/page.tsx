@@ -3,13 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Unit, UpdateUnitData, unitsApi } from '@/lib/api'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import UnitForm from '@/components/forms/unit-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
-import Link from 'next/link'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, Menu, Edit, Loader2, Building2 } from 'lucide-react'
+import UnitForm from '@/components/forms/unit-form'
 import toast from 'react-hot-toast'
-import { Button } from '@/components/ui/button'
 import UnitLogsTable from '@/components/table/unit-logs-table'
 
 export default function EditUnitPage() {
@@ -70,72 +68,79 @@ export default function EditUnitPage() {
 
   if (initialLoading) {
     return (
-      <>
-        <DashboardBreadcrumb 
-          title="Edit Unit" 
-          text="Edit Unit" 
-        />
-
-        <Card className="card h-full !p-0 !block border-0 overflow-hidden mb-6">
-          <CardContent className="card-body p-6 flex items-center justify-center min-h-[400px]">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span>Memuat data unit...</span>
-            </div>
-          </CardContent>
-        </Card>
-      </>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Memuat data unit...</span>
+        </div>
+      </div>
     )
   }
 
   if (!unit) {
     return (
-      <>
-        <DashboardBreadcrumb 
-          title="Edit Unit" 
-          text="Edit Unit" 
-        />
-
-        <Card className="card h-full !p-0 !block border-0 overflow-hidden mb-6">
-          <CardContent className="card-body p-6 flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <p className="text-muted-foreground">Unit tidak ditemukan</p>
-            </div>
-          </CardContent>
-        </Card>
-      </>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-muted-foreground">Unit tidak ditemukan</h2>
+          <p className="text-muted-foreground mt-2">
+            Unit yang Anda cari tidak ditemukan atau telah dihapus.
+          </p>
+        </div>
+      </div>
     )
   }
 
   return (
-    <>
-      <DashboardBreadcrumb 
-        title={`Edit Unit`} 
-        text={`Edit Unit ${unit.name}`}  
-      />
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/unit">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <CardTitle>Edit Unit: {unit.name}</CardTitle>
-            </div>
-          </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/unit" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Unit
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Edit: {unit.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <CardContent>
-            <UnitForm
-              unit={unit}
-              onSubmit={handleSubmit}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
-
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Unit</h1>
+          <p className="text-muted-foreground">
+            Perbarui informasi unit: <span className="font-medium">{unit.name}</span>
+          </p>
+        </div>
       </div>
-    </>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Edit Unit</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <UnitForm 
+            unit={unit} 
+            onSubmit={handleSubmit} 
+            loading={loading} 
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Upload, Image, FileText, X, MapPin } from 'lucide-react'
+import { Loader2, Upload, Image, FileText, X, MapPin, Search } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -31,7 +31,7 @@ const assetSchema = z.object({
   description: z.string().optional(),
   asset_type: z.number().min(1, 'Tipe asset harus dipilih'),
   address: z.string().min(1, 'Alamat harus diisi'),
-  area: z.number().min(0.01, 'Luas area harus lebih dari 0'),
+  area: z.string().min(1, 'Luas area harus dipilih'),
   longitude: z.number().min(-180).max(180, 'Longitude harus antara -180 dan 180'),
   latitude: z.number().min(-90).max(90, 'Latitude harus antara -90 dan 90'),
   status: z.number().default(1),
@@ -53,7 +53,6 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
   const [sketchPreview, setSketchPreview] = useState<string | null>(null)
   const [existingPhoto, setExistingPhoto] = useState<string | null>(null)
   const [existingSketch, setExistingSketch] = useState<string | null>(null)
-  const [showMapPicker, setShowMapPicker] = useState(true)
   
   const form = useForm<AssetFormData>({
     resolver: zodResolver(assetSchema) as any,
@@ -62,7 +61,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       description: '',
       asset_type: 1,
       address: '',
-      area: 0,
+      area: '',
       longitude: 0,
       latitude: 0,
       status: 1,
@@ -100,7 +99,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
         description: asset.description || '',
         asset_type: convertedAssetType,
         address: asset.address || '',
-        area: asset.area || 0,
+        area: asset.area ? getAreaCategory(asset.area) : '',
         longitude: asset.longitude || 0,
         latitude: asset.latitude || 0,
         status: convertedStatus,
@@ -134,7 +133,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
         const convertedAssetType = typeof asset.asset_type === 'string' ? assetTypeMap[asset.asset_type] || 1 : asset.asset_type || 1
         const convertedStatus = typeof asset.status === 'string' ? statusMap[asset.status] || 1 : asset.status || 1
         
-        form.setValue('area', parseFloat(asset.area as unknown as string) || 0)
+        form.setValue('area', asset.area ? getAreaCategory(asset.area) : '')
         form.setValue('asset_type', convertedAssetType)
         form.setValue('status', convertedStatus)
       }, 100)
@@ -189,7 +188,19 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       formData.append('description', data.description?.trim() || '')
       formData.append('asset_type', data.asset_type.toString())
       formData.append('address', data.address.trim())
-      formData.append('area', data.area.toString())
+      // Convert area category to number (use middle value of range)
+      let areaValue = 0
+      if (data.area) {
+        if (data.area.includes('-')) {
+          const [min, max] = data.area.split('-').map(v => parseInt(v))
+          areaValue = max ? Math.floor((min + max) / 2) : min
+        } else if (data.area.includes('+')) {
+          areaValue = parseInt(data.area.replace('+', '')) || 5001
+        } else {
+          areaValue = parseFloat(data.area) || 0
+        }
+      }
+      formData.append('area', areaValue.toString())
       formData.append('longitude', data.longitude.toString())
       formData.append('latitude', data.latitude.toString())
       formData.append('status', data.status.toString())
@@ -219,284 +230,169 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
     }
   }
 
+  // Area categories for dropdown
+  const AREA_CATEGORIES = [
+    { value: '0-50', label: '0 - 50 m²' },
+    { value: '51-100', label: '51 - 100 m²' },
+    { value: '101-200', label: '101 - 200 m²' },
+    { value: '201-500', label: '201 - 500 m²' },
+    { value: '501-1000', label: '501 - 1000 m²' },
+    { value: '1001-5000', label: '1001 - 5000 m²' },
+    { value: '5001+', label: '5001+ m²' },
+  ]
+
+  // Convert number area to category string
+  const getAreaCategory = (area: number | string): string => {
+    const areaNum = typeof area === 'string' ? parseFloat(area) : area
+    if (areaNum <= 50) return '0-50'
+    if (areaNum <= 100) return '51-100'
+    if (areaNum <= 200) return '101-200'
+    if (areaNum <= 500) return '201-500'
+    if (areaNum <= 1000) return '501-1000'
+    if (areaNum <= 5000) return '1001-5000'
+    return '5001+'
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Informasi Dasar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Informasi Asset */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold">Informasi Asset</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nama Asset <span className="text-red-500">*</span></FormLabel>
+                  <FormControl>
+                    <Input placeholder="Masukkan nama asset" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="asset_type"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormLabel>Tipe Asset <span className="text-red-500">*</span></FormLabel>
+                  <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Pilih tipe asset" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(ASSET_TYPE_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="area"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormLabel>Luas Area (m²) <span className="text-red-500">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Pilih Kategori" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AREA_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormLabel>Status <span className="text-red-500">*</span></FormLabel>
+                  <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString() || '1'}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Pilih status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="1">Aktif</SelectItem>
+                      <SelectItem value="0">Tidak Aktif</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           <FormField
             control={form.control}
-            name="name"
+            name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nama Asset <span className="text-red-500">*</span></FormLabel>
+                <FormLabel>Deskripsi Asset (Optional)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Masukkan nama asset" {...field} />
+                  <Textarea 
+                    placeholder="Masukkan spesifikasi detail dari asset ini"
+                    className="min-h-[100px]"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-
         </div>
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Deskripsi</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Masukkan deskripsi asset (opsional)"
-                  className="min-h-[100px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Tipe dan Status */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="asset_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipe Asset <span className="text-red-500">*</span></FormLabel>
-                <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih tipe asset" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(ASSET_TYPE_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="1">Aktif</SelectItem>
-                    <SelectItem value="0">Tidak Aktif</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Alamat */}
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Alamat <span className="text-red-500">*</span></FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Masukkan alamat lengkap asset"
-                  className="min-h-[80px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-         {/* File Upload Section */}
-         <div className="space-y-6">
-           <h3 className="text-lg font-semibold flex items-center gap-2">
-             <Upload className="h-5 w-5" />
-             Upload File
-           </h3>
-           
-           {/* Foto Asset */}
-           <FormField
-             control={form.control}
-             name="photo"
-             render={({ field }) => (
-               <FormItem>
-                 <FormLabel className="flex items-center gap-2">
-                   <Image className="h-4 w-4" />
-                   Foto Asset
-                   <span className="text-xs text-gray-500">(JPG, PNG, JPEG)</span>
-                 </FormLabel>
-                 <FormControl>
-                   <div className="space-y-4">
-                     <Input 
-                       type="file" 
-                       accept="image/jpeg,image/jpg,image/png"
-                       onChange={(e) => {
-                         const file = e.target.files?.[0] || null
-                         field.onChange(file)
-                         handleFileChange(file, 'photo')
-                       }}
-                       className="cursor-pointer"
-                     />
-                     {(photoPreview || existingPhoto) && (
-                       <div className="relative">
-                         <img 
-                           src={photoPreview || existingPhoto || ''} 
-                           alt="Photo preview" 
-                           className="w-full h-68 object-cover rounded-lg border shadow-sm"
-                         />
-                         <Button
-                           type="button"
-                           variant="destructive"
-                           size="sm"
-                           className="absolute top-2 right-2"
-                           onClick={() => {
-                             setPhotoPreview(null)
-                             setExistingPhoto(null)
-                             field.onChange(null)
-                           }}
-                         >
-                           <X className="h-4 w-4" />
-                         </Button>
-                       </div>
-                     )}
-                   </div>
-                 </FormControl>
-                 <FormMessage />
-               </FormItem>
-             )}
-           />
-
-           {/* Sketsa Asset */}
-           <FormField
-             control={form.control}
-             name="sketch"
-             render={({ field }) => (
-               <FormItem>
-                 <FormLabel className="flex items-center gap-2">
-                   <FileText className="h-4 w-4" />
-                   Sketsa Denah
-                   <span className="text-xs text-gray-500">(JPG, PNG, JPEG)</span>
-                 </FormLabel>
-                 <FormControl>
-                   <div className="space-y-6">
-                     <Input 
-                       type="file" 
-                       accept="image/jpeg,image/jpg,image/png"
-                       onChange={(e) => {
-                         const file = e.target.files?.[0] || null
-                         field.onChange(file)
-                         handleFileChange(file, 'sketch')
-                       }}
-                       className="cursor-pointer"
-                     />
-                     {(sketchPreview || existingSketch) && (
-                       <div className="relative">
-                         <img 
-                           src={sketchPreview || existingSketch || ''} 
-                           alt="Sketch preview" 
-                           className="w-full h-68 object-cover rounded-lg border shadow-sm"
-                         />
-                         <Button
-                           type="button"
-                           variant="destructive"
-                           size="sm"
-                           className="absolute top-2 right-2"
-                           onClick={() => {
-                             setSketchPreview(null)
-                             setExistingSketch(null)
-                             field.onChange(null)
-                           }}
-                         >
-                           <X className="h-4 w-4" />
-                         </Button>
-                       </div>
-                     )}
-                   </div>
-                 </FormControl>
-                 <FormMessage />
-               </FormItem>
-             )}
-           />
-         </div>
-
-        {/* Luas Area */}
-        <FormField
-          control={form.control}
-          name="area"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Luas Area (m²) <span className="text-red-500">*</span></FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  step="0"
-                  placeholder="Masukkan luas area dalam meter persegi"
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Koordinat dengan Google Maps */}
+        {/* Lokasi Asset */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Lokasi Asset
-            </h3>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMapPicker(!showMapPicker)}
-            >
-              {showMapPicker ? 'Sembunyikan Peta' : 'Tampilkan Peta'}
-            </Button>
-          </div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Lokasi Asset
+          </h3>
 
-          {showMapPicker && (
-            <LeafletMapComponent
-              latitude={form.watch('latitude') || 0}
-              longitude={form.watch('longitude') || 0}
-              onLocationChange={(lat, lng, address) => {
-                form.setValue('latitude', lat)
-                form.setValue('longitude', lng)
-                if (address) {
-                  form.setValue('address', address)
-                }
-              }}
-              onAddressChange={(address) => {
+          <LeafletMapComponent
+            latitude={form.watch('latitude') || 0}
+            longitude={form.watch('longitude') || 0}
+            onLocationChange={(lat, lng, address) => {
+              form.setValue('latitude', lat)
+              form.setValue('longitude', lng)
+              if (address) {
                 form.setValue('address', address)
-              }}
-              height="400px"
-              className="border rounded-lg p-4"
-            />
-          )}
+              }
+            }}
+            onAddressChange={(address) => {
+              form.setValue('address', address)
+            }}
+            height="400px"
+            className="border rounded-lg p-4"
+          />
 
-          {/* Manual coordinate inputs (hidden by default, can be shown if needed) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
@@ -508,7 +404,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                     <Input 
                       type="number" 
                       step="0.000001"
-                      placeholder="Masukkan longitude"
+                      placeholder="0"
                       {...field}
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                     />
@@ -528,7 +424,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                     <Input 
                       type="number" 
                       step="0.000001"
-                      placeholder="Masukkan latitude"
+                      placeholder="0"
                       {...field}
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                     />
@@ -538,6 +434,141 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Alamat <span className="text-red-500">*</span></FormLabel>
+                <FormControl>
+                  <Textarea 
+                    placeholder="Alamat bisa terisi otomatis setelah dipilih dari peta"
+                    className="min-h-[80px]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Dokumen */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold">Dokumen</h3>
+          
+          {/* Foto Asset */}
+          <FormField
+            control={form.control}
+            name="photo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  Foto Asset
+                  <span className="text-xs text-gray-500">(JPG, PNG, JPEG)</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="space-y-4">
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <Input 
+                        type="file" 
+                        accept="image/jpeg,image/jpg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null
+                          field.onChange(file)
+                          handleFileChange(file, 'photo')
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <p className="text-sm text-gray-600">Upload File</p>
+                    </div>
+                    {(photoPreview || existingPhoto) && (
+                      <div className="relative">
+                        <img 
+                          src={photoPreview || existingPhoto || ''} 
+                          alt="Photo preview" 
+                          className="w-full h-68 object-cover rounded-lg border shadow-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => {
+                            setPhotoPreview(null)
+                            setExistingPhoto(null)
+                            field.onChange(null)
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Sketsa Denah */}
+          <FormField
+            control={form.control}
+            name="sketch"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Sketsa Denah
+                  <span className="text-xs text-gray-500">(JPG, PNG, JPEG)</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="space-y-4">
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <Input 
+                        type="file" 
+                        accept="image/jpeg,image/jpg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null
+                          field.onChange(file)
+                          handleFileChange(file, 'sketch')
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <p className="text-sm text-gray-600">Upload File</p>
+                    </div>
+                    {(sketchPreview || existingSketch) && (
+                      <div className="relative">
+                        <img 
+                          src={sketchPreview || existingSketch || ''} 
+                          alt="Sketch preview" 
+                          className="w-full h-68 object-cover rounded-lg border shadow-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => {
+                            setSketchPreview(null)
+                            setExistingSketch(null)
+                            field.onChange(null)
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Action Buttons */}

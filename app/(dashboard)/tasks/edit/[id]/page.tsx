@@ -3,17 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { tasksApi, Task, CreateTaskData, UpdateTaskData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, StickyNote, Edit, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import TaskForm from '@/components/forms/task-form'
 
 export default function EditTaskPage() {
@@ -97,7 +95,7 @@ export default function EditTaskPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading task...</span>
+          <span>Memuat data task...</span>
         </div>
       </div>
     )
@@ -107,9 +105,9 @@ export default function EditTaskPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-muted-foreground">Task not found</h2>
+          <h2 className="text-2xl font-bold text-muted-foreground">Task tidak ditemukan</h2>
           <p className="text-muted-foreground mt-2">
-            The task you are looking for was not found or has been deleted.
+            Task yang Anda cari tidak ditemukan atau telah dihapus.
           </p>
         </div>
       </div>
@@ -117,32 +115,58 @@ export default function EditTaskPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Edit Task" text={`Edit Task: ${task.name}`} />
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/tasks">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <CardTitle>Edit Task: {task.name}</CardTitle>
-            </div>
-          </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/task-parents" className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Task
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Edit: {task.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <CardContent>
-            <TaskForm
-              task={task}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Task</h1>
+          <p className="text-muted-foreground">
+            Perbarui informasi task: <span className="font-medium">{task.name}</span>
+          </p>
+        </div>
       </div>
-    </>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Edit Task</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TaskForm
+            task={task}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            loading={loading}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

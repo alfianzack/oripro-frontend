@@ -3,9 +3,10 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreateUnitData, UpdateUnitData, unitsApi } from '@/lib/api'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import UnitForm from '@/components/forms/unit-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Building2, Home, Menu, Plus } from 'lucide-react'
+import UnitForm from '@/components/forms/unit-form'
 import toast from 'react-hot-toast'
 
 export default function CreateUnitPage() {
@@ -33,26 +34,52 @@ export default function CreateUnitPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb 
-        title="Buat Unit Baru" 
-        text="Buat Unit Baru" 
-      />
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/unit" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Unit
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Buat Unit Baru
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <Card className="card h-full !p-0 !block border-0 overflow-hidden mb-6">
-        <CardHeader className="border-b border-neutral-200 dark:border-slate-600 !py-4 px-6">
-          <CardTitle className="text-lg font-semibold">
-            Formulir Unit Baru
-          </CardTitle>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Buat Unit Baru</h1>
+          <p className="text-muted-foreground">
+            Tambahkan unit baru ke sistem dengan informasi lengkap
+          </p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Unit</CardTitle>
         </CardHeader>
-
-        <CardContent className="card-body p-6">
-          <UnitForm
-            onSubmit={handleSubmit}
-            loading={loading}
-          />
+        <CardContent>
+          <UnitForm onSubmit={handleSubmit} loading={loading} />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }

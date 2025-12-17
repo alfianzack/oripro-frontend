@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CreateTenantData, UpdateTenantData, tenantsApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
-import { Home, Users, Plus } from 'lucide-react'
+import { Home, Users, Plus, FileText } from 'lucide-react'
 import TenantForm from '@/components/forms/tenant-form'
 import toast from 'react-hot-toast'
 
@@ -46,7 +46,7 @@ export default function CreateTenantPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink href="/tenants" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
               Tenants
             </BreadcrumbLink>
           </BreadcrumbItem>

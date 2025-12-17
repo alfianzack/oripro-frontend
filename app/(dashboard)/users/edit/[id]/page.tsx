@@ -3,18 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { usersApi, User, UpdateUserData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, UsersRound, Edit, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import UserForm from '@/components/forms/user-form'
 
 export default function EditUserPage() {
@@ -105,10 +102,7 @@ export default function EditUserPage() {
     router.push('/users')
   }
 
-  console.log('Render state:', { loadingUser, user: !!user, userId })
-
   if (loadingUser) {
-    console.log('Showing loading state')
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
@@ -120,7 +114,6 @@ export default function EditUserPage() {
   }
 
   if (!user) {
-    console.log('Showing user not found state')
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -134,37 +127,57 @@ export default function EditUserPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Edit User" text={`Edit User: ${user.name}`} />
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/users">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <div>
-                <CardTitle>Edit User: {user.name}</CardTitle>
-                <CardDescription>
-                  Perbarui informasi user
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/users" className="flex items-center gap-2">
+              <UsersRound className="h-4 w-4" />
+              Users
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Edit: {user.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <CardContent>
-            <UserForm
-              user={user}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
-
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit User</h1>
+          <p className="text-muted-foreground">
+            Perbarui informasi user: <span className="font-medium">{user.name}</span>
+          </p>
+        </div>
       </div>
-    </>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Edit User</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <UserForm
+            user={user}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            loading={loading}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

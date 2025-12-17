@@ -3,17 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { taskGroupsApi, TaskGroup, CreateTaskGroupData, UpdateTaskGroupData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, StickyNote, Edit, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import TaskGroupForm from '@/components/forms/task-group-form'
 
 export default function EditTaskGroupPage() {
@@ -79,7 +77,7 @@ export default function EditTaskGroupPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading task group...</span>
+          <span>Memuat data task group...</span>
         </div>
       </div>
     )
@@ -89,9 +87,9 @@ export default function EditTaskGroupPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-muted-foreground">Task group not found</h2>
+          <h2 className="text-2xl font-bold text-muted-foreground">Task group tidak ditemukan</h2>
           <p className="text-muted-foreground mt-2">
-            The task group you are looking for was not found or has been deleted.
+            Task group yang Anda cari tidak ditemukan atau telah dihapus.
           </p>
         </div>
       </div>
@@ -99,32 +97,58 @@ export default function EditTaskGroupPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Edit Task Group" text={`Edit Task Group: ${taskGroup.name}`} />
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/task-groups">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <CardTitle>Edit Task Group: {taskGroup.name}</CardTitle>
-            </div>
-          </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/task-groups" className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Task Group
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Edit: {taskGroup.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <CardContent>
-            <TaskGroupForm
-              taskGroup={taskGroup}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Task Group</h1>
+          <p className="text-muted-foreground">
+            Perbarui informasi task group: <span className="font-medium">{taskGroup.name}</span>
+          </p>
+        </div>
       </div>
-    </>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Edit Task Group</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TaskGroupForm
+            taskGroup={taskGroup}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            loading={loading}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

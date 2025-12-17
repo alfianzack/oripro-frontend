@@ -3,18 +3,15 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usersApi, CreateUserData, UpdateUserData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, UsersRound, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import UserForm from '@/components/forms/user-form'
 
 export default function CreateUserPage() {
@@ -45,25 +42,48 @@ export default function CreateUserPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Create User" text="Create User" />
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/users">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <CardTitle>Buat User Baru</CardTitle>
-              <CardDescription>
-                Tambahkan user baru ke dalam sistem
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/users" className="flex items-center gap-2">
+              <UsersRound className="h-4 w-4" />
+              Users
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Buat User Baru
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Buat User Baru</h1>
+          <p className="text-muted-foreground">
+            Tambahkan user baru ke sistem dengan informasi lengkap
+          </p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form User</CardTitle>
+        </CardHeader>
         <CardContent>
           <UserForm
             onSubmit={handleSubmit}
@@ -72,6 +92,6 @@ export default function CreateUserPage() {
           />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }

@@ -3,17 +3,15 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { tasksApi, CreateTaskData, UpdateTaskData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, StickyNote, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import TaskForm from '@/components/forms/task-form'
 
 export default function CreateTaskPage() {
@@ -44,21 +42,48 @@ export default function CreateTaskPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Create Task" text="Create Task" />
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/task-parents" className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Task
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Buat Task Baru
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <Card className="max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Buat Task Baru</h1>
+          <p className="text-muted-foreground">
+            Tambahkan task baru ke sistem dengan informasi lengkap
+          </p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/tasks">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <CardTitle>Create New Task</CardTitle>
-          </div>
+          <CardTitle>Form Task</CardTitle>
         </CardHeader>
-
         <CardContent>
           <TaskForm
             onSubmit={handleSubmit}
@@ -67,7 +92,7 @@ export default function CreateTaskPage() {
           />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }
 

@@ -3,17 +3,15 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { assetsApi, CreateAssetData, UpdateAssetData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, Boxes, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import AssetForm from '@/components/forms/asset-form'
 
 export default function CreateAssetPage() {
@@ -44,21 +42,48 @@ export default function CreateAssetPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Create Asset" text="Create Asset" />
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/asset" className="flex items-center gap-2">
+              <Boxes className="h-4 w-4" />
+              Asset
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Buat Asset Baru
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <Card className="max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Buat Asset Baru</h1>
+          <p className="text-muted-foreground">
+            Tambahkan asset baru ke sistem dengan informasi lengkap
+          </p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/asset">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <CardTitle>Buat Asset Baru</CardTitle>
-          </div>
+          <CardTitle>Form Asset</CardTitle>
         </CardHeader>
-
         <CardContent>
           <AssetForm
             onSubmit={handleSubmit}
@@ -67,6 +92,6 @@ export default function CreateAssetPage() {
           />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }

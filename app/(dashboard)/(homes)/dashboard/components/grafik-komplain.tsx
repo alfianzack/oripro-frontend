@@ -21,11 +21,7 @@ export default function GrafikKomplain({ stats }: GrafikKomplainProps) {
     labels: ['Belum Ditangani', 'Sedang Ditangani', 'Selesai'],
     colors: ['#EF4444', '#F59E0B', '#10B981'],
     legend: {
-      position: 'bottom',
-      fontSize: '14px',
-      markers: {
-        size: 6,
-      },
+      show: false,
     },
     plotOptions: {
       pie: {

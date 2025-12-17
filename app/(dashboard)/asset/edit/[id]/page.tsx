@@ -3,17 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { assetsApi, Asset, CreateAssetData, UpdateAssetData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, Boxes, Edit, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import AssetForm from '@/components/forms/asset-form'
 import AssetLogsTable from '@/components/table/asset-logs-table'
 
@@ -104,31 +102,57 @@ export default function EditAssetPage() {
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Edit Asset" text={`Edit Asset: ${asset.name}`} />
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="icon" asChild>
-                <Link href="/asset">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-              <CardTitle>Edit Asset: {asset.name}</CardTitle>
-            </div>
-          </CardHeader>
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/asset" className="flex items-center gap-2">
+              <Boxes className="h-4 w-4" />
+              Asset
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Edit: {asset.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <CardContent>
-            <AssetForm
-              asset={asset}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Asset</h1>
+          <p className="text-muted-foreground">
+            Perbarui informasi asset: <span className="font-medium">{asset.name}</span>
+          </p>
+        </div>
       </div>
-    </>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Form Edit Asset</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AssetForm
+            asset={asset}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            loading={loading}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

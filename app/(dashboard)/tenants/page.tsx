@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Home, Users, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
+import { Home, Users, Plus, Search, RefreshCw, Loader2, FileText } from 'lucide-react'
 import TenantsTable from '@/components/table/tenants-table'
 import TenantDetailDialog from '@/components/dialogs/tenant-detail-dialog'
 import toast from 'react-hot-toast'
@@ -250,7 +250,7 @@ export default function TenantsPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <FileText className="h-4 w-4" />
               Tenants
             </BreadcrumbPage>
           </BreadcrumbItem>

@@ -3,17 +3,15 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { taskGroupsApi, CreateTaskGroupData, UpdateTaskGroupData } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Home, StickyNote, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import DashboardBreadcrumb from "@/components/layout/dashboard-breadcrumb"
-import Link from "next/link"
 import TaskGroupForm from '@/components/forms/task-group-form'
 
 export default function CreateTaskGroupPage() {
@@ -40,25 +38,52 @@ export default function CreateTaskGroupPage() {
   }
 
   const handleCancel = () => {
-    router.push('/task_group')
+    router.push('/task-groups')
   }
 
   return (
-    <>
-      <DashboardBreadcrumb title="Create Task Group" text="Create Task Group" />
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/task-groups" className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Task Group
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Buat Task Group Baru
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <Card className="max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Buat Task Group Baru</h1>
+          <p className="text-muted-foreground">
+            Tambahkan task group baru ke sistem dengan informasi lengkap
+          </p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/task-groups">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <CardTitle>Create New Task Group</CardTitle>
-          </div>
+          <CardTitle>Form Task Group</CardTitle>
         </CardHeader>
-
         <CardContent>
           <TaskGroupForm
             onSubmit={handleSubmit}
@@ -67,7 +92,7 @@ export default function CreateTaskGroupPage() {
           />
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }
 
