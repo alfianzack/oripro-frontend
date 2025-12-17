@@ -25,8 +25,7 @@ export default function UnitsPage() {
   // Filter dan sorting states
   const [assetFilter, setAssetFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [sizeFilter, setSizeFilter] = useState<string>('all')
-  const [order, setOrder] = useState<string>('a-z')
+  const [order, setOrder] = useState<string>('newest')
   const [assets, setAssets] = useState<Asset[]>([])
   
   // Pagination states
@@ -49,14 +48,7 @@ export default function UnitsPage() {
         filterParams.asset_id = assetFilter
       }
       if (statusFilter !== 'all') {
-        filterParams.is_deleted = statusFilter === 'active' ? false : true
-      }
-      if (sizeFilter !== 'all') {
-        const sizeRange = sizeFilter.split('-')
-        if (sizeRange.length === 2) {
-          filterParams.size_min = parseInt(sizeRange[0])
-          filterParams.size_max = parseInt(sizeRange[1])
-        }
+        filterParams.status = statusFilter
       }
       if (order) {
         filterParams.order = order
@@ -131,7 +123,7 @@ export default function UnitsPage() {
   // Reload data when filters or pagination change
   useEffect(() => {
     loadUnits()
-  }, [searchTerm, assetFilter, statusFilter, sizeFilter, order, offset])
+  }, [searchTerm, assetFilter, statusFilter, order, offset])
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset)
@@ -327,23 +319,8 @@ export default function UnitsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="active">Aktif</SelectItem>
-                <SelectItem value="inactive">Tidak Aktif</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sizeFilter} onValueChange={setSizeFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Ukuran" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Ukuran</SelectItem>
-                <SelectItem value="0-50">0 - 50 m²</SelectItem>
-                <SelectItem value="50-100">50 - 100 m²</SelectItem>
-                <SelectItem value="100-200">100 - 200 m²</SelectItem>
-                <SelectItem value="200-500">200 - 500 m²</SelectItem>
-                <SelectItem value="500-1000">500 - 1000 m²</SelectItem>
-                <SelectItem value="1000-9999">1000+ m²</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="occupied">Occupied</SelectItem>
               </SelectContent>
             </Select>
             
@@ -366,8 +343,7 @@ export default function UnitsPage() {
                 setSearchTerm('')
                 setAssetFilter('all')
                 setStatusFilter('all')
-                setSizeFilter('all')
-                setOrder('a-z')
+                setOrder('newest')
                 setOffset(0)
               }}
             >

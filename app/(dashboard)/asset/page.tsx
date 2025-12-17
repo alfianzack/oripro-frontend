@@ -24,7 +24,7 @@ export default function AssetsPage() {
   
   // Filter dan sorting states
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('all')
-  const [order, setOrder] = useState<string>('a-z')
+  const [order, setOrder] = useState<string>('newest')
   
   // Pagination states
   const [limit] = useState<number>(10)
@@ -133,9 +133,26 @@ export default function AssetsPage() {
     router.push(`/asset/edit/${asset.id}`)
   }
 
-  const handleView = (asset: Asset) => {
-    setSelectedAsset(asset)
-    setDetailDialogOpen(true)
+  const handleView = async (asset: Asset) => {
+    try {
+      // Fetch full asset details including photos and sketch
+      const response = await assetsApi.getAsset(asset.id)
+      if (response.success && response.data) {
+        const responseData = response.data as any
+        
+        setSelectedAsset(responseData.data)
+        setDetailDialogOpen(true)
+      } else {
+        // Fallback to asset from list if detail fetch fails
+        setSelectedAsset(asset)
+        setDetailDialogOpen(true)
+      }
+    } catch (error) {
+      console.error('Error fetching asset details:', error)
+      // Fallback to asset from list on error
+      setSelectedAsset(asset)
+      setDetailDialogOpen(true)
+    }
   }
 
   const handleRefresh = () => {
@@ -334,10 +351,10 @@ export default function AssetsPage() {
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="a-z">Nama A - Z</SelectItem>
-                <SelectItem value="z-a">Nama Z - A</SelectItem>
                 <SelectItem value="newest">Terbaru</SelectItem>
                 <SelectItem value="oldest">Terlama</SelectItem>
+                <SelectItem value="a-z">Nama A - Z</SelectItem>
+                <SelectItem value="z-a">Nama Z - A</SelectItem>
               </SelectContent>
             </Select>
             
@@ -347,7 +364,7 @@ export default function AssetsPage() {
               onClick={() => {
                 setSearchTerm('')
                 setAssetTypeFilter('all')
-                setOrder('a-z')
+                setOrder('newest')
                 setOffset(0)
               }}
             >

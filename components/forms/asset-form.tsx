@@ -31,7 +31,7 @@ const assetSchema = z.object({
   description: z.string().optional(),
   asset_type: z.number().min(1, 'Tipe asset harus dipilih'),
   address: z.string().min(1, 'Alamat harus diisi'),
-  area: z.string().min(1, 'Luas area harus dipilih'),
+  area: z.coerce.number().min(0, 'Luas area harus lebih dari atau sama dengan 0'),
   longitude: z.number().min(-180).max(180, 'Longitude harus antara -180 dan 180'),
   latitude: z.number().min(-90).max(90, 'Latitude harus antara -90 dan 90'),
   status: z.number().default(1),
@@ -61,7 +61,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       description: '',
       asset_type: 1,
       address: '',
-      area: '',
+      area: 0,
       longitude: 0,
       latitude: 0,
       status: 1,
@@ -99,7 +99,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
         description: asset.description || '',
         asset_type: convertedAssetType,
         address: asset.address || '',
-        area: asset.area ? getAreaCategory(asset.area) : '',
+        area: asset.area ? parseFloat(asset.area.toString()) : 0,
         longitude: asset.longitude || 0,
         latitude: asset.latitude || 0,
         status: convertedStatus,
@@ -133,7 +133,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
         const convertedAssetType = typeof asset.asset_type === 'string' ? assetTypeMap[asset.asset_type] || 1 : asset.asset_type || 1
         const convertedStatus = typeof asset.status === 'string' ? statusMap[asset.status] || 1 : asset.status || 1
         
-        form.setValue('area', asset.area ? getAreaCategory(asset.area) : '')
+        form.setValue('area', asset.area ? parseFloat(asset.area.toString()) : 0)
         form.setValue('asset_type', convertedAssetType)
         form.setValue('status', convertedStatus)
       }, 100)
@@ -188,19 +188,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       formData.append('description', data.description?.trim() || '')
       formData.append('asset_type', data.asset_type.toString())
       formData.append('address', data.address.trim())
-      // Convert area category to number (use middle value of range)
-      let areaValue = 0
-      if (data.area) {
-        if (data.area.includes('-')) {
-          const [min, max] = data.area.split('-').map(v => parseInt(v))
-          areaValue = max ? Math.floor((min + max) / 2) : min
-        } else if (data.area.includes('+')) {
-          areaValue = parseInt(data.area.replace('+', '')) || 5001
-        } else {
-          areaValue = parseFloat(data.area) || 0
-        }
-      }
-      formData.append('area', areaValue.toString())
+      formData.append('area', data.area.toString())
       formData.append('longitude', data.longitude.toString())
       formData.append('latitude', data.latitude.toString())
       formData.append('status', data.status.toString())
@@ -230,28 +218,6 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
     }
   }
 
-  // Area categories for dropdown
-  const AREA_CATEGORIES = [
-    { value: '0-50', label: '0 - 50 m²' },
-    { value: '51-100', label: '51 - 100 m²' },
-    { value: '101-200', label: '101 - 200 m²' },
-    { value: '201-500', label: '201 - 500 m²' },
-    { value: '501-1000', label: '501 - 1000 m²' },
-    { value: '1001-5000', label: '1001 - 5000 m²' },
-    { value: '5001+', label: '5001+ m²' },
-  ]
-
-  // Convert number area to category string
-  const getAreaCategory = (area: number | string): string => {
-    const areaNum = typeof area === 'string' ? parseFloat(area) : area
-    if (areaNum <= 50) return '0-50'
-    if (areaNum <= 100) return '51-100'
-    if (areaNum <= 200) return '101-200'
-    if (areaNum <= 500) return '201-500'
-    if (areaNum <= 1000) return '501-1000'
-    if (areaNum <= 5000) return '1001-5000'
-    return '5001+'
-  }
 
   return (
     <Form {...form}>
@@ -308,20 +274,17 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
               render={({ field }) => (
                 <FormItem className="w-full">
                   <FormLabel>Luas Area (m²) <span className="text-red-500">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Pilih Kategori" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {AREA_CATEGORIES.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      min="0"
+                      placeholder="Masukkan luas area"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -379,15 +342,9 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
           <LeafletMapComponent
             latitude={form.watch('latitude') || 0}
             longitude={form.watch('longitude') || 0}
-            onLocationChange={(lat, lng, address) => {
+            onLocationChange={(lat, lng) => {
               form.setValue('latitude', lat)
               form.setValue('longitude', lng)
-              if (address) {
-                form.setValue('address', address)
-              }
-            }}
-            onAddressChange={(address) => {
-              form.setValue('address', address)
             }}
             height="400px"
             className="border rounded-lg p-4"
@@ -485,6 +442,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                       />
                       <p className="text-sm text-gray-600">Upload File</p>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(photoPreview || existingPhoto) && (
                       <div className="relative">
                         <img 
@@ -507,6 +465,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                         </Button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </FormControl>
                 <FormMessage />
@@ -541,6 +500,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                       />
                       <p className="text-sm text-gray-600">Upload File</p>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(sketchPreview || existingSketch) && (
                       <div className="relative">
                         <img 
@@ -563,6 +523,7 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                         </Button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </FormControl>
                 <FormMessage />

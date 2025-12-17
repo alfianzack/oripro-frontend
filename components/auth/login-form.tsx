@@ -102,8 +102,8 @@ const LoginForm = () => {
           } else if (roleName === 'tenant') {
             // Tenant -> dashboard tenant
             router.push('/dashboard-tenant')
-          } else if (roleName === 'worker' || roleName === 'user') {
-            // Worker atau user -> dashboard worker
+          } else if (roleName === 'worker' || roleName === 'user' || roleName === 'keamanan' || roleName === 'kebersihan') {
+            // Worker, user, atau keamanan dan kebersihan -> dashboard worker
             router.push('/dashboard-worker')
           } else {
             // Fallback untuk role lain atau jika role tidak ditemukan
