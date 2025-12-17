@@ -171,7 +171,7 @@ export default function UnitForm({ unit, onSubmit, loading = false }: UnitFormPr
                 onValueChange={(value) => handleInputChange('asset_id', value)}
                 disabled={assetsLoading}
               >
-                <SelectTrigger className={errors.asset_id ? 'border-red-500' : ''}>
+                <SelectTrigger className={`w-full ${errors.asset_id ? 'border-red-500' : ''}`}>
                   <SelectValue placeholder={assetsLoading ? "Memuat assets..." : "Pilih asset"} />
                 </SelectTrigger>
                 <SelectContent>

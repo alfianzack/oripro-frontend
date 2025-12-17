@@ -185,13 +185,14 @@ export default function UnitsTable({
               <TableHead>Toilet</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Dibuat</TableHead>
+              <TableHead>Diperbarui</TableHead>
               <TableHead className="w-[70px]">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {units.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Tidak ada data unit
                 </TableCell>
               </TableRow>
@@ -232,6 +233,9 @@ export default function UnitsTable({
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(unit.created_at)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(unit.updated_at)}
                   </TableCell>
                   <TableCell
                       className={`py-4 px-4 border-b text-center first:border-s last:border-e border-neutral-200 dark:border-slate-600 ${isLast ? "rounded-bl-lg" : ""

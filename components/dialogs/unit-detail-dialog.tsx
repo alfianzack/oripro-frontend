@@ -73,6 +73,32 @@ export default function UnitDetailDialog({
     })
   }
 
+  const getStatusBadge = (status?: string) => {
+    if (status === undefined || status === null) {
+      return {
+        label: 'Unknown',
+        className: 'bg-gray-600/15 text-gray-600 dark:text-white border-gray-400'
+      }
+    }
+    switch (status) {
+      case 'available':
+        return {
+          label: 'Available',
+          className: 'bg-green-600/15 text-green-600 border-green-600'
+        }
+      case 'occupied':
+        return {
+          label: 'Occupied',
+          className: 'bg-blue-600/15 text-blue-600 border-blue-600'
+        }
+      default:
+        return {
+          label: 'Unknown',
+          className: 'bg-gray-600/15 text-gray-600 dark:text-white border-gray-400'
+        }
+    }
+  }
+
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -111,7 +137,7 @@ export default function UnitDetailDialog({
                 </Badge>
               </div>
               <Button asChild>
-                <Link href={`/units/edit/${unit.id}`}>
+                <Link href={`/unit/edit/${unit.id}`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Unit
                 </Link>
@@ -178,9 +204,16 @@ export default function UnitDetailDialog({
                               Status
                             </label>
                             <div className="mt-1">
-                              <Badge variant={unit.is_deleted ? 'destructive' : 'default'}>
-                                {unit.is_deleted ? 'Dihapus' : 'Aktif'}
-                              </Badge>
+                              {(() => {
+                                const statusInfo = getStatusBadge(unit.status)
+                                return (
+                                  <span
+                                    className={`px-3 py-1.5 rounded text-sm font-medium border ${statusInfo.className}`}
+                                  >
+                                    {statusInfo.label}
+                                  </span>
+                                )
+                              })()}
                             </div>
                           </div>
                         </div>
