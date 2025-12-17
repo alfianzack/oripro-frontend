@@ -96,7 +96,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     const loadData = async () => {
       try {
         const [usersResponse, unitsResponse, rolesResponse] = await Promise.all([
-          usersApi.getUsers(),
+          usersApi.getUsers({ limit: 100 }),
           // When editing, load all units to show selected ones; when creating, only load available units
           tenant ? unitsApi.getUnits() : unitsApi.getUnits({ status: 0 }),
           rolesApi.getRoles()
