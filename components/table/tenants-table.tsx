@@ -25,6 +25,53 @@ import {
 import { MoreHorizontal, Edit, Trash2, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// Category options mapping
+const CATEGORY_MAP: Record<number, string> = {
+  1: 'Restoran/Cafe',
+  2: 'Sport Club',
+  3: 'Kantor',
+  4: 'Tempat Hiburan',
+  5: 'Retail/Toko',
+  6: 'Klinik/Kesehatan',
+  7: 'Pendidikan',
+  8: 'Jasa Keuangan',
+  9: 'Other',
+}
+
+const getCategoryLabel = (tenant: Tenant): string => {
+  // Check if category is an object with name
+  if (tenant.category && typeof tenant.category === 'object' && 'name' in tenant.category) {
+    return (tenant.category as { name: string }).name
+  }
+  
+  // Check if category is an object with id
+  if (tenant.category && typeof tenant.category === 'object' && 'id' in tenant.category) {
+    const categoryObj = tenant.category as { id: number | string }
+    const categoryId = typeof categoryObj.id === 'number' ? categoryObj.id : parseInt(String(categoryObj.id), 10)
+    if (!isNaN(categoryId)) {
+      return CATEGORY_MAP[categoryId] || 'Unknown'
+    }
+  }
+  
+  // Check if category is a number directly
+  if (typeof tenant.category === 'number') {
+    return CATEGORY_MAP[tenant.category] || 'Unknown'
+  }
+  
+  // Check category_id field
+  const categoryIdField = (tenant as any).category_id
+  if (categoryIdField !== undefined && categoryIdField !== null) {
+    const categoryId = typeof categoryIdField === 'number' 
+      ? categoryIdField 
+      : parseInt(String(categoryIdField), 10)
+    if (!isNaN(categoryId)) {
+      return CATEGORY_MAP[categoryId] || 'Unknown'
+    }
+  }
+  
+  return '-'
+}
+
 interface PaginationInfo {
   total: number
   limit: number
@@ -98,6 +145,15 @@ export default function TenantsTable({
     })
   }
 
+  const formatDateOnly = (dateString: string) => {
+    if (!mounted) return 'Loading...'
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
   const getTenantStatus = (status: string) => {
     switch (status) {
       case 'inactive':
@@ -164,12 +220,12 @@ export default function TenantsTable({
             <TableRow>
               <TableHead>No</TableHead>
               <TableHead>Nama Tenant</TableHead>
+              <TableHead>Kategori</TableHead>
               <TableHead>User</TableHead>
               <TableHead>Status Tenant</TableHead>
-              <TableHead>Mulai Kontrak</TableHead>
-              <TableHead>Berakhir Kontrak</TableHead>
-              <TableHead>Durasi Sewa</TableHead>
+              <TableHead>Kontrak</TableHead>
               <TableHead>Dibuat</TableHead>
+              <TableHead>Diubah pada</TableHead>
               <TableHead className="w-[70px]">Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -206,6 +262,11 @@ export default function TenantsTable({
                     {tenant.name}
                   </TableCell>
                   <TableCell>
+                    <Badge variant="outline">
+                      {getCategoryLabel(tenant)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
                     {(() => {
                       try {
                         if (tenant.user && typeof tenant.user === 'object') {
@@ -223,45 +284,52 @@ export default function TenantsTable({
                       {getTenantStatus(tenantStatus).label}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(tenant.contract_begin_at)}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(tenant.contract_end_at)}
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      try {
-                        const duration = tenant.rent_duration || 0;
-                        let unit = '';
-                        if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
-                          // Handle numeric format: 0 = month, 1 = year
-                          const unitValue = Number(tenant.rent_duration_unit);
-                          if (unitValue === 1) {
-                            unit = 'tahun';
-                          } else if (unitValue === 0) {
-                            unit = 'bulan';
-                          } else {
-                            // Fallback: handle string format
-                            const unitString = String(tenant.rent_duration_unit).toLowerCase();
-                            if (unitString === 'year' || unitString === DURATION_UNITS.YEAR) {
-                              unit = 'tahun';
-                            } else if (unitString === 'month' || unitString === DURATION_UNITS.MONTH) {
-                              unit = 'bulan';
-                            } else {
-                              unit = tenant.rent_duration_unit;
+                  <TableCell className="text-sm">
+                    <div className="space-y-1">
+                      <div className="text-muted-foreground">
+                        <span className="font-medium">Mulai:</span> {formatDateOnly(tenant.contract_begin_at)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        <span className="font-medium">Berakhir:</span> {formatDateOnly(tenant.contract_end_at)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        <span className="font-medium">Durasi:</span> {(() => {
+                          try {
+                            const duration = tenant.rent_duration || 0;
+                            let unit = '';
+                            if (tenant.rent_duration_unit !== undefined && tenant.rent_duration_unit !== null) {
+                              // Handle numeric format: 0 = month, 1 = year
+                              const unitValue = Number(tenant.rent_duration_unit);
+                              if (unitValue === 1) {
+                                unit = 'tahun';
+                              } else if (unitValue === 0) {
+                                unit = 'bulan';
+                              } else {
+                                // Fallback: handle string format
+                                const unitString = String(tenant.rent_duration_unit).toLowerCase();
+                                if (unitString === 'year' || unitString === DURATION_UNITS.YEAR) {
+                                  unit = 'tahun';
+                                } else if (unitString === 'month' || unitString === DURATION_UNITS.MONTH) {
+                                  unit = 'bulan';
+                                } else {
+                                  unit = tenant.rent_duration_unit;
+                                }
+                              }
                             }
+                            return duration > 0 && unit ? `${duration} ${unit}` : '-';
+                          } catch (error) {
+                            console.error('Error rendering duration field:', error, tenant.rent_duration, tenant.rent_duration_unit);
+                            return '-';
                           }
-                        }
-                        return duration > 0 && unit ? `${duration} ${unit}` : '-';
-                      } catch (error) {
-                        console.error('Error rendering duration field:', error, tenant.rent_duration, tenant.rent_duration_unit);
-                        return '-';
-                      }
-                    })()}
+                        })()}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(tenant.created_at)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(tenant.updated_at)}
                   </TableCell>
                   <TableCell
                       className={`py-4 px-4 border-b text-center first:border-s last:border-e border-neutral-200 dark:border-slate-600 ${isLast ? "rounded-bl-lg" : ""

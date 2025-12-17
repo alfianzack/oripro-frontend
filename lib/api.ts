@@ -1078,6 +1078,8 @@ export const tenantsApi = {
   async getTenants(params?: {
     name?: string
     user_id?: string
+    category?: number | string
+    status?: number | string
     order?: string
     limit?: number
     offset?: number
@@ -1085,6 +1087,10 @@ export const tenantsApi = {
     const queryParams = new URLSearchParams()
     if (params?.name) queryParams.append('name', params.name)
     if (params?.user_id) queryParams.append('user_id', params.user_id)
+    if (params?.category) queryParams.append('category', params.category.toString())
+    if (params?.status !== undefined && params?.status !== null) {
+      queryParams.append('status', params.status.toString())
+    }
     if (params?.order) queryParams.append('order', params.order)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())

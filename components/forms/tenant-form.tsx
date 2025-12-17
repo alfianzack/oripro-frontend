@@ -84,6 +84,13 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
   const [unitsLoading, setUnitsLoading] = useState(true)
   const [rolesLoading, setRolesLoading] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [passwordValidation, setPasswordValidation] = useState({
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+    minLength: false
+  })
   const [identificationFiles, setIdentificationFiles] = useState<File[]>([])
   const [contractFiles, setContractFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
@@ -276,6 +283,24 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     }
   }, [tenant])
 
+  const validatePassword = (password: string) => {
+    const hasUppercase = /[A-Z]/.test(password)
+    const hasLowercase = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    const minLength = password.length >= 6
+
+    setPasswordValidation({
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      hasSpecialChar,
+      minLength
+    })
+
+    return hasUppercase && hasLowercase && hasNumber && hasSpecialChar && minLength
+  }
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -291,8 +316,13 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       // Validasi field user baru
       if (!newUserData.name.trim()) newErrors.user_id = 'Nama user baru harus diisi'
       else if (!newUserData.email.trim()) newErrors.user_id = 'Email user baru harus diisi'
-      else if (!newUserData.password.trim()) newErrors.user_id = 'Password user baru harus diisi'
-      else if (!newUserData.phone.trim()) newErrors.user_id = 'No. telepon user baru harus diisi'
+      else if (!newUserData.password.trim()) {
+        newErrors.user_id = 'Password user baru harus diisi'
+        newErrors.password = 'Password harus diisi'
+      } else if (!validatePassword(newUserData.password)) {
+        newErrors.user_id = 'Password tidak memenuhi syarat'
+        newErrors.password = 'Password harus mengandung huruf besar, huruf kecil, angka, dan simbol'
+      } else if (!newUserData.phone.trim()) newErrors.user_id = 'No. telepon user baru harus diisi'
       else if (!newUserData.gender) newErrors.user_id = 'Jenis kelamin user baru harus dipilih'
       else if (!newUserData.role_id) newErrors.user_id = 'Role user baru harus dipilih'
     }
@@ -461,28 +491,36 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         rentDurationUnitValue = 1 // default to month
       }
 
-      const submitData = {
+      const submitData: any = {
         name: formData.name.trim(),
-        user_id: effectiveUserId,
-        contract_begin_at: formData.contract_begin_at,
-        contract_end_at: formData.contract_end_at,
-        rent_duration: parseInt(formData.rent_duration) || 0,
-        rent_duration_unit: rentDurationUnitValue,
-        unit_ids: [formData.unit_id], // Backend expects array, so wrap single unit_id in array
-        category_id: formData.category,
-        rent_price: formData.rent_price,
-        ...(formData.down_payment > 0 ? { down_payment: formData.down_payment } : {}),
+        ...(formData.status ? { status: formData.status } : {}),
         // When updating, always include deposit (even if 0) to allow emptying the value
         // When creating, only include if > 0
         ...(tenant 
           ? { deposit: formData.deposit } 
           : (formData.deposit > 0 ? { deposit: formData.deposit } : {})
         ),
-        ...(paymentTermValue !== undefined ? { payment_term: paymentTermValue } : {}),
         ...(tenant && formData.deposit !== originalDeposit && formData.deposit_reason ? { deposit_reason: formData.deposit_reason.trim() } : {}),
-        ...(formData.status ? { status: formData.status } : {}),
         tenant_identifications: identificationUrls,
         contract_documents: contractUrls,
+      }
+
+      // Only include these fields when creating (not editing)
+      if (!tenant) {
+        submitData.user_id = effectiveUserId
+        submitData.contract_begin_at = formData.contract_begin_at
+        submitData.contract_end_at = formData.contract_end_at
+        submitData.rent_duration = parseInt(formData.rent_duration) || 0
+        submitData.rent_duration_unit = rentDurationUnitValue
+        submitData.unit_ids = [formData.unit_id] // Backend expects array, so wrap single unit_id in array
+        submitData.category_id = formData.category
+        submitData.rent_price = formData.rent_price
+        if (formData.down_payment > 0) {
+          submitData.down_payment = formData.down_payment
+        }
+        if (paymentTermValue !== undefined) {
+          submitData.payment_term = paymentTermValue
+        }
       }
 
       // Validate that URLs are arrays of strings
@@ -820,25 +858,37 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         </CardHeader>
         <CardContent className="space-y-4">
             {/* User Type Selection */}
-            <div className="space-y-2">
-              <Label>Pilih Tipe User</Label>
-              <RadioGroup
-                value={userSelectionType}
-                onValueChange={(value) => setUserSelectionType(value as 'existing' | 'new')}
-                className="flex gap-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="new" id="new" />
-                  <Label htmlFor="new" className="cursor-pointer">User Baru</Label>
+            {!tenant && (
+              <div className="space-y-2">
+                <Label>Pilih Tipe User</Label>
+                <RadioGroup
+                  value={userSelectionType}
+                  onValueChange={(value) => setUserSelectionType(value as 'existing' | 'new')}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="new" id="new" />
+                    <Label htmlFor="new" className="cursor-pointer">User Baru</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="existing" id="existing" />
+                    <Label htmlFor="existing" className="cursor-pointer">User Yang Sudah Ada</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+            {tenant && (
+              <div className="space-y-2">
+                <Label>User</Label>
+                <div className="p-3 bg-gray-50 border rounded-md">
+                  <p className="font-medium">{tenant.user?.name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">{tenant.user?.email || ''}</p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="existing" id="existing" />
-                  <Label htmlFor="existing" className="cursor-pointer">User Yang Sudah Ada</Label>
-                </div>
-              </RadioGroup>
-            </div>
+                <p className="text-xs text-muted-foreground">User tidak dapat diubah saat edit tenant</p>
+              </div>
+            )}
 
-            {userSelectionType === 'new' && (
+            {!tenant && userSelectionType === 'new' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Email */}
@@ -863,7 +913,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                         value={newUserData.password}
                         onChange={(e) => handleNewUserInputChange('password', e.target.value)}
                         placeholder="Masukkan Password"
-                        className="pr-10"
+                        className={`pr-10 ${errors.password ? 'border-red-500' : ''}`}
                       />
                       <Button
                         type="button"
@@ -879,16 +929,55 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                         )}
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Masukkan min. 6 karakter dengan kombinasi Huruf Kapital, Huruf Kecil, Angka, dan Simbol
-                    </p>
+                    {errors.password && (
+                      <p className="text-sm text-red-500">{errors.password}</p>
+                    )}
+                    {newUserData.password && (
+                      <div className="space-y-1 mt-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={`w-2 h-2 rounded-full ${passwordValidation.minLength ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={passwordValidation.minLength ? 'text-green-600' : 'text-gray-500'}>
+                            Minimal 6 karakter
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={`w-2 h-2 rounded-full ${passwordValidation.hasUppercase ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={passwordValidation.hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                            Huruf besar (A-Z)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={`w-2 h-2 rounded-full ${passwordValidation.hasLowercase ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={passwordValidation.hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                            Huruf kecil (a-z)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={`w-2 h-2 rounded-full ${passwordValidation.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                            Angka (0-9)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className={`w-2 h-2 rounded-full ${passwordValidation.hasSpecialChar ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          <span className={passwordValidation.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}>
+                            Simbol (!@#$%^&*...)
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {!newUserData.password && (
+                      <p className="text-xs text-muted-foreground">
+                        Masukkan min. 6 karakter dengan kombinasi Huruf Kapital, Huruf Kecil, Angka, dan Simbol
+                      </p>
+                    )}
                   </div>
 
                 </div>
               </div>
             )}
 
-            {userSelectionType === 'existing' && (
+            {!tenant && userSelectionType === 'existing' && (
               <div className="space-y-3">
                 {/* Search Input */}
                 <div className="relative">
@@ -1000,52 +1089,73 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           <CardTitle>Informasi Kontrak Sewa</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Pilih Unit Sewa *</Label>
-            {errors.unit_id && (
-              <p className="text-sm text-red-500">{errors.unit_id}</p>
-            )}
-            <RadioGroup
-              value={formData.unit_id}
-              onValueChange={(value) => handleInputChange('unit_id', value)}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-              {Array.isArray(units) && units.length > 0 ? (
-                units.map((unit) => (
-                  <div key={unit.id}>
-                    <RadioGroupItem value={unit.id} id={unit.id} className="peer sr-only" />
-                    <Label
-                      htmlFor={unit.id}
-                      className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        formData.unit_id === unit.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-gray-200 hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <p className="font-semibold text-lg">{unit.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Asset:</span> {unit.asset?.name || '-'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Luas Area:</span> {unit.size} m²
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Daya Listrik:</span> {unit.electrical_power || 0} {unit.electrical_unit || 'Watt'}
-                        </p>
-                      </div>
-                    </Label>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    Jika tidak tersedia pilihan unit sewa, Anda perlu menambahkannya terlebih dahulu
-                  </p>
-                </div>
+          {tenant ? (
+            <div className="space-y-2">
+              <Label>Unit Sewa</Label>
+              <div className="p-3 bg-gray-50 border rounded-md">
+                {tenant.units && tenant.units.length > 0 ? (
+                  tenant.units.map((unit, index) => (
+                    <div key={unit.id || index} className="mb-2 last:mb-0">
+                      <p className="font-medium">{unit.name || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium">Asset:</span> {unit.asset?.name || '-'}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground">Tidak ada unit</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Unit tidak dapat diubah saat edit tenant</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Pilih Unit Sewa *</Label>
+              {errors.unit_id && (
+                <p className="text-sm text-red-500">{errors.unit_id}</p>
               )}
-            </RadioGroup>
-          </div>
+              <RadioGroup
+                value={formData.unit_id}
+                onValueChange={(value) => handleInputChange('unit_id', value)}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                {Array.isArray(units) && units.length > 0 ? (
+                  units.map((unit) => (
+                    <div key={unit.id}>
+                      <RadioGroupItem value={unit.id} id={unit.id} className="peer sr-only" />
+                      <Label
+                        htmlFor={unit.id}
+                        className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          formData.unit_id === unit.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold text-lg">{unit.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Asset:</span> {unit.asset?.name || '-'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Luas Area:</span> {unit.size} m²
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Daya Listrik:</span> {unit.electrical_power || 0} {unit.electrical_unit || 'Watt'}
+                          </p>
+                        </div>
+                      </Label>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      Jika tidak tersedia pilihan unit sewa, Anda perlu menambahkannya terlebih dahulu
+                    </p>
+                  </div>
+                )}
+              </RadioGroup>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1058,17 +1168,30 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Tanggal Mulai Kontrak */}
             <div className="space-y-2">
-              <Label htmlFor="contract_begin_at">Tanggal Mulai Kontrak *</Label>
-              <div className="relative">
-                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="contract_begin_at"
-                  type="date"
-                  value={formData.contract_begin_at}
-                  onChange={(e) => handleInputChange('contract_begin_at', e.target.value)}
-                  className={`pl-8 ${errors.contract_begin_at ? 'border-red-500' : ''}`}
-                />
-              </div>
+              <Label htmlFor="contract_begin_at">Tanggal Mulai Kontrak {tenant ? '' : '*'}</Label>
+              {tenant ? (
+                <div className="p-3 bg-gray-50 border rounded-md">
+                  <p className="font-medium">
+                    {formData.contract_begin_at ? new Date(formData.contract_begin_at).toLocaleDateString('id-ID', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    }) : '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Tanggal mulai kontrak tidak dapat diubah saat edit tenant</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="contract_begin_at"
+                    type="date"
+                    value={formData.contract_begin_at}
+                    onChange={(e) => handleInputChange('contract_begin_at', e.target.value)}
+                    className={`pl-8 ${errors.contract_begin_at ? 'border-red-500' : ''}`}
+                  />
+                </div>
+              )}
               {errors.contract_begin_at && (
                 <p className="text-sm text-red-500">{errors.contract_begin_at}</p>
               )}
@@ -1076,33 +1199,42 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
             {/* Durasi Sewa */}
             <div className="space-y-2">
-              <Label htmlFor="rent_duration">Durasi Sewa *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="rent_duration"
-                  type="number"
-                  min="1"
-                  value={formData.rent_duration}
-                  onChange={(e) => handleInputChange('rent_duration', e.target.value)}
-                  placeholder="0"
-                  className={`flex-1 ${errors.rent_duration ? 'border-red-500' : ''}`}
-                />
-                <Select
-                  value={formData.rent_duration_unit}
-                  onValueChange={(value) => handleInputChange('rent_duration_unit', value)}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DURATION_UNIT_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label htmlFor="rent_duration">Durasi Sewa {tenant ? '' : '*'}</Label>
+              {tenant ? (
+                <div className="p-3 bg-gray-50 border rounded-md">
+                  <p className="font-medium">
+                    {formData.rent_duration} {DURATION_UNIT_LABELS[formData.rent_duration_unit] || formData.rent_duration_unit}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Durasi kontrak tidak dapat diubah saat edit tenant</p>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    id="rent_duration"
+                    type="number"
+                    min="1"
+                    value={formData.rent_duration}
+                    onChange={(e) => handleInputChange('rent_duration', e.target.value)}
+                    placeholder="0"
+                    className={`flex-1 ${errors.rent_duration ? 'border-red-500' : ''}`}
+                  />
+                  <Select
+                    value={formData.rent_duration_unit}
+                    onValueChange={(value) => handleInputChange('rent_duration_unit', value)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DURATION_UNIT_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {errors.rent_duration && (
                 <p className="text-sm text-red-500">{errors.rent_duration}</p>
               )}
@@ -1141,19 +1273,28 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             {/* Harga Sewa */}
             <div className="space-y-2">
               <Label htmlFor="rent_price">
-                Harga Sewa <span className="text-red-500">*</span>
+                Harga Sewa {tenant ? '' : <span className="text-red-500">*</span>}
               </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
-                <Input
-                  id="rent_price"
-                  type="text"
-                  value={formatPrice(formData.rent_price)}
-                  onChange={(e) => handlePriceChange('rent_price', e.target.value)}
-                  placeholder="0"
-                  className={`pl-10 ${errors.rent_price ? 'border-red-500' : ''}`}
-                />
-              </div>
+              {tenant ? (
+                <div className="p-3 bg-gray-50 border rounded-md">
+                  <p className="font-medium">
+                    Rp {formatPrice(formData.rent_price)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Harga sewa tidak dapat diubah saat edit tenant</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
+                  <Input
+                    id="rent_price"
+                    type="text"
+                    value={formatPrice(formData.rent_price)}
+                    onChange={(e) => handlePriceChange('rent_price', e.target.value)}
+                    placeholder="0"
+                    className={`pl-10 ${errors.rent_price ? 'border-red-500' : ''}`}
+                  />
+                </div>
+              )}
               {errors.rent_price && (
                 <p className="text-sm text-red-500">{errors.rent_price}</p>
               )}
@@ -1162,17 +1303,26 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             {/* Uang Muka */}
             <div className="space-y-2">
               <Label htmlFor="down_payment">Uang Muka</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
-                <Input
-                  id="down_payment"
-                  type="text"
-                  value={formatPrice(formData.down_payment)}
-                  onChange={(e) => handlePriceChange('down_payment', e.target.value)}
-                  placeholder="0"
-                  className="pl-10"
-                />
-              </div>
+              {tenant ? (
+                <div className="p-3 bg-gray-50 border rounded-md">
+                  <p className="font-medium">
+                    Rp {formatPrice(formData.down_payment)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Uang muka tidak dapat diubah saat edit tenant</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
+                  <Input
+                    id="down_payment"
+                    type="text"
+                    value={formatPrice(formData.down_payment)}
+                    onChange={(e) => handlePriceChange('down_payment', e.target.value)}
+                    placeholder="0"
+                    className="pl-10"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Deposit */}
@@ -1195,20 +1345,29 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             {formData.rent_duration_unit === DURATION_UNITS.YEAR && (
               <div className="space-y-2">
                 <Label htmlFor="payment_term">
-                  Periode Pembayaran <span className="text-red-500">*</span>
+                  Periode Pembayaran {tenant ? '' : <span className="text-red-500">*</span>}
                 </Label>
-                <Select
-                  value={formData.payment_term}
-                  onValueChange={(value) => handleInputChange('payment_term', value)}
-                >
-                  <SelectTrigger className={errors.payment_term ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Pilih Bulanan/Tahunan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={DURATION_UNITS.MONTH}>Bulanan</SelectItem>
-                    <SelectItem value={DURATION_UNITS.YEAR}>Tahunan</SelectItem>
-                  </SelectContent>
-                </Select>
+                {tenant ? (
+                  <div className="p-3 bg-gray-50 border rounded-md">
+                    <p className="font-medium">
+                      {formData.payment_term === DURATION_UNITS.MONTH ? 'Bulanan' : formData.payment_term === DURATION_UNITS.YEAR ? 'Tahunan' : '-'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Periode pembayaran tidak dapat diubah saat edit tenant</p>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.payment_term}
+                    onValueChange={(value) => handleInputChange('payment_term', value)}
+                  >
+                    <SelectTrigger className={errors.payment_term ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Pilih Bulanan/Tahunan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={DURATION_UNITS.MONTH}>Bulanan</SelectItem>
+                      <SelectItem value={DURATION_UNITS.YEAR}>Tahunan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 {errors.payment_term && (
                   <p className="text-sm text-red-500">{errors.payment_term}</p>
                 )}

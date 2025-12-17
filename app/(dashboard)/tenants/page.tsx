@@ -2,13 +2,48 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tenant, tenantsApi, User, usersApi, authApi } from '@/lib/api'
+import { Tenant, tenantsApi, User, authApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, Users, Plus, Search, RefreshCw, Loader2, FileText } from 'lucide-react'
+
+// Category options
+const CATEGORY_OPTIONS = [
+  { value: 'all', label: 'Semua Kategori' },
+  { value: '1', label: 'Restoran/Cafe' },
+  { value: '2', label: 'Sport Club' },
+  { value: '3', label: 'Kantor' },
+  { value: '4', label: 'Tempat Hiburan' },
+  { value: '5', label: 'Retail/Toko' },
+  { value: '6', label: 'Klinik/Kesehatan' },
+  { value: '7', label: 'Pendidikan' },
+  { value: '8', label: 'Jasa Keuangan' },
+  { value: '9', label: 'Other' },
+]
+
+// Status options
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Semua Status' },
+  { value: 'inactive', label: 'Tidak Aktif' },
+  { value: 'active', label: 'Aktif' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'terminated', label: 'Terminated' },
+  { value: 'blacklisted', label: 'Blacklisted' },
+]
+
+// Status string to integer mapping
+const STATUS_TO_INTEGER: Record<string, number> = {
+  'inactive': 0,
+  'active': 1,
+  'pending': 2,
+  'expired': 3,
+  'terminated': 4,
+  'blacklisted': 5,
+}
 import TenantsTable from '@/components/table/tenants-table'
 import TenantDetailDialog from '@/components/dialogs/tenant-detail-dialog'
 import toast from 'react-hot-toast'
@@ -23,9 +58,9 @@ export default function TenantsPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   
   // Filter dan sorting states
-  const [userFilter, setUserFilter] = useState<string>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [order, setOrder] = useState<string>('a-z')
-  const [users, setUsers] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isTenantUser, setIsTenantUser] = useState(false)
   
@@ -53,8 +88,14 @@ export default function TenantsPage() {
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
-      if (!isTenantUser && userFilter !== 'all') {
-        filterParams.user_id = userFilter
+      if (!isTenantUser && categoryFilter !== 'all') {
+        filterParams.category = categoryFilter
+      }
+      if (!isTenantUser && statusFilter !== 'all') {
+        const statusInt = STATUS_TO_INTEGER[statusFilter]
+        if (statusInt !== undefined) {
+          filterParams.status = statusInt
+        }
       }
       if (order) {
         filterParams.order = order
@@ -108,26 +149,6 @@ export default function TenantsPage() {
     }
   }
 
-  const loadUsers = async () => {
-    // Only load users if not a tenant user (for filter dropdown)
-    if (isTenantUser) {
-      setUsers([])
-      return
-    }
-    
-    try {
-      const response = await usersApi.getUsers()
-      if (response.success && response.data) {
-        const usersData = Array.isArray(response.data) ? response.data : []
-        setUsers(usersData)
-      } else {
-        setUsers([])
-      }
-    } catch (error) {
-      console.error('Load users error:', error)
-      setUsers([])
-    }
-  }
 
   const loadCurrentUser = async () => {
     try {
@@ -163,7 +184,6 @@ export default function TenantsPage() {
   useEffect(() => {
     if (currentUser) {
       loadTenants()
-      loadUsers()
     }
   }, [currentUser, isTenantUser])
 
@@ -172,7 +192,7 @@ export default function TenantsPage() {
     if (currentUser) {
       loadTenants()
     }
-  }, [searchTerm, userFilter, order, offset, currentUser, isTenantUser])
+  }, [searchTerm, categoryFilter, statusFilter, order, offset, currentUser, isTenantUser])
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset)
@@ -350,15 +370,27 @@ export default function TenantsPage() {
                 />
               </div>
               
-              <Select value={userFilter} onValueChange={setUserFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="User" />
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Semua User</SelectItem>
-                  {Array.isArray(users) && users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name || user.email}
+                  {CATEGORY_OPTIONS.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -381,7 +413,8 @@ export default function TenantsPage() {
                 size="sm" 
                 onClick={() => {
                   setSearchTerm('')
-                  setUserFilter('all')
+                  setCategoryFilter('all')
+                  setStatusFilter('all')
                   setOrder('a-z')
                   setOffset(0)
                 }}

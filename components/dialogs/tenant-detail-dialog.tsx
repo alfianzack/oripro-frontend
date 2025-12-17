@@ -30,10 +30,57 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react'
+import { History, Building2, X, Edit, Wallet, CreditCard, DollarSign, ChevronLeft, ChevronRight, Loader2, Plus, Image as ImageIcon, FileText } from 'lucide-react'
 import Link from 'next/link'
 import TenantLogsTable from '@/components/table/tenant-logs-table'
 import toast from 'react-hot-toast'
+
+// Category options mapping
+const CATEGORY_MAP: Record<number, string> = {
+  1: 'Restoran/Cafe',
+  2: 'Sport Club',
+  3: 'Kantor',
+  4: 'Tempat Hiburan',
+  5: 'Retail/Toko',
+  6: 'Klinik/Kesehatan',
+  7: 'Pendidikan',
+  8: 'Jasa Keuangan',
+  9: 'Other',
+}
+
+const getCategoryLabel = (tenant: Tenant): string => {
+  // Check if category is an object with name
+  if (tenant.category && typeof tenant.category === 'object' && 'name' in tenant.category) {
+    return (tenant.category as { name: string }).name
+  }
+  
+  // Check if category is an object with id
+  if (tenant.category && typeof tenant.category === 'object' && 'id' in tenant.category) {
+    const categoryObj = tenant.category as { id: number | string }
+    const categoryId = typeof categoryObj.id === 'number' ? categoryObj.id : parseInt(String(categoryObj.id), 10)
+    if (!isNaN(categoryId)) {
+      return CATEGORY_MAP[categoryId] || 'Unknown'
+    }
+  }
+  
+  // Check if category is a number directly
+  if (typeof tenant.category === 'number') {
+    return CATEGORY_MAP[tenant.category] || 'Unknown'
+  }
+  
+  // Check category_id field
+  const categoryIdField = (tenant as any).category_id
+  if (categoryIdField !== undefined && categoryIdField !== null) {
+    const categoryId = typeof categoryIdField === 'number' 
+      ? categoryIdField 
+      : parseInt(String(categoryIdField), 10)
+    if (!isNaN(categoryId)) {
+      return CATEGORY_MAP[categoryId] || 'Unknown'
+    }
+  }
+  
+  return '-'
+}
 
 interface TenantDetailDialogProps {
   open: boolean
@@ -501,12 +548,7 @@ export default function TenantDetailDialog({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Header Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant={contractStatus.variant}>
-                  {contractStatus.label}
-                </Badge>
-              </div>
+            <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
                 <Button asChild>
                   <Link href={`/tenants/edit/${tenant.id}`}>
@@ -599,7 +641,17 @@ export default function TenantDetailDialog({
                               User
                             </label>
                             <p className="text-sm font-medium">
-                             
+                              {(() => {
+                                try {
+                                  if (tenant.user && typeof tenant.user === 'object') {
+                                    return tenant.user.name || tenant.user.email || '-';
+                                  }
+                                  return tenant.user || '-';
+                                } catch (error) {
+                                  console.error('Error rendering user field:', error, tenant.user);
+                                  return '-';
+                                }
+                              })()}
                             </p>
                           </div>
                           <div>
@@ -648,10 +700,57 @@ export default function TenantDetailDialog({
                           </div>
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
-                              Unit ID
+                              Unit & Asset
                             </label>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              
+                            <div className="flex flex-col gap-2 mt-1">
+                              {(() => {
+                                try {
+                                  // Check if units array exists and has items
+                                  if (tenant.units && Array.isArray(tenant.units) && tenant.units.length > 0) {
+                                    return tenant.units.map((unit, index) => {
+                                      if (!unit) return null;
+                                      const unitName = unit.name || unit.id || `Unit ${index + 1}`;
+                                      const assetName = unit.asset?.name || unit.asset?.code || (unit.asset_id ? `Asset ${unit.asset_id}` : null);
+                                      
+                                      return (
+                                        <div key={unit.id || index} className="flex flex-col gap-1">
+                                          <Badge variant="outline" className="text-sm w-fit">
+                                            {unitName}
+                                          </Badge>
+                                          {assetName && (
+                                            <div className="text-xs text-muted-foreground ml-1">
+                                              Asset: {assetName}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }).filter(Boolean);
+                                  }
+                                  
+                                  // Fallback: check unit_ids
+                                  if (tenant.unit_ids && Array.isArray(tenant.unit_ids) && tenant.unit_ids.length > 0) {
+                                    return tenant.unit_ids.map((unitId, index) => (
+                                      <Badge key={index} variant="outline" className="text-sm w-fit">
+                                        {unitId}
+                                      </Badge>
+                                    ));
+                                  }
+                                  
+                                  // If unit_ids is a string
+                                  if (tenant.unit_ids && typeof tenant.unit_ids === 'string') {
+                                    return (
+                                      <Badge variant="outline" className="text-sm w-fit">
+                                        {tenant.unit_ids}
+                                      </Badge>
+                                    );
+                                  }
+                                  
+                                  return <span className="text-sm text-muted-foreground">-</span>;
+                                } catch (error) {
+                                  console.error('Error rendering unit field:', error, tenant.units, tenant.unit_ids);
+                                  return <span className="text-sm text-muted-foreground">-</span>;
+                                }
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -672,13 +771,68 @@ export default function TenantDetailDialog({
                             <label className="text-sm font-medium text-muted-foreground">
                               Dokumen Identitas
                             </label>
-                            <div className="mt-1 space-y-1">
+                            <div className="mt-2">
                               {tenant.tenant_identifications && tenant.tenant_identifications.length > 0 ? (
-                                tenant.tenant_identifications.map((doc, index) => (
-                                  <div key={index} className="text-sm text-blue-600 hover:underline cursor-pointer">
-                                    {doc}
-                                  </div>
-                                ))
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                  {tenant.tenant_identifications.map((doc, index) => {
+                                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(doc) || doc.startsWith('data:image')
+                                    const isPdf = /\.pdf$/i.test(doc)
+                                    const fileName = doc.split('/').pop() || `Dokumen ${index + 1}`
+                                    
+                                    return (
+                                      <div key={index} className="relative group">
+                                        <div className="aspect-square rounded-lg overflow-hidden border bg-gray-100">
+                                          {isImage ? (
+                                            <img
+                                              src={doc}
+                                              alt={`Dokumen Identitas ${index + 1}`}
+                                              className="w-full h-full object-cover cursor-pointer"
+                                              onClick={() => window.open(doc, '_blank')}
+                                              onError={(e) => {
+                                                (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                              }}
+                                            />
+                                          ) : isPdf ? (
+                                            <a
+                                              href={doc}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="w-full h-full flex flex-col items-center justify-center p-4 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                                            >
+                                              <FileText className="h-12 w-12 text-red-600 mb-2" />
+                                              <span className="text-xs font-medium text-red-700 text-center line-clamp-2">
+                                                {fileName}
+                                              </span>
+                                              <span className="text-xs text-red-500 mt-1">PDF</span>
+                                            </a>
+                                          ) : (
+                                            <a
+                                              href={doc}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="w-full h-full flex flex-col items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                                            >
+                                              <FileText className="h-12 w-12 text-gray-400 mb-2" />
+                                              <span className="text-xs text-gray-600 text-center line-clamp-2 px-2">
+                                                {fileName}
+                                              </span>
+                                            </a>
+                                          )}
+                                        </div>
+                                        {isImage && (
+                                          <a
+                                            href={doc}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
+                                          >
+                                            <ImageIcon className="h-6 w-6 text-white" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">-</span>
                               )}
@@ -688,13 +842,68 @@ export default function TenantDetailDialog({
                             <label className="text-sm font-medium text-muted-foreground">
                               Dokumen Kontrak
                             </label>
-                            <div className="mt-1 space-y-1">
+                            <div className="mt-2">
                               {tenant.contract_documents && tenant.contract_documents.length > 0 ? (
-                                tenant.contract_documents.map((doc, index) => (
-                                  <div key={index} className="text-sm text-blue-600 hover:underline cursor-pointer">
-                                    {doc}
-                                  </div>
-                                ))
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                  {tenant.contract_documents.map((doc, index) => {
+                                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(doc) || doc.startsWith('data:image')
+                                    const isPdf = /\.pdf$/i.test(doc)
+                                    const fileName = doc.split('/').pop() || `Dokumen ${index + 1}`
+                                    
+                                    return (
+                                      <div key={index} className="relative group">
+                                        <div className="aspect-square rounded-lg overflow-hidden border bg-gray-100">
+                                          {isImage ? (
+                                            <img
+                                              src={doc}
+                                              alt={`Dokumen Kontrak ${index + 1}`}
+                                              className="w-full h-full object-cover cursor-pointer"
+                                              onClick={() => window.open(doc, '_blank')}
+                                              onError={(e) => {
+                                                (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                              }}
+                                            />
+                                          ) : isPdf ? (
+                                            <a
+                                              href={doc}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="w-full h-full flex flex-col items-center justify-center p-4 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
+                                            >
+                                              <FileText className="h-12 w-12 text-red-600 mb-2" />
+                                              <span className="text-xs font-medium text-red-700 text-center line-clamp-2">
+                                                {fileName}
+                                              </span>
+                                              <span className="text-xs text-red-500 mt-1">PDF</span>
+                                            </a>
+                                          ) : (
+                                            <a
+                                              href={doc}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="w-full h-full flex flex-col items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                                            >
+                                              <FileText className="h-12 w-12 text-gray-400 mb-2" />
+                                              <span className="text-xs text-gray-600 text-center line-clamp-2 px-2">
+                                                {fileName}
+                                              </span>
+                                            </a>
+                                          )}
+                                        </div>
+                                        {isImage && (
+                                          <a
+                                            href={doc}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
+                                          >
+                                            <ImageIcon className="h-6 w-6 text-white" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">-</span>
                               )}
@@ -705,7 +914,9 @@ export default function TenantDetailDialog({
                               Kategori
                             </label>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              
+                              <Badge variant="outline" className="text-sm">
+                                {getCategoryLabel(tenant)}
+                              </Badge>
                             </div>
                           </div>
                         </div>
