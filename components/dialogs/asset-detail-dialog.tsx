@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Asset } from '@/lib/api'
+import { Asset, ASSET_TYPE_LABELS } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Building2, X, MapPin, Square, Calendar, Edit } from 'lucide-react'
+import { History, Building2, X, MapPin, Square, Calendar, Edit, Image, FileText } from 'lucide-react'
 import Link from 'next/link'
 import AssetLogsTable from '@/components/table/asset-logs-table'
 
@@ -62,6 +62,11 @@ export default function AssetDetailDialog({
 
   if (!asset || !open) return null
 
+  // Handle sketch as array or string (backend returns array, interface says string)
+  const sketchValue = Array.isArray(asset.sketch) 
+    ? (asset.sketch.length > 0 ? asset.sketch[0] : null)
+    : asset.sketch
+
   const formatDate = (dateString: string) => {
     if (!mounted) return 'Loading...'
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -74,40 +79,66 @@ export default function AssetDetailDialog({
   }
 
   const getAssetTypeLabel = (assetType: number | string) => {
-    const typeLabels: Record<string, string> = {
-      '1': 'Gedung',
-      '2': 'Tanah',
-      '3': 'Rumah',
-      '4': 'Apartemen',
-      '5': 'Kantor',
-      '6': 'Gudang',
-      '7': 'Lainnya'
+    // Handle both integer and string asset types from backend
+    if (typeof assetType === 'string') {
+      // Map string values to labels directly
+      const stringToLabel: { [key: string]: string } = {
+        'ESTATE': 'Estate',
+        'OFFICE': 'Office', 
+        'WAREHOUSE': 'Warehouse',
+        'SPORT': 'Sport',
+        'ENTERTAINMENTRESTAURANT': 'Entertainment/Restaurant',
+        'RESIDENCE': 'Residence',
+        'MALL': 'Mall',
+        'SUPPORTFACILITYMOSQUEITAL': 'Support Facility/Mosque',
+        'PARKINGLOT': 'Parking Lot',
+      }
+      return stringToLabel[assetType] || 'Unknown'
     }
-    return typeLabels[assetType.toString()] || 'Tidak Diketahui'
+    return ASSET_TYPE_LABELS[assetType] || 'Unknown'
   }
 
   const getStatusLabel = (status: number | string) => {
-    const statusLabels: Record<string, string> = {
-      '0': 'Tidak Aktif',
-      '1': 'Aktif',
-      '2': 'Maintenance',
-      '3': 'Rusak'
+    // Handle both integer and string status from backend
+    if (typeof status === 'string') {
+      switch (status) {
+        case 'active':
+          return 'Aktif'
+        case 'inactive':
+          return 'Tidak Aktif'
+        default:
+          return 'Tidak Diketahui'
+      }
     }
-    return statusLabels[status.toString()] || 'Tidak Diketahui'
+    switch (status) {
+      case 1:
+        return 'Aktif'
+      case 0:
+        return 'Tidak Aktif'
+      default:
+        return 'Tidak Diketahui'
+    }
   }
 
   const getStatusBadgeVariant = (status: number | string) => {
-    switch (status.toString()) {
-      case '0':
-        return 'secondary'
-      case '1':
+    // Handle both integer and string status from backend
+    if (typeof status === 'string') {
+      switch (status) {
+        case 'active':
+          return 'default'
+        case 'inactive':
+          return 'secondary'
+        default:
+          return 'outline'
+      }
+    }
+    switch (status) {
+      case 1:
         return 'default'
-      case '2':
-        return 'outline'
-      case '3':
-        return 'destructive'
-      default:
+      case 0:
         return 'secondary'
+      default:
+        return 'outline'
     }
   }
 
@@ -149,7 +180,7 @@ export default function AssetDetailDialog({
                 </Badge>
               </div>
               <Button asChild>
-                <Link href={`/assets/edit/${asset.id}`}>
+                <Link href={`/asset/edit/${asset.id}`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Asset
                 </Link>
@@ -272,6 +303,67 @@ export default function AssetDetailDialog({
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Foto dan Dokumen */}
+                    {(asset.photos && asset.photos.length > 0) || sketchValue ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Image className="h-5 w-5" />
+                            Foto dan Dokumen
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          {/* Foto Asset */}
+                          {asset.photos && asset.photos.length > 0 && (
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+                                <Image className="h-4 w-4" />
+                                Foto Asset
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {asset.photos.map((photo, index) => (
+                                  <div key={index} className="relative group">
+                                    <img
+                                      src={photo}
+                                      alt={`Foto asset ${index + 1}`}
+                                      className="w-full h-48 object-cover rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                      onClick={() => window.open(photo, '_blank')}
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                      <span className="text-white text-sm font-medium">Klik untuk memperbesar</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sketsa Denah */}
+                          {sketchValue && (
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+                                <FileText className="h-4 w-4" />
+                                Sketsa Denah
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="relative group">
+                                  <img
+                                    src={sketchValue}
+                                    alt="Sketsa denah"
+                                    className="w-full max-h-96 object-contain rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                    onClick={() => window.open(sketchValue, '_blank')}
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                    <span className="text-white text-sm font-medium">Klik untuk memperbesar</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ) : null}
 
                     {/* Informasi Tanggal */}
                     <Card>
