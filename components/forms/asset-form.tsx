@@ -379,15 +379,9 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
           <LeafletMapComponent
             latitude={form.watch('latitude') || 0}
             longitude={form.watch('longitude') || 0}
-            onLocationChange={(lat, lng, address) => {
+            onLocationChange={(lat, lng) => {
               form.setValue('latitude', lat)
               form.setValue('longitude', lng)
-              if (address) {
-                form.setValue('address', address)
-              }
-            }}
-            onAddressChange={(address) => {
-              form.setValue('address', address)
             }}
             height="400px"
             className="border rounded-lg p-4"
