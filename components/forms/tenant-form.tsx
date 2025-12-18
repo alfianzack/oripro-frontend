@@ -63,7 +63,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
     deposit: 0,
     deposit_reason: '',
     payment_term: '',
-    status: 'pending',
+    status: 'active',
   })
   const [userSelectionType, setUserSelectionType] = useState<'existing' | 'new'>('new')
   const [showPassword, setShowPassword] = useState(false)
@@ -229,12 +229,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       }
 
       // Convert status: backend returns string ('inactive', 'active', 'pending', etc.)
-      let statusValue = 'pending' // default
+      let statusValue = 'active' // default
       if (tenant.status !== undefined && tenant.status !== null) {
         const statusStr = String(tenant.status).toLowerCase()
         // Check if status matches any STATUS_OPTIONS value
         const validStatus = STATUS_OPTIONS.find(opt => opt.value.toLowerCase() === statusStr)
-        statusValue = validStatus ? validStatus.value : 'pending'
+        statusValue = validStatus ? validStatus.value : 'active'
       }
 
       // Ensure rent_duration is set correctly
