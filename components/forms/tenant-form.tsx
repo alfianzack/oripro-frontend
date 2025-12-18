@@ -763,6 +763,20 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
 
   const handleNewUserInputChange = (field: string, value: string) => {
     setNewUserData(prev => ({ ...prev, [field]: value }))
+    
+    // Validate password in real-time when password field changes
+    if (field === 'password') {
+      validatePassword(value)
+      
+      // Clear password error when user starts typing
+      if (errors.password) {
+        setErrors(prev => {
+          const newErrors = { ...prev }
+          delete newErrors.password
+          return newErrors
+        })
+      }
+    }
   }
 
   const filteredUsers = Array.isArray(users) ? users

@@ -303,18 +303,22 @@ export default function TenantDetailDialog({
     })
   }
 
-  const getContractStatus = (contractEndAt: string) => {
-    const endDate = new Date(contractEndAt)
-    const now = new Date()
-    const diffTime = endDate.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
-    if (diffDays < 0) {
-      return { status: 'expired', label: 'Kadaluarsa', variant: 'destructive' as const }
-    } else if (diffDays <= 30) {
-      return { status: 'expiring', label: 'Akan Kadaluarsa', variant: 'warning' as const }
-    } else {
-      return { status: 'active', label: 'Aktif', variant: 'default' as const }
+  const getTenantStatus = (status: string) => {
+    switch (status) {
+      case 'inactive':
+        return { label: 'Tidak Aktif', variant: 'secondary' as const }
+      case 'active':
+        return { label: 'Aktif', variant: 'default' as const }
+      case 'pending':
+        return { label: 'Pending', variant: 'outline' as const }
+      case 'expired':
+        return { label: 'Expired', variant: 'destructive' as const }
+      case 'terminated':
+        return { label: 'Terminated', variant: 'destructive' as const }
+      case 'blacklisted':
+        return { label: 'Blacklisted', variant: 'destructive' as const }
+      default:
+        return { label: 'Unknown', variant: 'secondary' as const }
     }
   }
 
@@ -515,8 +519,6 @@ export default function TenantDetailDialog({
 
   if (!tenant || !open) return null
 
-  const contractStatus = getContractStatus(tenant.contract_end_at)
-
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -656,12 +658,29 @@ export default function TenantDetailDialog({
                           </div>
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
-                              Status Kontrak
+                              Status Tenant
                             </label>
                             <div className="mt-1">
-                              <Badge variant={contractStatus.variant}>
-                                {contractStatus.label}
-                              </Badge>
+                              {(() => {
+                                // Use status from database if available, otherwise calculate based on contract_end_at
+                                let tenantStatus: string;
+                                if (tenant.status) {
+                                  // Use status from database
+                                  tenantStatus = tenant.status;
+                                } else {
+                                  // Fallback: Calculate tenant status based on contract_end_at
+                                  const today = new Date()
+                                  const endDate = new Date(tenant.contract_end_at)
+                                  const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                                  tenantStatus = diffDays < 0 ? 'expired' : 'active'
+                                }
+                                const statusInfo = getTenantStatus(tenantStatus)
+                                return (
+                                  <Badge variant={statusInfo.variant}>
+                                    {statusInfo.label}
+                                  </Badge>
+                                )
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -696,6 +715,21 @@ export default function TenantDetailDialog({
                             </label>
                             <p className="text-sm font-medium">
                               {tenant.rent_duration} {DURATION_UNIT_LABELS[tenant.rent_duration_unit] || tenant.rent_duration_unit}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              Harga Sewa
+                            </label>
+                            <p className="text-sm font-medium">
+                              {tenant.rent_price 
+                                ? new Intl.NumberFormat('id-ID', {
+                                    style: 'currency',
+                                    currency: 'IDR',
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }).format(tenant.rent_price)
+                                : '-'}
                             </p>
                           </div>
                           <div>
