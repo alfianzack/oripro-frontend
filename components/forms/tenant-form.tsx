@@ -171,51 +171,96 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       // Extract category value from tenant.category object or category_id
       let categoryValue: number = 0
       
-      // First check category_id (direct field)
+      // Debug: Log the tenant object to see what we're working with
+      console.log('Tenant data for category extraction:', {
+        category_id: (tenant as any).category_id,
+        category: tenant.category,
+        categories: tenant.categories,
+        fullTenant: tenant
+      })
+      
+      // First check category_id (direct field) - this is the most reliable
       if ((tenant as any).category_id !== undefined && (tenant as any).category_id !== null) {
         const catId = (tenant as any).category_id
         categoryValue = typeof catId === 'number' ? catId : parseInt(String(catId), 10)
-        if (isNaN(categoryValue) || categoryValue <= 0) {
+        if (!isNaN(categoryValue) && categoryValue > 0) {
+          console.log('Category found in category_id:', categoryValue)
+        } else {
           categoryValue = 0
         }
       }
       
       // Then check tenant.category object
-      if (categoryValue === 0 && tenant.category) {
-        if (typeof tenant.category === 'object' && tenant.category !== null && 'id' in tenant.category) {
-          const categoryId = (tenant.category as { id: number | string }).id
-          categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
+      if (categoryValue === 0 && tenant.category !== undefined && tenant.category !== null) {
+        if (typeof tenant.category === 'object') {
+          // Check if it has an 'id' property
+          if ('id' in tenant.category) {
+            const categoryId = (tenant.category as { id: number | string }).id
+            categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
+            if (!isNaN(categoryValue) && categoryValue > 0) {
+              console.log('Category found in category.id:', categoryValue)
+            } else {
+              categoryValue = 0
+            }
+          }
+          // Check if it has a 'name' property (we might need to map name to id)
+          else if ('name' in tenant.category) {
+            // Try to find the category by name
+            const categoryName = (tenant.category as { name: string }).name
+            const foundCategory = CATEGORY_OPTIONS.find(opt => 
+              opt.label.toLowerCase() === categoryName.toLowerCase()
+            )
+            if (foundCategory) {
+              categoryValue = foundCategory.value
+              console.log('Category found by name mapping:', categoryName, '->', categoryValue)
+            }
+          }
         } else if (typeof tenant.category === 'number') {
           categoryValue = tenant.category
+          console.log('Category found as number:', categoryValue)
         } else if (typeof tenant.category === 'string') {
           categoryValue = parseInt(String(tenant.category), 10)
-        }
-        // Ensure it's a valid number
-        if (isNaN(categoryValue) || categoryValue <= 0) {
-          categoryValue = 0
+          if (!isNaN(categoryValue) && categoryValue > 0) {
+            console.log('Category found as string:', categoryValue)
+          } else {
+            categoryValue = 0
+          }
         }
       }
       
       // Also check tenant.categories for backward compatibility
-      if (categoryValue === 0 && tenant.categories) {
+      if (categoryValue === 0 && tenant.categories !== undefined && tenant.categories !== null) {
         if (Array.isArray(tenant.categories) && tenant.categories.length > 0) {
           const firstCategory = tenant.categories[0]
-          if (typeof firstCategory === 'object' && firstCategory !== null && 'id' in firstCategory) {
-            const categoryId = (firstCategory as { id: number | string }).id
-            categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
+          if (typeof firstCategory === 'object' && firstCategory !== null) {
+            if ('id' in firstCategory) {
+              const categoryId = (firstCategory as { id: number | string }).id
+              categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
+              if (!isNaN(categoryValue) && categoryValue > 0) {
+                console.log('Category found in categories[0].id:', categoryValue)
+              } else {
+                categoryValue = 0
+              }
+            }
           } else {
             categoryValue = typeof firstCategory === 'number' ? firstCategory : parseInt(String(firstCategory), 10)
-          }
-          if (isNaN(categoryValue) || categoryValue <= 0) {
-            categoryValue = 0
+            if (!isNaN(categoryValue) && categoryValue > 0) {
+              console.log('Category found in categories[0]:', categoryValue)
+            } else {
+              categoryValue = 0
+            }
           }
         } else if (!Array.isArray(tenant.categories)) {
           categoryValue = typeof tenant.categories === 'number' ? tenant.categories : parseInt(String(tenant.categories), 10)
-          if (isNaN(categoryValue) || categoryValue <= 0) {
+          if (!isNaN(categoryValue) && categoryValue > 0) {
+            console.log('Category found in categories (non-array):', categoryValue)
+          } else {
             categoryValue = 0
           }
         }
       }
+      
+      console.log('Final extracted category value:', categoryValue)
       
       
       // Convert rent_duration_unit: backend returns string ('year' or 'month')
@@ -1055,11 +1100,19 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               <div className="space-y-2">
                 <Label htmlFor="category">Tipe Kategori Tenant *</Label>
                 <Select
+                  key={`category-select-${formData.category}`}
                   value={formData.category > 0 ? String(formData.category) : undefined}
-                  onValueChange={(value) => selectCategory(parseInt(value))}
+                  onValueChange={(value) => {
+                    console.log('Category selected:', value)
+                    selectCategory(parseInt(value))
+                  }}
                 >
                   <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Pilih Kategori" />
+                    <SelectValue placeholder="Pilih Kategori">
+                      {formData.category > 0 
+                        ? CATEGORY_OPTIONS.find(opt => opt.value === formData.category)?.label 
+                        : 'Pilih Kategori'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORY_OPTIONS.map((option) => (
