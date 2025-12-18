@@ -483,12 +483,12 @@ export default function TaskParentsPage() {
                 placeholder="Cari task..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={taskGroupFilter} onValueChange={setTaskGroupFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] bg-white">
                 <SelectValue placeholder="Task Group" />
               </SelectTrigger>
               <SelectContent>
@@ -516,7 +516,7 @@ export default function TaskParentsPage() {
             </Select>
 
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] bg-white">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>

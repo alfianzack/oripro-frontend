@@ -27,7 +27,7 @@ const SearchBox = () => {
             <DialogTrigger>
                 <div className="relative sm:max-w-[388px] w-full cursor-pointer">
                     <Input 
-                        className={cn("bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 shadow-none focus-visible:ring-0 focus-visible:border-primary border border-slate-300 h-10 pe-6 ps-11 w-full cursor-pointer disabled:opacity-[1] dark:border-slate-600 sm:block hidden")} 
+                        className={cn("bg-white hover:bg-gray-50 dark:bg-slate-700 shadow-none focus-visible:ring-0 focus-visible:border-primary border border-slate-300 h-10 pe-6 ps-11 w-full cursor-pointer disabled:opacity-[1] dark:border-slate-600 sm:block hidden")} 
                         placeholder="Search..." 
                         disabled
                     />

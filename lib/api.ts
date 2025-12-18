@@ -635,6 +635,7 @@ export const assetsApi = {
   async getAssets(params?: {
     name?: string
     asset_type?: number
+    status?: number
     order?: string
     limit?: number
     offset?: number
@@ -642,6 +643,9 @@ export const assetsApi = {
     const queryParams = new URLSearchParams()
     if (params?.name) queryParams.append('name', params.name)
     if (params?.asset_type) queryParams.append('asset_type', params.asset_type.toString())
+    if (params?.status !== undefined && params?.status !== null) {
+      queryParams.append('status', params.status.toString())
+    }
     if (params?.order) queryParams.append('order', params.order)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())

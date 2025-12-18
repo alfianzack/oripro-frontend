@@ -295,12 +295,12 @@ export default function UnitsPage() {
                 placeholder="Cari unit..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={assetFilter} onValueChange={setAssetFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Asset" />
               </SelectTrigger>
               <SelectContent>
@@ -314,7 +314,7 @@ export default function UnitsPage() {
             </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -325,7 +325,7 @@ export default function UnitsPage() {
             </Select>
             
             <Select value={order} onValueChange={setOrder}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] bg-white">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>

@@ -243,12 +243,12 @@ export default function TasksPage() {
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={assetFilter} onValueChange={setAssetFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Asset" />
               </SelectTrigger>
               <SelectContent>
@@ -262,7 +262,7 @@ export default function TasksPage() {
             </Select>
             
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -276,7 +276,7 @@ export default function TasksPage() {
             </Select>
             
             <Select value={taskGroupFilter} onValueChange={setTaskGroupFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Task Group" />
               </SelectTrigger>
               <SelectContent>
@@ -290,7 +290,7 @@ export default function TasksPage() {
             </Select>
             
             <Select value={mainTaskFilter} onValueChange={setMainTaskFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Main Task" />
               </SelectTrigger>
               <SelectContent>
@@ -301,7 +301,7 @@ export default function TasksPage() {
             </Select>
             
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
               <SelectContent>
@@ -312,7 +312,7 @@ export default function TasksPage() {
             </Select>
             
             <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] bg-white">
                 <SelectValue placeholder="Order" />
               </SelectTrigger>
               <SelectContent>

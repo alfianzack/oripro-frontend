@@ -54,10 +54,8 @@ export default function EditAssetPage() {
   const handleSubmit = async (data: CreateAssetData | UpdateAssetData | FormData) => {
     setLoading(true)
     try {
-      // Convert FormData to UpdateAssetData if needed
-      const updateData = data instanceof FormData ? Object.fromEntries(data.entries()) as UpdateAssetData : data as UpdateAssetData
-      
-      const response = await assetsApi.updateAsset(assetId, updateData)
+      // Pass FormData directly - updateAsset handles FormData properly
+      const response = await assetsApi.updateAsset(assetId, data)
       
       if (response.success) {
         toast.success('Asset berhasil diperbarui')

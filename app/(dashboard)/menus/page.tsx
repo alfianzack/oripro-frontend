@@ -222,12 +222,12 @@ export default function MenusPage() {
                 placeholder="Cari menu..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -238,7 +238,7 @@ export default function MenusPage() {
             </Select>
             
             <Select value={parentFilter} onValueChange={setParentFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Tipe Menu" />
               </SelectTrigger>
               <SelectContent>
@@ -249,7 +249,7 @@ export default function MenusPage() {
             </Select>
             
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
@@ -261,7 +261,7 @@ export default function MenusPage() {
             </Select>
             
             <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] bg-white">
                 <SelectValue placeholder="Urutan" />
               </SelectTrigger>
               <SelectContent>

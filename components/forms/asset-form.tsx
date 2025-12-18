@@ -49,10 +49,13 @@ interface AssetFormProps {
 }
 
 export default function AssetForm({ asset, onSubmit, onCancel, loading = false }: AssetFormProps) {
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [sketchPreview, setSketchPreview] = useState<string | null>(null)
-  const [existingPhoto, setExistingPhoto] = useState<string | null>(null)
-  const [existingSketch, setExistingSketch] = useState<string | null>(null)
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [sketchFiles, setSketchFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [sketchPreviews, setSketchPreviews] = useState<string[]>([])
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([])
+  const [existingSketches, setExistingSketches] = useState<string[]>([])
+  const [originalAsset, setOriginalAsset] = useState<Asset | null>(null)
   
   const form = useForm<AssetFormData>({
     resolver: zodResolver(assetSchema) as any,
@@ -69,6 +72,15 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       sketch: null,
     },
   })
+
+  // Store original asset for comparison
+  useEffect(() => {
+    if (asset) {
+      setOriginalAsset(asset)
+    } else {
+      setOriginalAsset(null)
+    }
+  }, [asset])
 
   // Update form values when asset changes (for edit mode)
   useEffect(() => {
@@ -145,36 +157,122 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
   // Set existing images when editing
   useEffect(() => {
     if (asset) {
-      if (asset.photos && asset.photos.length > 0) {
-        setExistingPhoto(asset.photos[0])
+      if (asset.photos && Array.isArray(asset.photos) && asset.photos.length > 0) {
+        setExistingPhotos(asset.photos)
+      } else {
+        setExistingPhotos([])
       }
+      // Handle sketches - can be string (single) or array (multiple)
       if (asset.sketch) {
-        setExistingSketch(asset.sketch)
+        if (Array.isArray(asset.sketch)) {
+          setExistingSketches(asset.sketch)
+        } else {
+          setExistingSketches([asset.sketch])
+        }
+      } else {
+        setExistingSketches([])
       }
+    } else {
+      setExistingPhotos([])
+      setExistingSketches([])
     }
   }, [asset])
 
-  const handleFileChange = (file: File | null, type: 'photo' | 'sketch') => {
-    if (file) {
-      // Validasi tipe file
+  const handlePhotoChange = (files: FileList | null) => {
+    if (files && files.length > 0) {
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-      if (!allowedTypes.includes(file.type)) {
-        alert('Hanya file JPG, JPEG, dan PNG yang diperbolehkan')
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        if (type === 'photo') {
-          setPhotoPreview(result)
-          setExistingPhoto(null) // Clear existing photo when new one is selected
+      const newFiles: File[] = []
+      const previewPromises: Promise<string>[] = []
+      
+      Array.from(files).forEach((file) => {
+        if (allowedTypes.includes(file.type)) {
+          newFiles.push(file)
+          previewPromises.push(
+            new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onload = (e) => {
+                resolve(e.target?.result as string)
+              }
+              reader.readAsDataURL(file)
+            })
+          )
         } else {
-          setSketchPreview(result)
-          setExistingSketch(null) // Clear existing sketch when new one is selected
+          alert('Hanya file JPG, JPEG, dan PNG yang diperbolehkan')
         }
-      }
-      reader.readAsDataURL(file)
+      })
+      
+      // Wait for all previews to load, then update state
+      Promise.all(previewPromises).then((previews) => {
+        setPhotoFiles(prev => [...prev, ...newFiles])
+        setPhotoPreviews(prev => [...prev, ...previews])
+      })
+    }
+  }
+
+  const handleSketchChange = (files: FileList | null) => {
+    if (files && files.length > 0) {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+      const newFiles: File[] = []
+      const previewPromises: Promise<string>[] = []
+      
+      Array.from(files).forEach((file) => {
+        if (allowedTypes.includes(file.type)) {
+          newFiles.push(file)
+          previewPromises.push(
+            new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onload = (e) => {
+                resolve(e.target?.result as string)
+              }
+              reader.readAsDataURL(file)
+            })
+          )
+        } else {
+          alert('Hanya file JPG, JPEG, dan PNG yang diperbolehkan')
+        }
+      })
+      
+      // Wait for all previews to load, then update state
+      Promise.all(previewPromises).then((previews) => {
+        setSketchFiles(prev => [...prev, ...newFiles])
+        setSketchPreviews(prev => [...prev, ...previews])
+      })
+    }
+  }
+
+  const removePhoto = (index: number, isExisting: boolean) => {
+    if (isExisting) {
+      setExistingPhotos(prev => prev.filter((_, i) => i !== index))
+    } else {
+      // Remove from both files and previews arrays
+      setPhotoFiles(prev => {
+        const newFiles = [...prev]
+        newFiles.splice(index, 1)
+        return newFiles
+      })
+      setPhotoPreviews(prev => {
+        const newPreviews = [...prev]
+        newPreviews.splice(index, 1)
+        return newPreviews
+      })
+    }
+  }
+
+  const removeSketch = (index: number, isExisting: boolean) => {
+    if (isExisting) {
+      setExistingSketches(prev => prev.filter((_, i) => i !== index))
+    } else {
+      // Remove from both files and previews arrays
+      setSketchFiles(prev => {
+        const newFiles = [...prev]
+        newFiles.splice(index, 1)
+        return newFiles
+      })
+      setSketchPreviews(prev => {
+        const newPreviews = [...prev]
+        newPreviews.splice(index, 1)
+        return newPreviews
+      })
     }
   }
 
@@ -183,33 +281,131 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
       // Prepare FormData for file upload
       const formData = new FormData()
       
-      // Add basic asset data - ensure all values are properly formatted
-      formData.append('name', data.name.trim())
-      formData.append('description', data.description?.trim() || '')
-      formData.append('asset_type', data.asset_type.toString())
-      formData.append('address', data.address.trim())
-      formData.append('area', data.area.toString())
-      formData.append('longitude', data.longitude.toString())
-      formData.append('latitude', data.latitude.toString())
-      formData.append('status', data.status.toString())
-      
-      // Handle photo upload - backend expects 'photos' field
-      if (data.photo) {
-        formData.append('photos', data.photo)
-      }
-      if (data.sketch) {
-        formData.append('sketch', data.sketch)
-      }
-      
-      // For edit mode, if no new files are selected but existing images are removed,
-      // we need to handle that case
-      if (asset && !data.photo && !existingPhoto) {
-        // Photo was removed
-        formData.append('remove_photo', 'true')
-      }
-      if (asset && !data.sketch && !existingSketch) {
-        // Sketch was removed
-        formData.append('remove_sketch', 'true')
+      if (asset && originalAsset) {
+        // Edit mode: only send changed fields
+        const assetTypeMap: { [key: string]: number } = {
+          'ESTATE': 1,
+          'OFFICE': 2,
+          'WAREHOUSE': 3,
+          'SPORT': 4,
+          'ENTERTAINMENTRESTAURANT': 5,
+          'RESIDENCE': 6,
+          'MALL': 7,
+          'SUPPORTFACILITYMOSQUEITAL': 8,
+          'PARKINGLOT': 9,
+        }
+        
+        const statusMap: { [key: string]: number } = {
+          'active': 1,
+          'inactive': 0,
+        }
+        
+        const originalAssetType = typeof originalAsset.asset_type === 'string' 
+          ? assetTypeMap[originalAsset.asset_type] || 1 
+          : originalAsset.asset_type || 1
+        const originalStatus = typeof originalAsset.status === 'string' 
+          ? statusMap[originalAsset.status] || 1 
+          : originalAsset.status || 1
+        
+        // Compare and only add changed fields
+        if (data.name.trim() !== (originalAsset.name || '')) {
+          formData.append('name', data.name.trim())
+        }
+        
+        const originalDescription = originalAsset.description || ''
+        const newDescription = data.description?.trim() || ''
+        if (newDescription !== originalDescription) {
+          formData.append('description', newDescription)
+        }
+        
+        if (data.asset_type !== originalAssetType) {
+          formData.append('asset_type', data.asset_type.toString())
+        }
+        
+        if (data.address.trim() !== (originalAsset.address || '')) {
+          formData.append('address', data.address.trim())
+        }
+        
+        const originalArea = originalAsset.area ? parseFloat(originalAsset.area.toString()) : 0
+        if (Math.abs(data.area - originalArea) > 0.001) {
+          formData.append('area', data.area.toString())
+        }
+        
+        const originalLongitude = originalAsset.longitude || 0
+        if (Math.abs(data.longitude - originalLongitude) > 0.000001) {
+          formData.append('longitude', data.longitude.toString())
+        }
+        
+        const originalLatitude = originalAsset.latitude || 0
+        if (Math.abs(data.latitude - originalLatitude) > 0.000001) {
+          formData.append('latitude', data.latitude.toString())
+        }
+        
+        if (data.status !== originalStatus) {
+          formData.append('status', data.status.toString())
+        }
+        
+        // Handle photos - check if photos have changed
+        const originalPhotos = originalAsset.photos && Array.isArray(originalAsset.photos) 
+          ? originalAsset.photos 
+          : []
+        const photosChanged = 
+          photoFiles.length > 0 || // New photos added
+          existingPhotos.length !== originalPhotos.length || // Photos removed
+          existingPhotos.some((photo, index) => photo !== originalPhotos[index]) // Photos reordered/removed
+        
+        if (photosChanged) {
+          // Include existing photos URLs (append each URL separately)
+          existingPhotos.forEach((photoUrl) => {
+            formData.append('existing_photos', photoUrl)
+          })
+          
+          // Add new photo files (append each file separately with same key)
+          photoFiles.forEach((file) => {
+            formData.append('photos', file)
+          })
+        }
+        
+        // Handle sketches - check if sketches have changed
+        const originalSketches = originalAsset.sketch 
+          ? (Array.isArray(originalAsset.sketch) ? originalAsset.sketch : [originalAsset.sketch])
+          : []
+        const sketchesChanged = 
+          sketchFiles.length > 0 || // New sketches added
+          existingSketches.length !== originalSketches.length || // Sketches removed
+          existingSketches.some((sketch, index) => sketch !== originalSketches[index]) // Sketches reordered/removed
+        
+        if (sketchesChanged) {
+          // Include existing sketch URLs (append each URL separately)
+          existingSketches.forEach((sketchUrl) => {
+            formData.append('existing_sketches', sketchUrl)
+          })
+          
+          // Add new sketch files (append each file separately with same key)
+          sketchFiles.forEach((file) => {
+            formData.append('sketches', file)
+          })
+        }
+      } else {
+        // Create mode: send all fields
+        formData.append('name', data.name.trim())
+        formData.append('description', data.description?.trim() || '')
+        formData.append('asset_type', data.asset_type.toString())
+        formData.append('address', data.address.trim())
+        formData.append('area', data.area.toString())
+        formData.append('longitude', data.longitude.toString())
+        formData.append('latitude', data.latitude.toString())
+        formData.append('status', data.status.toString())
+        
+        // Add new photo files
+        photoFiles.forEach((file) => {
+          formData.append('photos', file)
+        })
+        
+        // Add new sketch files
+        sketchFiles.forEach((file) => {
+          formData.append('sketches', file)
+        })
       }
       
       await onSubmit(formData)
@@ -433,38 +629,53 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                       <Input 
                         type="file" 
                         accept="image/jpeg,image/jpg,image/png"
+                        multiple
                         onChange={(e) => {
-                          const file = e.target.files?.[0] || null
-                          field.onChange(file)
-                          handleFileChange(file, 'photo')
+                          handlePhotoChange(e.target.files)
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
-                      <p className="text-sm text-gray-600">Upload File</p>
+                      <p className="text-sm text-gray-600">Upload File (Bisa pilih multiple)</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(photoPreview || existingPhoto) && (
-                      <div className="relative">
-                        <img 
-                          src={photoPreview || existingPhoto || ''} 
-                          alt="Photo preview" 
-                          className="w-full h-68 object-cover rounded-lg border shadow-sm"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setPhotoPreview(null)
-                            setExistingPhoto(null)
-                            field.onChange(null)
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                      {/* Existing photos */}
+                      {existingPhotos.map((photoUrl, index) => (
+                        <div key={`existing-${index}`} className="relative">
+                          <img 
+                            src={photoUrl} 
+                            alt={`Existing photo ${index + 1}`} 
+                            className="w-full h-48 object-cover rounded-lg border shadow-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => removePhoto(index, true)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      {/* New photo previews */}
+                      {photoPreviews.map((preview, index) => (
+                        <div key={`new-${index}`} className="relative">
+                          <img 
+                            src={preview} 
+                            alt={`New photo ${index + 1}`} 
+                            className="w-full h-48 object-cover rounded-lg border shadow-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => removePhoto(index, false)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </FormControl>
@@ -491,38 +702,53 @@ export default function AssetForm({ asset, onSubmit, onCancel, loading = false }
                       <Input 
                         type="file" 
                         accept="image/jpeg,image/jpg,image/png"
+                        multiple
                         onChange={(e) => {
-                          const file = e.target.files?.[0] || null
-                          field.onChange(file)
-                          handleFileChange(file, 'sketch')
+                          handleSketchChange(e.target.files)
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
-                      <p className="text-sm text-gray-600">Upload File</p>
+                      <p className="text-sm text-gray-600">Upload File (Bisa pilih multiple)</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(sketchPreview || existingSketch) && (
-                      <div className="relative">
-                        <img 
-                          src={sketchPreview || existingSketch || ''} 
-                          alt="Sketch preview" 
-                          className="w-full h-68 object-cover rounded-lg border shadow-sm"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setSketchPreview(null)
-                            setExistingSketch(null)
-                            field.onChange(null)
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                      {/* Existing sketches */}
+                      {existingSketches.map((sketchUrl, index) => (
+                        <div key={`existing-sketch-${index}`} className="relative">
+                          <img 
+                            src={sketchUrl} 
+                            alt={`Existing sketch ${index + 1}`} 
+                            className="w-full h-48 object-contain rounded-lg border shadow-sm bg-gray-50"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => removeSketch(index, true)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      {/* New sketch previews */}
+                      {sketchPreviews.map((preview, index) => (
+                        <div key={`new-sketch-${index}`} className="relative">
+                          <img 
+                            src={preview} 
+                            alt={`New sketch ${index + 1}`} 
+                            className="w-full h-48 object-contain rounded-lg border shadow-sm bg-gray-50"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => removeSketch(index, false)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </FormControl>

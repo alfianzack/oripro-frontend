@@ -140,12 +140,12 @@ export default function TaskGroupsPage() {
                 placeholder="Search task groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -167,7 +167,7 @@ export default function TaskGroupsPage() {
             </Select>
             
             <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] bg-white">
                 <SelectValue placeholder="Order" />
               </SelectTrigger>
               <SelectContent>

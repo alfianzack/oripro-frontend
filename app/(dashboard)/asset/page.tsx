@@ -24,6 +24,7 @@ export default function AssetsPage() {
   
   // Filter dan sorting states
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [order, setOrder] = useState<string>('newest')
   
   // Pagination states
@@ -44,6 +45,9 @@ export default function AssetsPage() {
       }
       if (assetTypeFilter !== 'all') {
         filterParams.asset_type = parseInt(assetTypeFilter)
+      }
+      if (statusFilter !== 'all') {
+        filterParams.status = parseInt(statusFilter)
       }
       if (order) {
         filterParams.order = order
@@ -107,7 +111,7 @@ export default function AssetsPage() {
   // Reload data when filters or pagination change
   useEffect(() => {
     loadAssets()
-  }, [searchTerm, assetTypeFilter, order, offset])
+  }, [searchTerm, assetTypeFilter, statusFilter, order, offset])
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset)
@@ -328,12 +332,12 @@ export default function AssetsPage() {
                 placeholder="Cari asset..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Tipe Asset" />
               </SelectTrigger>
               <SelectContent>
@@ -346,8 +350,19 @@ export default function AssetsPage() {
               </SelectContent>
             </Select>
             
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px] bg-white">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="1">Aktif</SelectItem>
+                <SelectItem value="0">Tidak Aktif</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <Select value={order} onValueChange={setOrder}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] bg-white">
                 <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
@@ -364,6 +379,7 @@ export default function AssetsPage() {
               onClick={() => {
                 setSearchTerm('')
                 setAssetTypeFilter('all')
+                setStatusFilter('all')
                 setOrder('newest')
                 setOffset(0)
               }}

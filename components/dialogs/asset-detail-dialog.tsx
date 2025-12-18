@@ -173,12 +173,7 @@ export default function AssetDetailDialog({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Header Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant={getStatusBadgeVariant(asset.status)}>
-                  {getStatusLabel(asset.status)}
-                </Badge>
-              </div>
+            <div className="flex items-center justify-end">
               <Button asChild>
                 <Link href={`/asset/edit/${asset.id}`}>
                   <Edit className="mr-2 h-4 w-4" />

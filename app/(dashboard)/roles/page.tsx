@@ -204,7 +204,7 @@ export default function RolesPage() {
                   placeholder="Cari role..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-64"
+                  className="pl-8 w-64 bg-white"
                 />
               </div>
               <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>

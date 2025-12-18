@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Unit } from '@/lib/api'
+import { Unit, ASSET_TYPE_LABELS } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { History, Home, X, Square, Zap, Calendar, Edit } from 'lucide-react'
+import { History, Home, X, Square, Zap, Calendar, Edit, Building2, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import UnitLogsTable from '@/components/table/unit-logs-table'
 
@@ -99,6 +99,26 @@ export default function UnitDetailDialog({
     }
   }
 
+  const getAssetTypeLabel = (assetType: number | string) => {
+    // Handle both integer and string asset types from backend
+    if (typeof assetType === 'string') {
+      // Map string values to labels directly
+      const stringToLabel: { [key: string]: string } = {
+        'ESTATE': 'Estate',
+        'OFFICE': 'Office', 
+        'WAREHOUSE': 'Warehouse',
+        'SPORT': 'Sport',
+        'ENTERTAINMENTRESTAURANT': 'Entertainment/Restaurant',
+        'RESIDENCE': 'Residence',
+        'MALL': 'Mall',
+        'SUPPORTFACILITYMOSQUEITAL': 'Support Facility/Mosque',
+        'PARKINGLOT': 'Parking Lot',
+      }
+      return stringToLabel[assetType] || 'Unknown'
+    }
+    return ASSET_TYPE_LABELS[assetType] || 'Unknown'
+  }
+
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -130,12 +150,7 @@ export default function UnitDetailDialog({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Header Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant={unit.is_deleted ? 'destructive' : 'default'}>
-                  {unit.is_deleted ? 'Dihapus' : 'Aktif'}
-                </Badge>
-              </div>
+            <div className="flex items-center justify-end">
               <Button asChild>
                 <Link href={`/unit/edit/${unit.id}`}>
                   <Edit className="mr-2 h-4 w-4" />
@@ -190,6 +205,17 @@ export default function UnitDetailDialog({
                             </label>
                             <p className="text-sm font-medium">{unit.name}</p>
                           </div>
+                          {unit.asset && (
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground">
+                                Asset
+                              </label>
+                              <p className="text-sm font-medium flex items-center gap-1">
+                                <Building2 className="h-4 w-4" />
+                                {unit.asset.name || '-'}
+                              </p>
+                            </div>
+                          )}
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
                               Ukuran

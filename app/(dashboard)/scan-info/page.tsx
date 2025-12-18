@@ -168,12 +168,12 @@ export default function ScanInfoPage() {
                 placeholder="Search by code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-white"
               />
             </div>
             
             <Select value={assetFilter} onValueChange={setAssetFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Asset" />
               </SelectTrigger>
               <SelectContent>
@@ -187,7 +187,7 @@ export default function ScanInfoPage() {
             </Select>
             
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-white">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
               <SelectContent>
@@ -197,7 +197,7 @@ export default function ScanInfoPage() {
             </Select>
             
             <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] bg-white">
                 <SelectValue placeholder="Order" />
               </SelectTrigger>
               <SelectContent>
