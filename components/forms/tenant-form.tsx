@@ -182,11 +182,12 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       
       // Then check tenant.category object
       if (categoryValue === 0 && tenant.category) {
-        if (typeof tenant.category === 'object' && tenant.category.id !== undefined) {
-          categoryValue = typeof tenant.category.id === 'number' ? tenant.category.id : parseInt(String(tenant.category.id), 10)
+        if (typeof tenant.category === 'object' && tenant.category !== null && 'id' in tenant.category) {
+          const categoryId = (tenant.category as { id: number | string }).id
+          categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
         } else if (typeof tenant.category === 'number') {
           categoryValue = tenant.category
-        } else {
+        } else if (typeof tenant.category === 'string') {
           categoryValue = parseInt(String(tenant.category), 10)
         }
         // Ensure it's a valid number
@@ -199,8 +200,9 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       if (categoryValue === 0 && tenant.categories) {
         if (Array.isArray(tenant.categories) && tenant.categories.length > 0) {
           const firstCategory = tenant.categories[0]
-          if (typeof firstCategory === 'object' && firstCategory.id !== undefined) {
-            categoryValue = typeof firstCategory.id === 'number' ? firstCategory.id : parseInt(String(firstCategory.id), 10)
+          if (typeof firstCategory === 'object' && firstCategory !== null && 'id' in firstCategory) {
+            const categoryId = (firstCategory as { id: number | string }).id
+            categoryValue = typeof categoryId === 'number' ? categoryId : parseInt(String(categoryId), 10)
           } else {
             categoryValue = typeof firstCategory === 'number' ? firstCategory : parseInt(String(firstCategory), 10)
           }
@@ -214,6 +216,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           }
         }
       }
+      
       
       // Convert rent_duration_unit: backend returns string ('year' or 'month')
       let rentDurationUnit = DURATION_UNITS.MONTH // default
@@ -1052,7 +1055,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               <div className="space-y-2">
                 <Label htmlFor="category">Tipe Kategori Tenant *</Label>
                 <Select
-                  value={formData.category > 0 ? String(formData.category) : ''}
+                  value={formData.category > 0 ? String(formData.category) : undefined}
                   onValueChange={(value) => selectCategory(parseInt(value))}
                 >
                   <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
