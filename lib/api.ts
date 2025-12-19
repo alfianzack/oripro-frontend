@@ -1392,7 +1392,7 @@ export const taskGroupsApi = {
   async getTaskGroups(params?: {
     name?: string
     is_active?: boolean
-    order?: string
+    order?: 'newest' | 'oldest' | 'a-z' | 'z-a'
     limit?: number
     offset?: number
   }): Promise<ApiResponse<TaskGroup[]>> {

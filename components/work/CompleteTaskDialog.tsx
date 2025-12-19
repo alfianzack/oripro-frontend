@@ -582,30 +582,44 @@ export function CompleteTaskDialog({
   }
 
   const handleSubmit = async () => {
-    if (!userTask) return
+    if (!userTask || !task) return
 
-    // Check location validation if QR code has location data
-    if (formData.scanCode && qrLocation) {
-      if (isLocationValid === false) {
-        toast.error('Anda tidak berada di lokasi yang benar. Silakan scan ulang QR code di lokasi yang tepat.')
-        return
-      }
-      
-      if (isLocationValid === null || isCheckingLocation) {
-        toast.error('Sedang memvalidasi lokasi. Silakan tunggu sebentar.')
+    // Validation: If task requires scan, scan code must be provided
+    if (task.is_scan) {
+      if (!formData.scanCode || formData.scanCode.trim() === '') {
+        toast.error('Task ini memerlukan scan barcode. Silakan scan QR code terlebih dahulu.')
         return
       }
 
-      // Re-check location before submit to ensure user is still at the location
-      try {
-        const isValid = await checkLocation(qrLocation.latitude, qrLocation.longitude)
-        if (!isValid) {
+      // Check location validation if QR code has location data
+      if (qrLocation) {
+        if (isLocationValid === false) {
           toast.error('Anda tidak berada di lokasi yang benar. Silakan scan ulang QR code di lokasi yang tepat.')
           return
         }
-      } catch (error: any) {
-        toast.error('Gagal memvalidasi lokasi: ' + error.message)
-        return
+        
+        if (isLocationValid === null || isCheckingLocation) {
+          toast.error('Sedang memvalidasi lokasi. Silakan tunggu sebentar.')
+          return
+        }
+
+        // Re-check location before submit to ensure user is still at the location
+        try {
+          const isValid = await checkLocation(qrLocation.latitude, qrLocation.longitude)
+          if (!isValid) {
+            toast.error('Anda tidak berada di lokasi yang benar. Silakan scan ulang QR code di lokasi yang tepat.')
+            return
+          }
+        } catch (error: any) {
+          toast.error('Gagal memvalidasi lokasi: ' + error.message)
+          return
+        }
+      } else {
+        // If QR code doesn't have location, just ensure scan code is valid
+        if (!formData.scanCode || formData.scanCode.trim() === '') {
+          toast.error('Scan code tidak valid. Silakan scan ulang QR code.')
+          return
+        }
       }
     }
 
@@ -870,7 +884,8 @@ export function CompleteTaskDialog({
               disabled={
                 isSubmitting || 
                 isCheckingLocation || 
-                (qrLocation !== null && isLocationValid === false)
+                (qrLocation !== null && isLocationValid === false) ||
+                (task.is_scan && (!formData.scanCode || formData.scanCode.trim() === ''))
               }
             >
               {isSubmitting ? (

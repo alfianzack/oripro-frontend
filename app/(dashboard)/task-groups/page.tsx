@@ -24,40 +24,108 @@ export default function TaskGroupsPage() {
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
-  const [sortOrder, setSortOrder] = useState<string>('asc')
+  const [order, setOrder] = useState<string>('newest')
+  
+  // Pagination states
+  const [limit] = useState<number>(10)
+  const [offset, setOffset] = useState<number>(0)
+  const [pagination, setPagination] = useState<{ total: number; limit: number; offset: number } | undefined>(undefined)
 
   const loadTaskGroups = async () => {
     setLoading(true)
     try {
-      const filterParams: any = {}
+      const filterParams: any = {
+        limit,
+        offset
+      }
       if (searchTerm.trim()) {
         filterParams.name = searchTerm.trim()
       }
       if (statusFilter !== 'all') {
         filterParams.is_active = statusFilter === 'active'
       }
-      if (sortBy && sortOrder) {
-        filterParams.order = `${sortBy}_${sortOrder}`
+      if (order) {
+        filterParams.order = order
       }
       
       const response = await taskGroupsApi.getTaskGroups(filterParams)
       
       if (response.success && response.data) {
         const responseData = response.data as any
-        const taskGroupsData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        let taskGroupsData: TaskGroup[] = []
+        
+        // Handle different response structures
+        if (responseData && typeof responseData === 'object') {
+          if (responseData.data && Array.isArray(responseData.data.taskGroups)) {
+            // Format: responseData.data.taskGroups
+            taskGroupsData = responseData.data.taskGroups
+          } else if (Array.isArray(responseData.taskGroups)) {
+            // Format: responseData.taskGroups
+            taskGroupsData = responseData.taskGroups
+          } else if (Array.isArray(responseData.data)) {
+            taskGroupsData = responseData.data
+          } else if (Array.isArray(responseData)) {
+            taskGroupsData = responseData
+          }
+        }
+        
+        if (!Array.isArray(taskGroupsData)) {
+          taskGroupsData = []
+        }
+        
+        // Extract pagination from response
+        // Backend now returns pagination in response.pagination (via createResponse with is_list=true)
+        let paginationData: { total: number; limit: number; offset: number } | undefined = undefined
+        
+        // Check response.pagination first (from ApiClient - backend now includes this via createResponse)
+        if (response.pagination) {
+          paginationData = {
+            total: response.pagination.total || 0,
+            limit: response.pagination.limit || limit,
+            offset: response.pagination.offset || offset
+          }
+        }
+        // Fallback: Check responseData directly (if backend returns { taskGroups, total, limit, offset } in data)
+        else if (responseData && typeof responseData === 'object' && responseData.total !== undefined) {
+          paginationData = {
+            total: responseData.total || 0,
+            limit: responseData.limit || limit,
+            offset: responseData.offset || offset
+          }
+        }
+        // Fallback: Check responseData.data for nested structure
+        else if (responseData.data && typeof responseData.data === 'object' && responseData.data.total !== undefined) {
+          paginationData = {
+            total: responseData.data.total || 0,
+            limit: responseData.data.limit || limit,
+            offset: responseData.data.offset || offset
+          }
+        }
+        // Fallback: Check responseData.pagination
+        else if (responseData.pagination) {
+          paginationData = {
+            total: responseData.pagination.total || 0,
+            limit: responseData.pagination.limit || limit,
+            offset: responseData.pagination.offset || offset
+          }
+        }
+        
         setTaskGroups(taskGroupsData)
+        setFilteredTaskGroups(taskGroupsData)
+        setPagination(paginationData)
         setFilteredTaskGroups(taskGroupsData)
       } else {
         toast.error(response.error || 'Failed to load task groups')
         setTaskGroups([])
         setFilteredTaskGroups([])
+        setPagination(undefined)
       }
     } catch (error) {
       console.error('Load task groups error:', error)
       toast.error('An error occurred while loading task groups')
       setTaskGroups([])
       setFilteredTaskGroups([])
+      setPagination(undefined)
     } finally {
       setLoading(false)
     }
@@ -67,10 +135,14 @@ export default function TaskGroupsPage() {
     loadTaskGroups()
   }, [])
 
-  // Reload data when filters change
+  // Reload data when filters or pagination change
+  useEffect(() => {
+    setOffset(0) // Reset to first page when filters change
+  }, [searchTerm, statusFilter, order])
+
   useEffect(() => {
     loadTaskGroups()
-  }, [searchTerm, statusFilter, sortBy, sortOrder])
+  }, [searchTerm, statusFilter, order, offset])
 
   const handleEdit = (taskGroup: TaskGroup) => {
     router.push(`/task-groups/edit/${taskGroup.id}`)
@@ -82,7 +154,12 @@ export default function TaskGroupsPage() {
   }
 
   const handleRefresh = () => {
+    setOffset(0)
     loadTaskGroups()
+  }
+
+  const handlePageChange = (newOffset: number) => {
+    setOffset(newOffset)
   }
 
   return (
@@ -155,24 +232,15 @@ export default function TaskGroupsPage() {
               </SelectContent>
             </Select>
             
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Sort By" />
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px] bg-white">
+                <SelectValue placeholder="Urutkan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="start_time">Start Time</SelectItem>
-                <SelectItem value="created_at">Created Date</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[120px] bg-white">
-                <SelectValue placeholder="Order" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">A - Z</SelectItem>
-                <SelectItem value="desc">Z - A</SelectItem>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
+                <SelectItem value="a-z">Nama A-Z</SelectItem>
+                <SelectItem value="z-a">Nama Z-A</SelectItem>
               </SelectContent>
             </Select>
             
@@ -182,8 +250,8 @@ export default function TaskGroupsPage() {
               onClick={() => {
                 setSearchTerm('')
                 setStatusFilter('all')
-                setSortBy('name')
-                setSortOrder('asc')
+                setOrder('newest')
+                setOffset(0)
               }}
             >
               Reset
@@ -205,6 +273,8 @@ export default function TaskGroupsPage() {
               onView={handleView}
               onRefresh={handleRefresh}
               loading={loading}
+              pagination={pagination}
+              onPageChange={handlePageChange}
             />
           )}
         </CardContent>

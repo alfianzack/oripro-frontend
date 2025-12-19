@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ScanInfo, CreateScanInfoData, UpdateScanInfoData, assetsApi, Asset } from '@/lib/api'
+import { ScanInfo, CreateScanInfoData, UpdateScanInfoData, assetsApi, scanInfoApi, Asset } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -25,14 +25,54 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import LeafletMapComponent from './leaflet-map-component'
 
-const scanInfoSchema = z.object({
-  scan_code: z.string().min(1, 'Code is required').trim(),
+const createScanInfoSchema = (existingScanInfoId?: number) => z.object({
+  scan_code: z.string().min(1, 'Code is required').trim().refine(
+    async (value) => {
+      // Check if scan_code already exists
+      try {
+        const response = await scanInfoApi.getScanInfos({ scan_code: value, limit: 1 })
+        if (response.success && response.data) {
+          const responseData = response.data as any
+          let scanInfosData: ScanInfo[] = []
+          
+          // Handle different response structures
+          if (responseData && typeof responseData === 'object') {
+            if (responseData.data && Array.isArray(responseData.data.scanInfos)) {
+              scanInfosData = responseData.data.scanInfos
+            } else if (Array.isArray(responseData.scanInfos)) {
+              scanInfosData = responseData.scanInfos
+            } else if (Array.isArray(responseData.data)) {
+              scanInfosData = responseData.data
+            } else if (Array.isArray(responseData)) {
+              scanInfosData = responseData
+            }
+          }
+          
+          // If editing, exclude current scan info from check
+          if (existingScanInfoId) {
+            const existingScanInfo = scanInfosData.find(si => si.id === existingScanInfoId)
+            if (existingScanInfo && existingScanInfo.scan_code === value) {
+              return true // Same scan info with same code is allowed
+            }
+            return scanInfosData.filter(si => si.id !== existingScanInfoId).length === 0
+          }
+          
+          return scanInfosData.length === 0
+        }
+        return true
+      } catch (error) {
+        console.error('Error checking scan_code uniqueness:', error)
+        return true // Allow on error to avoid blocking user
+      }
+    },
+    {
+      message: 'Scan code already exists',
+    }
+  ),
   latitude: z.number().min(-90, 'Latitude must be between -90 and 90').max(90, 'Latitude must be between -90 and 90'),
   longitude: z.number().min(-180, 'Longitude must be between -180 and 180').max(180, 'Longitude must be between -180 and 180'),
   asset_id: z.string().min(1, 'Asset is required').uuid('Asset ID must be a valid UUID'),
 })
-
-type ScanInfoFormData = z.infer<typeof scanInfoSchema>
 
 interface ScanInfoFormProps {
   scanInfo?: ScanInfo | null
@@ -45,9 +85,14 @@ export default function ScanInfoForm({ scanInfo, onSubmit, onCancel, loading = f
   const [assets, setAssets] = useState<Asset[]>([])
   const [assetsLoading, setAssetsLoading] = useState(true)
   const [showMapPicker, setShowMapPicker] = useState(true)
+  
+  // Create schema with existing scan info ID for edit mode
+  const scanInfoSchema = createScanInfoSchema(scanInfo?.id)
+  type ScanInfoFormData = z.infer<typeof scanInfoSchema>
 
   const form = useForm<ScanInfoFormData>({
     resolver: zodResolver(scanInfoSchema),
+    mode: 'onBlur', // Validate on blur for better UX
     defaultValues: {
       scan_code: '',
       latitude: 0,
@@ -77,15 +122,23 @@ export default function ScanInfoForm({ scanInfo, onSubmit, onCancel, loading = f
 
   // Update form values when scanInfo changes (for edit mode)
   useEffect(() => {
-    if (scanInfo) {
+    if (scanInfo && !assetsLoading && assets.length > 0) {
       form.reset({
         scan_code: scanInfo.scan_code || '',
         latitude: scanInfo.latitude || 0,
         longitude: scanInfo.longitude || 0,
-        asset_id: scanInfo.asset_id || '',
+        asset_id: String(scanInfo.asset_id || ''),
+      })
+    } else if (!scanInfo) {
+      // Reset to default values when creating new scan info
+      form.reset({
+        scan_code: '',
+        latitude: 0,
+        longitude: 0,
+        asset_id: '',
       })
     }
-  }, [scanInfo, form])
+  }, [scanInfo, form, assetsLoading, assets])
 
   const handleSubmit = async (data: ScanInfoFormData) => {
     try {
@@ -112,7 +165,15 @@ export default function ScanInfoForm({ scanInfo, onSubmit, onCancel, loading = f
             <FormItem>
               <FormLabel>Code <span className="text-red-500">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="Enter scan code" {...field} />
+                <Input 
+                  placeholder="Enter scan code" 
+                  {...field}
+                  onBlur={() => {
+                    field.onBlur()
+                    // Trigger validation on blur
+                    form.trigger('scan_code')
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -204,17 +265,17 @@ export default function ScanInfoForm({ scanInfo, onSubmit, onCancel, loading = f
               <FormLabel>Asset <span className="text-red-500">*</span></FormLabel>
               <Select 
                 onValueChange={field.onChange} 
-                value={field.value}
+                value={field.value || ''}
                 disabled={assetsLoading}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select asset" />
+                    <SelectValue placeholder={assetsLoading ? "Loading assets..." : "Select asset"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {assets.map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
+                    <SelectItem key={asset.id} value={String(asset.id)}>
                       {asset.name}
                     </SelectItem>
                   ))}

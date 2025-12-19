@@ -50,6 +50,7 @@ export default function TaskParentsPage() {
   const [taskGroupFilter, setTaskGroupFilter] = useState<string>('all')
   const [assetFilter, setAssetFilter] = useState<string>('all')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [order, setOrder] = useState<string>('newest')
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set())
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false)
@@ -69,7 +70,13 @@ export default function TaskParentsPage() {
         asset_id?: string
         role_id?: number
         task_group_id?: number
+        order?: string
       } = {}
+      
+      // Add order if provided
+      if (order) {
+        filterParams.order = order
+      }
 
       // Add search term if provided
       if (searchTerm.trim()) {
@@ -142,7 +149,15 @@ export default function TaskParentsPage() {
       const response = await taskGroupsApi.getTaskGroups()
       if (response.success && response.data) {
         const responseData = response.data as any
-        const taskGroupsData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        // Handle new format: { taskGroups: [...], total: ..., ... }
+        let taskGroupsData: any[] = []
+        if (responseData.taskGroups && Array.isArray(responseData.taskGroups)) {
+          taskGroupsData = responseData.taskGroups
+        } else if (Array.isArray(responseData.data)) {
+          taskGroupsData = responseData.data
+        } else if (Array.isArray(responseData)) {
+          taskGroupsData = responseData
+        }
         setTaskGroups(taskGroupsData)
       }
     } catch (error) {
@@ -182,11 +197,12 @@ export default function TaskParentsPage() {
     loadRoles()
   }, [])
 
+
   // Reload tasks when filters change
   useEffect(() => {
     loadTasks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, assetFilter, roleFilter, taskGroupFilter])
+  }, [searchTerm, assetFilter, roleFilter, taskGroupFilter, order])
 
   // Build hierarchy from tasks
   const buildHierarchy = (): TaskWithChildren[] => {
@@ -432,6 +448,7 @@ export default function TaskParentsPage() {
 
   const filteredHierarchy = getFilteredHierarchy()
 
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -529,10 +546,24 @@ export default function TaskParentsPage() {
               </SelectContent>
             </Select>
             
+            <Select value={order} onValueChange={setOrder}>
+              <SelectTrigger className="w-[180px] bg-white">
+                <SelectValue placeholder="Urutkan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Terbaru</SelectItem>
+                <SelectItem value="oldest">Terlama</SelectItem>
+                <SelectItem value="a-z">Nama A-Z</SelectItem>
+                <SelectItem value="z-a">Nama Z-A</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={loadTasks}
+              onClick={() => {
+                loadTasks()
+              }}
               disabled={loading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -571,6 +602,7 @@ export default function TaskParentsPage() {
               </Table>
             </div>
           )}
+
         </CardContent>
       </Card>
 

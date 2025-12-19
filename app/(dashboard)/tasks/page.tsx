@@ -155,7 +155,15 @@ export default function TasksPage() {
       const response = await taskGroupsApi.getTaskGroups()
       if (response.success && response.data) {
         const responseData = response.data as any
-        const taskGroupsData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        // Handle new format: { taskGroups: [...], total: ..., ... }
+        let taskGroupsData: any[] = []
+        if (responseData.taskGroups && Array.isArray(responseData.taskGroups)) {
+          taskGroupsData = responseData.taskGroups
+        } else if (Array.isArray(responseData.data)) {
+          taskGroupsData = responseData.data
+        } else if (Array.isArray(responseData)) {
+          taskGroupsData = responseData
+        }
         setTaskGroups(taskGroupsData)
       }
     } catch (error) {

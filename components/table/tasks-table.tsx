@@ -47,10 +47,6 @@ export default function TasksTable({
 
   useEffect(() => {
     setMounted(true)
-    console.log('TasksTable received tasks:', tasks?.length || 0, 'tasks')
-    if (tasks && tasks.length > 0) {
-      console.log('First task in table:', tasks[0])
-    }
   }, [tasks])
 
   const handleDeleteClick = (task: Task) => {

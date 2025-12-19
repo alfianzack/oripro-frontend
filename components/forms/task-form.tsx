@@ -33,7 +33,7 @@ const taskSchema = z.object({
   is_need_validation: z.boolean().optional(),
   is_scan: z.boolean().optional(),
   scan_code: z.string().optional().nullable(),
-  duration: z.number().int().min(1, 'Duration must be at least 1'),
+  duration: z.number().int().min(1, 'Duration must be at least 1 minute'),
   asset_id: z.string().min(1, 'Asset is required').uuid('Asset ID must be a valid UUID'),
   role_id: z.number().int().min(1, 'Role is required'),
   parent_task_ids: z.array(z.number().int()).optional(),
@@ -136,7 +136,8 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         const response = await taskGroupsApi.getTaskGroups()
         if (response.success && response.data) {
           const responseData = response.data as any
-          const taskGroupsData = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+          const resData = responseData.data as any
+          const taskGroupsData = Array.isArray(resData.taskGroups) ? resData.taskGroups : (Array.isArray(responseData) ? responseData : [])
           setTaskGroups(taskGroupsData)
         }
       } catch (error) {
@@ -182,7 +183,7 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
 
   // Update form values when task changes (for edit mode)
   useEffect(() => {
-    if (task) {
+    if (task && !assetsLoading && !rolesLoading && !taskGroupsLoading) {
       // Normalize IDs to numbers
       const normalizeId = (id: number | string | undefined): number | undefined => {
         if (id === undefined || id === null) return undefined
@@ -194,6 +195,17 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         return ids.map(id => typeof id === 'string' ? parseInt(id) : id)
       }
       
+      const normalizeDays = (days: (number | string)[] | undefined): number[] => {
+        if (!days || days.length === 0) return []
+        return days.map(day => {
+          if (typeof day === 'string') {
+            const parsed = parseInt(day)
+            return isNaN(parsed) ? 0 : parsed
+          }
+          return day
+        }).filter(day => !isNaN(day))
+      }
+      
       form.reset({
         name: task.name || '',
         is_main_task: task.is_main_task || false,
@@ -201,17 +213,33 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         is_scan: task.is_scan || false,
         scan_code: task.scan_code || null,
         duration: task.duration || 0,
-        asset_id: task.asset_id || '',
-        role_id: task.role_id || 0,
+        asset_id: String(task.asset_id || ''),
+        role_id: normalizeId(task.role_id) || 0,
         parent_task_ids: task.parent_task_ids 
           ? normalizeIds(task.parent_task_ids)
           : (task.parent_task_id ? [normalizeId(task.parent_task_id)!].filter(Boolean) as number[] : []),
         task_group_id: task.task_group_id ? normalizeId(task.task_group_id) : null,
-        days: task.days || [],
+        days: normalizeDays(task.days),
         times: task.times || [],
       })
+    } else if (!task) {
+      // Reset to default values when creating new task
+      form.reset({
+        name: '',
+        is_main_task: false,
+        is_need_validation: false,
+        is_scan: false,
+        scan_code: null,
+        duration: 0,
+        asset_id: '',
+        role_id: 0,
+        parent_task_ids: [],
+        task_group_id: null,
+        days: [],
+        times: [],
+      })
     }
-  }, [task, form])
+  }, [task, form, assetsLoading, rolesLoading, taskGroupsLoading])
 
   const handleSubmit = async (data: TaskFormData) => {
     console.log('TaskForm handleSubmit called with data:', data)
@@ -246,10 +274,14 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
 
   const handleDayToggle = (day: number, checked: boolean) => {
     const currentDays = form.getValues('days') || []
+    // Normalize days to numbers
+    const normalizedDays = currentDays.map(d => typeof d === 'string' ? parseInt(d) : d).filter(d => !isNaN(d))
     if (checked) {
-      form.setValue('days', [...currentDays, day])
+      if (!normalizedDays.includes(day)) {
+        form.setValue('days', [...normalizedDays, day])
+      }
     } else {
-      form.setValue('days', currentDays.filter(d => d !== day))
+      form.setValue('days', normalizedDays.filter(d => d !== day))
     }
   }
 
@@ -301,17 +333,17 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
                 <FormLabel>Asset <span className="text-red-500">*</span></FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
-                  value={field.value}
+                  value={field.value || ''}
                   disabled={assetsLoading}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select asset" />
+                      <SelectValue placeholder={assetsLoading ? "Loading assets..." : "Select asset"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {assets.map((asset) => (
-                      <SelectItem key={asset.id} value={asset.id}>
+                      <SelectItem key={asset.id} value={String(asset.id)}>
                         {asset.name}
                       </SelectItem>
                     ))}
@@ -356,20 +388,58 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
         <FormField
           control={form.control}
           name="duration"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Duration (hours) <span className="text-red-500">*</span></FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  placeholder="Enter duration in hours"
-                  {...field}
-                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            // Convert minutes to hours for display (if needed) or keep as minutes
+            // Assuming duration is stored in minutes
+            const minutes = field.value || 0
+            const hours = Math.floor(minutes / 60)
+            const mins = minutes % 60
+            
+            return (
+              <FormItem>
+                <FormLabel>Duration <span className="text-red-500">*</span></FormLabel>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormControl>
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Hours</label>
+                      <Input 
+                        type="number" 
+                        min="0"
+                        placeholder="0"
+                        value={hours}
+                        onChange={(e) => {
+                          const hrs = parseInt(e.target.value) || 0
+                          const totalMinutes = hrs * 60 + mins
+                          field.onChange(totalMinutes)
+                        }}
+                      />
+                    </div>
+                  </FormControl>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Minutes</label>
+                      <Input 
+                        type="number" 
+                        min="0"
+                        max="59"
+                        placeholder="0"
+                        value={mins}
+                        onChange={(e) => {
+                          const mns = parseInt(e.target.value) || 0
+                          const totalMinutes = hours * 60 + mns
+                          field.onChange(totalMinutes)
+                        }}
+                      />
+                    </div>
+                  </FormControl>
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Total: {minutes} minute{minutes !== 1 ? 's' : ''}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )
+          }}
         />
 
         {/* Task Group */}
@@ -380,13 +450,13 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
             <FormItem>
               <FormLabel>Task Group</FormLabel>
               <Select 
-                onValueChange={(value) => field.onChange(value === 'none' ? undefined : parseInt(value))} 
-                value={field.value?.toString() || 'none'}
+                onValueChange={(value) => field.onChange(value === 'none' ? null : parseInt(value))} 
+                value={field.value ? field.value.toString() : 'none'}
                 disabled={taskGroupsLoading}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select task group (optional)" />
+                    <SelectValue placeholder={taskGroupsLoading ? "Loading task groups..." : "Select task group (optional)"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -600,29 +670,34 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
           <FormField
             control={form.control}
             name="days"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Days of Week</FormLabel>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
-                  {DAYS_OF_WEEK.map((day) => (
-                    <div key={day.value} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`day-${day.value}`}
-                        checked={field.value?.includes(day.value) || false}
-                        onCheckedChange={(checked) => handleDayToggle(day.value, checked as boolean)}
-                      />
-                      <label
-                        htmlFor={`day-${day.value}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {day.label}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              // Normalize days to numbers for comparison
+              const normalizedDays = (field.value || []).map(d => typeof d === 'string' ? parseInt(d) : d).filter(d => !isNaN(d))
+              
+              return (
+                <FormItem>
+                  <FormLabel>Days of Week</FormLabel>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
+                    {DAYS_OF_WEEK.map((day) => (
+                      <div key={day.value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${day.value}`}
+                          checked={normalizedDays.includes(day.value)}
+                          onCheckedChange={(checked) => handleDayToggle(day.value, checked as boolean)}
+                        />
+                        <label
+                          htmlFor={`day-${day.value}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {day.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
           />
         )}
 
