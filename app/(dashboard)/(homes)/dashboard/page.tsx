@@ -9,6 +9,9 @@ import TenantPaymentCard from "@/app/(dashboard)/(homes)/dashboard/components/te
 import HandlingKomplain from "@/app/(dashboard)/(homes)/dashboard/components/handling-komplain";
 import GrafikKomplain from "@/app/(dashboard)/(homes)/dashboard/components/grafik-komplain";
 import TenantKontrak from "@/app/(dashboard)/(homes)/dashboard/components/tenant-kontrak";
+import TenantKontrakTable from "@/app/(dashboard)/(homes)/dashboard/components/tenant-kontrak-table";
+import AssetTableCard from "@/app/(dashboard)/(homes)/dashboard/components/asset-table-card";
+import TopAssetRevenueCard from "@/app/(dashboard)/(homes)/dashboard/components/top-asset-revenue-card";
 import Pekerja from "@/app/(dashboard)/(homes)/dashboard/components/pekerja";
 import DailyTaskCompletion from "@/app/(dashboard)/(homes)/dashboard/components/daily-task-completion";
 import { dashboardApi, DashboardData, DashboardStats, assetsApi, unitsApi, Asset } from '@/lib/api'
@@ -22,6 +25,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [assetsData, setAssetsData] = useState<{ total: number; totalArea: number; warehouseCount: number } | null>(null)
   const [availableUnits, setAvailableUnits] = useState<number>(0)
+  const [occupiedUnits, setOccupiedUnits] = useState<number>(0)
+  const [totalUnits, setTotalUnits] = useState<number>(0)
 
   useEffect(() => {
     loadDashboardData()
@@ -107,12 +112,17 @@ export default function DashboardPage() {
 
   const loadAvailableUnits = async () => {
     try {
-      const response = await unitsApi.getUnits({ status: 0, limit: 1 }) // status 0 = available
-      if (response.success && response.data) {
-        const responseData = response.data as any;
-        // Get total from pagination
-        if (response.pagination) {
-          setAvailableUnits(response.pagination.total || 0)
+      // Get available units (status 0)
+      const availableResponse = await unitsApi.getUnits({ status: 0, limit: 1 })
+      // Get occupied units (status 1)
+      const occupiedResponse = await unitsApi.getUnits({ status: 1, limit: 1 })
+      // Get total units
+      const totalResponse = await unitsApi.getUnits({ limit: 1 })
+
+      if (availableResponse.success && availableResponse.data) {
+        const responseData = availableResponse.data as any;
+        if (availableResponse.pagination) {
+          setAvailableUnits(availableResponse.pagination.total || 0)
         } else if (responseData.pagination) {
           setAvailableUnits(responseData.pagination.total || 0)
         } else {
@@ -120,8 +130,32 @@ export default function DashboardPage() {
           setAvailableUnits(units.length)
         }
       }
+
+      if (occupiedResponse.success && occupiedResponse.data) {
+        const responseData = occupiedResponse.data as any;
+        if (occupiedResponse.pagination) {
+          setOccupiedUnits(occupiedResponse.pagination.total || 0)
+        } else if (responseData.pagination) {
+          setOccupiedUnits(responseData.pagination.total || 0)
+        } else {
+          const units = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+          setOccupiedUnits(units.length)
+        }
+      }
+
+      if (totalResponse.success && totalResponse.data) {
+        const responseData = totalResponse.data as any;
+        if (totalResponse.pagination) {
+          setTotalUnits(totalResponse.pagination.total || 0)
+        } else if (responseData.pagination) {
+          setTotalUnits(responseData.pagination.total || 0)
+        } else {
+          const units = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+          setTotalUnits(units.length)
+        }
+      }
     } catch (err) {
-      console.error('Error loading available units:', err)
+      console.error('Error loading units:', err)
     }
   }
 
@@ -170,46 +204,34 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Asset Info Card */}
+        {/* Total Asset Peruri Card */}
         <Card className="p-6">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-700">
-              Asset Overview
+              Total Asset Peruri
             </CardTitle>
             <Building2 className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Jumlah Asset:</span>
-                <span className="text-lg font-semibold text-gray-900">{assetsData?.total || 0}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Luas Area:</span>
-                <span className="text-lg font-semibold text-gray-900">
-                  {assetsData?.totalArea ? `${assetsData.totalArea.toLocaleString('id-ID')} m²` : '0 m²'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Jumlah Gudang:</span>
-                <span className="text-lg font-semibold text-gray-900">{assetsData?.warehouseCount || 0}</span>
-              </div>
-            </div>
+            <div className="text-2xl font-bold text-gray-900">{assetsData?.total || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              In all area
+            </p>
           </CardContent>
         </Card>
 
-        {/* Available Units Card */}
+        {/* Total Units Card */}
         <Card className="p-6">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-700">
-              Unit Available
+              Total Units
             </CardTitle>
             <Home className="h-4 w-4 text-gray-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{availableUnits}</div>
+            <div className="text-2xl font-bold text-gray-900">{totalUnits || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Unit tersedia untuk disewakan
+              {occupiedUnits || 0} Terisi • {availableUnits || 0} Kosong
             </p>
           </CardContent>
         </Card>
@@ -224,11 +246,24 @@ export default function DashboardPage() {
           </Suspense>
         </div>
 
-        {/* Tenant Payment Card */}
+        {/* Top Asset Revenue Card */}
         <div className="lg:col-span-1 h-full">
-          <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat data tenant..." />}>
-            <TenantPaymentCard />
+          <Suspense fallback={<LoadingSkeleton height="h-96" text="Memuat data asset revenue..." />}>
+            <TopAssetRevenueCard />
           </Suspense>
+        </div>
+      </div>
+
+      {/* Asset and Tenant Kontrak Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Asset Table */}
+        <div className="lg:col-span-1 h-full">
+          <AssetTableCard />
+        </div>
+
+        {/* Tenant Kontrak Table */}
+        <div className="lg:col-span-1 h-full">
+          <TenantKontrakTable />
         </div>
       </div>
 

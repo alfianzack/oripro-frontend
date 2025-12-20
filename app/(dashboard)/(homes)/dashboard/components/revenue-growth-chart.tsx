@@ -155,15 +155,14 @@ const RevenueGrowthChart = () => {
                 <CardTitle className="text-lg font-semibold text-gray-700">
                     Revenue Growth
                 </CardTitle>
-                <Select defaultValue="semua-asset">
-                    <SelectTrigger className="w-[140px]">
-                        <User className="h-4 w-4 mr-2" />
-                        <SelectValue placeholder="Semua Asset" />
+                <Select defaultValue="tahunan">
+                    <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Tampilan Tahunan" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="semua-asset">Semua Asset</SelectItem>
-                        <SelectItem value="asset-1">Asset 1</SelectItem>
-                        <SelectItem value="asset-2">Asset 2</SelectItem>
+                        <SelectItem value="tahunan">Tampilan Tahunan</SelectItem>
+                        <SelectItem value="bulanan">Tampilan Bulanan</SelectItem>
+                        <SelectItem value="mingguan">Tampilan Mingguan</SelectItem>
                     </SelectContent>
                 </Select>
             </CardHeader>

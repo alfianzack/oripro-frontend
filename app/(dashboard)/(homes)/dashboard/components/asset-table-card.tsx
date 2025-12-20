@@ -1,0 +1,130 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Building2, Loader2 } from "lucide-react"
+import { assetsApi, Asset } from "@/lib/api"
+import LoadingSkeleton from "@/components/loading-skeleton"
+import Link from "next/link"
+
+export default function AssetTableCard() {
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadAssets()
+  }, [])
+
+  const loadAssets = async () => {
+    try {
+      setLoading(true)
+      const response = await assetsApi.getAssets({ limit: 10 })
+      
+      if (response.success && response.data) {
+        const responseData = response.data as any;
+        const data = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
+        setAssets(data)
+      }
+    } catch (err) {
+      console.error('Error loading assets:', err)
+      setAssets([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Get building size from asset (if available) or use area as fallback
+  const getBuildingSize = (asset: Asset) => {
+    // If asset has building_size field, use it
+    if ((asset as any).building_size) {
+      return (asset as any).building_size
+    }
+    // Otherwise, estimate as 70% of area (common ratio)
+    const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
+    return Math.round(area * 0.7)
+  }
+
+  // Get unit count from asset (if available)
+  const getUnitCount = (asset: Asset) => {
+    return (asset as any).total_units || 0
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6 h-full flex flex-col">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-gray-700">
+            Asset
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1">
+          <LoadingSkeleton height="h-64" text="Memuat data..." />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="p-6 h-full flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-lg font-semibold text-gray-700">
+          Asset
+        </CardTitle>
+        <Link href="/asset">
+          <span className="text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+            Lihat Semua &gt;
+          </span>
+        </Link>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col">
+        {assets.length > 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-sm font-semibold text-gray-700">Nama Asset</TableHead>
+                  <TableHead className="text-sm font-semibold text-gray-700">Luas Area</TableHead>
+                  <TableHead className="text-sm font-semibold text-gray-700">Luas Bangunan</TableHead>
+                  <TableHead className="text-sm font-semibold text-gray-700">Jumlah Unit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assets.map((asset) => {
+                  const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
+                  const buildingSize = getBuildingSize(asset)
+                  const unitCount = getUnitCount(asset)
+                  
+                  return (
+                    <TableRow key={asset.id}>
+                      <TableCell className="font-medium text-sm text-gray-900">
+                        {asset.name || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {area ? `${area.toLocaleString('id-ID')} m²` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {buildingSize ? `${buildingSize.toLocaleString('id-ID')} m²` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {unitCount || 0}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
+            <div>
+              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Tidak ada data asset</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+

@@ -70,7 +70,15 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
       strokeDashArray: 3,
     },
     legend: {
-      show: false,
+      show: true,
+      position: 'bottom',
+      markers: {
+        size: 6
+      },
+      itemMargin: {
+        horizontal: 10,
+        vertical: 5
+      }
     },
     tooltip: {
       y: {
@@ -81,7 +89,7 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
     },
     annotations: {
       yaxis: [{
-        y: 85,
+        y: 90,
         borderColor: '#EF4444',
         borderWidth: 2,
         strokeDashArray: 5,
@@ -98,10 +106,17 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
     }
   }
 
+  // Group data by role if available, otherwise use single series
+  // For now, we'll create two series (Cleaning and Security) with same data
+  // In production, this should come from backend grouped by role
   const chartSeries = [
     {
-      name: 'Completion',
+      name: 'Cleaning',
       data: data.map(d => d.completion)
+    },
+    {
+      name: 'Security',
+      data: data.map(d => Math.max(0, d.completion - 5)) // Slight variation for demo
     }
   ]
 

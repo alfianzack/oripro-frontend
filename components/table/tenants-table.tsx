@@ -78,6 +78,11 @@ interface PaginationInfo {
   offset: number
 }
 
+interface TenantWithPaymentStatus extends Tenant {
+  paymentStatus?: 'paid' | 'scheduled' | 'reminder_needed' | 'overdue'
+  lastPayment?: any
+}
+
 interface TenantsTableProps {
   tenants: Tenant[]
   onEdit: (tenant: Tenant) => void
@@ -101,10 +106,97 @@ export default function TenantsTable({
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [tenantsWithPayment, setTenantsWithPayment] = useState<TenantWithPaymentStatus[]>([])
+  const [loadingPaymentStatus, setLoadingPaymentStatus] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (tenants && tenants.length > 0) {
+      loadPaymentStatus()
+    }
+  }, [tenants])
+
+  const loadPaymentStatus = async () => {
+    setLoadingPaymentStatus(true)
+    try {
+      const now = new Date()
+      const tenantsWithStatus: TenantWithPaymentStatus[] = []
+
+      for (const tenant of tenants) {
+        let paymentStatus: 'paid' | 'scheduled' | 'reminder_needed' | 'overdue' = 'scheduled'
+        let lastPayment: any = null
+
+        try {
+          // Get payment logs for this tenant
+          const paymentsResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, { limit: 10 })
+          
+          if (paymentsResponse.success && paymentsResponse.data) {
+            const paymentsData = paymentsResponse.data as any
+            const payments = Array.isArray(paymentsData.data) ? paymentsData.data : (Array.isArray(paymentsData) ? paymentsData : [])
+            
+            if (payments.length > 0) {
+              // Get the most recent payment (sorted by deadline)
+              lastPayment = payments.sort((a: any, b: any) => {
+                const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
+                const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
+                return dateB - dateA
+              })[0]
+
+              // Determine payment status
+              if (lastPayment.status === 1) {
+                // Status 1 = paid
+                paymentStatus = 'paid'
+              } else if (lastPayment.payment_deadline) {
+                const deadlineDate = new Date(lastPayment.payment_deadline)
+                const diffTime = deadlineDate.getTime() - now.getTime()
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                const diffMonths = diffDays / 30 // Approximate months
+
+                // Check if overdue
+                if (diffDays < 0) {
+                  paymentStatus = 'overdue'
+                } else {
+                  // Determine reminder needed based on rent duration unit
+                  const rentDurationUnit = Number(tenant.rent_duration_unit)
+                  
+                  // If duration is yearly (1) and within 3 months
+                  if (rentDurationUnit === 1 && diffMonths <= 3) {
+                    paymentStatus = 'reminder_needed'
+                  }
+                  // If duration is monthly (0) and within 7 days
+                  else if (rentDurationUnit === 0 && diffDays <= 7) {
+                    paymentStatus = 'reminder_needed'
+                  }
+                  // Otherwise scheduled
+                  else {
+                    paymentStatus = 'scheduled'
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading payment status for tenant ${tenant.id}:`, error)
+        }
+
+        tenantsWithStatus.push({
+          ...tenant,
+          paymentStatus,
+          lastPayment
+        })
+      }
+
+      setTenantsWithPayment(tenantsWithStatus)
+    } catch (error) {
+      console.error('Error loading payment status:', error)
+      setTenantsWithPayment(tenants)
+    } finally {
+      setLoadingPaymentStatus(false)
+    }
+  }
 
   const handleDeleteClick = (tenant: Tenant) => {
     setTenantToDelete(tenant)
@@ -173,6 +265,35 @@ export default function TenantsTable({
     }
   }
 
+  const getPaymentStatusBadge = (status: 'paid' | 'scheduled' | 'reminder_needed' | 'overdue') => {
+    switch (status) {
+      case 'paid':
+        return (
+          <span className="px-3 py-1.5 rounded text-xs font-medium bg-green-100 text-green-700 border border-green-300">
+            Paid
+          </span>
+        )
+      case 'scheduled':
+        return (
+          <span className="px-3 py-1.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+            Scheduled
+          </span>
+        )
+      case 'reminder_needed':
+        return (
+          <span className="px-3 py-1.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-300">
+            Reminder Needed
+          </span>
+        )
+      case 'overdue':
+        return (
+          <span className="px-3 py-1.5 rounded text-xs font-medium bg-red-100 text-red-700 border border-red-300">
+            Overdue
+          </span>
+        )
+    }
+  }
+
   const handlePageChange = (newOffset: number) => {
     if (onPageChange && pagination) {
       onPageChange(newOffset)
@@ -223,6 +344,7 @@ export default function TenantsTable({
               <TableHead>Kategori</TableHead>
               <TableHead>User</TableHead>
               <TableHead>Status Tenant</TableHead>
+              <TableHead>Status Pembayaran</TableHead>
               <TableHead>Kontrak</TableHead>
               <TableHead>Dibuat</TableHead>
               <TableHead>Diubah pada</TableHead>
@@ -232,12 +354,12 @@ export default function TenantsTable({
           <TableBody>
             {!Array.isArray(tenants) || tenants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   Tidak ada data tenant
                 </TableCell>
               </TableRow>
             ) : (
-              tenants.map((tenant, index) => {
+              (tenantsWithPayment.length > 0 ? tenantsWithPayment : tenants).map((tenant, index) => {
                 const isLast = index === tenants.length - 1;
                 // Use status from database if available, otherwise calculate based on contract_end_at
                 let tenantStatus: string;
@@ -283,6 +405,13 @@ export default function TenantsTable({
                     <Badge variant={getTenantStatus(tenantStatus).variant}>
                       {getTenantStatus(tenantStatus).label}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {loadingPaymentStatus ? (
+                      <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+                    ) : (
+                      getPaymentStatusBadge((tenant as TenantWithPaymentStatus).paymentStatus || 'scheduled')
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">
                     <div className="space-y-1">
