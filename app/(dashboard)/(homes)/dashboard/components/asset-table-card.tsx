@@ -34,17 +34,6 @@ export default function AssetTableCard() {
     }
   }
 
-  // Get building size from asset (if available) or use area as fallback
-  const getBuildingSize = (asset: Asset) => {
-    // If asset has building_size field, use it
-    if ((asset as any).building_size) {
-      return (asset as any).building_size
-    }
-    // Otherwise, estimate as 70% of area (common ratio)
-    const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
-    return Math.round(area * 0.7)
-  }
-
   // Get unit count from asset (if available)
   const getUnitCount = (asset: Asset) => {
     return (asset as any).total_units || 0
@@ -85,14 +74,12 @@ export default function AssetTableCard() {
                 <TableRow>
                   <TableHead className="text-sm font-semibold text-gray-700">Nama Asset</TableHead>
                   <TableHead className="text-sm font-semibold text-gray-700">Luas Area</TableHead>
-                  <TableHead className="text-sm font-semibold text-gray-700">Luas Bangunan</TableHead>
                   <TableHead className="text-sm font-semibold text-gray-700">Jumlah Unit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assets.map((asset) => {
                   const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
-                  const buildingSize = getBuildingSize(asset)
                   const unitCount = getUnitCount(asset)
                   
                   return (
@@ -102,9 +89,6 @@ export default function AssetTableCard() {
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">
                         {area ? `${area.toLocaleString('id-ID')} m²` : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {buildingSize ? `${buildingSize.toLocaleString('id-ID')} m²` : '-'}
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">
                         {unitCount || 0}
