@@ -47,72 +47,174 @@ export default function TenantPaymentCard() {
       const tenants = Array.isArray(responseData.data) ? responseData.data : (Array.isArray(responseData) ? responseData : [])
 
       const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+      
+      // Helper: Parse rent duration unit
+      const getRentType = (unit: string | number) => {
+        const unitStr = String(unit).toLowerCase()
+        return {
+          isMonthly: unitStr === 'month' || unitStr === '0',
+          isYearly: unitStr === 'year' || unitStr === '1'
+        }
+      }
+      
+      // Helper: Get period boundaries
+      const getPeriodBoundaries = (isMonthly: boolean, isYearly: boolean) => {
+        const start = new Date(now)
+        const end = new Date(now)
+        
+        if (isMonthly) {
+          start.setDate(1)
+          start.setHours(0, 0, 0, 0)
+          end.setMonth(end.getMonth() + 1, 0)
+          end.setHours(23, 59, 59, 999)
+        } else if (isYearly) {
+          start.setMonth(0, 1)
+          start.setHours(0, 0, 0, 0)
+          end.setMonth(11, 31)
+          end.setHours(23, 59, 59, 999)
+        }
+        
+        return { start, end }
+      }
+      
+      // Helper: Sort payments by deadline
+      const sortByDeadline = (payments: TenantPaymentLog[]) => 
+        payments.sort((a, b) => {
+          const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
+          const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
+          return dateB - dateA
+        })
+
+      // Fetch all payments in parallel
+      const paymentPromises = tenants.map((tenant: Tenant) => 
+        tenantsApi.getTenantPaymentLogs(tenant.id, { limit: 10 })
+          .then(response => ({ tenant, response }))
+          .catch(error => {
+            console.error(`Error loading payment for tenant ${tenant.id}:`, error)
+            return { tenant, response: null }
+          })
+      )
+
+      const allPaymentData = await Promise.all(paymentPromises)
+      
       const overdueList: TenantWithPaymentStatus[] = []
       const expiringList: TenantWithPaymentStatus[] = []
 
       // Process each tenant
-      for (const tenant of tenants) {
-        if (!tenant.contract_end_at) continue
-
-        const endDate = new Date(tenant.contract_end_at)
-        const diffTime = endDate.getTime() - now.getTime()
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-        // Get payment logs for this tenant
-        let hasUnpaidPayment = false
+      for (const { tenant, response } of allPaymentData) {
+        let paymentStatus: 'paid' | 'scheduled' | 'reminder_needed' | 'overdue' = 'scheduled'
         let lastPayment: TenantPaymentLog | null = null
 
-        try {
-          const paymentsResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, { limit: 100 })
-          if (paymentsResponse.success && paymentsResponse.data) {
-            const paymentsData = paymentsResponse.data as any
-            const payments = Array.isArray(paymentsData.data) ? paymentsData.data : (Array.isArray(paymentsData) ? paymentsData : [])
+        if (response?.success && response.data) {
+          const paymentsData = response.data as any
+          const payments = Array.isArray(paymentsData.data) 
+            ? paymentsData.data 
+            : (Array.isArray(paymentsData) ? paymentsData : [])
+          
+          if (payments.length > 0) {
+            const { isMonthly, isYearly } = getRentType(tenant.rent_duration_unit)
+            const { start: periodStart, end: periodEnd } = getPeriodBoundaries(isMonthly, isYearly)
             
-            // Find unpaid or expired payments
-            const unpaidPayments = payments.filter((p: TenantPaymentLog) => {
-              return p.status === 0 || p.status === 2 // 0 = unpaid, 2 = expired
+            // Find payment in current period
+            lastPayment = payments.find((p: TenantPaymentLog) => {
+              if (!p.payment_deadline) return false
+              const deadline = new Date(p.payment_deadline)
+              return deadline >= periodStart && deadline <= periodEnd
             })
 
-            if (unpaidPayments.length > 0) {
-              hasUnpaidPayment = true
-              // Get the most recent unpaid payment
-              lastPayment = unpaidPayments.sort((a: TenantPaymentLog, b: TenantPaymentLog) => {
-                const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
-                const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
-                return dateB - dateA
-              })[0]
+            // Fallback to unpaid or most recent payment
+            if (!lastPayment) {
+              const unpaidPayments = payments.filter((p: TenantPaymentLog) => p.status === 0 || p.status === 2)
+              lastPayment = sortByDeadline(unpaidPayments.length > 0 ? unpaidPayments : payments)[0]
             }
 
-            // Get last payment (paid or unpaid)
-            if (payments.length > 0) {
-              lastPayment = payments.sort((a: TenantPaymentLog, b: TenantPaymentLog) => {
-                const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
-                const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
-                return dateB - dateA
-              })[0]
+            // Determine status
+            if (lastPayment?.payment_deadline) {
+              const deadline = new Date(lastPayment.payment_deadline)
+              deadline.setHours(0, 0, 0, 0)
+              
+              const nowDateOnly = new Date(now)
+              nowDateOnly.setHours(0, 0, 0, 0)
+              
+              const diffDays = Math.ceil((deadline.getTime() - nowDateOnly.getTime()) / (1000 * 60 * 60 * 24))
+              const diffMonths = diffDays / 30
+
+              // Check if paid and in current period
+              if (lastPayment.status === 1) {
+                const deadlineMonth = deadline.getMonth()
+                const deadlineYear = deadline.getFullYear()
+                
+                if ((isMonthly && deadlineMonth === currentMonth && deadlineYear === currentYear) ||
+                    (isYearly && deadlineYear === currentYear)) {
+                  paymentStatus = 'paid'
+                }
+              }
+              
+              // Check overdue or reminder for unpaid
+              if (paymentStatus !== 'paid') {
+                if (diffDays < 0) {
+                  paymentStatus = 'overdue'
+                } else if ((isYearly && diffMonths <= 3) || (isMonthly && diffDays <= 7)) {
+                  paymentStatus = 'reminder_needed'
+                }
+              }
             }
           }
-        } catch (error) {
-          console.error(`Error loading payments for tenant ${tenant.id}:`, error)
         }
 
-        // Check if contract is expired and has unpaid payment
-        if (diffDays < 0 && hasUnpaidPayment) {
-          overdueList.push({
-            ...tenant,
-            paymentStatus: 'overdue',
-            daysOverdue: Math.abs(diffDays),
-            lastPayment
-          })
+        // Fallback to contract end date
+        if (!lastPayment && tenant.contract_end_at) {
+          const contractEnd = new Date(tenant.contract_end_at)
+          contractEnd.setHours(0, 0, 0, 0)
+          
+          const nowDateOnly = new Date(now)
+          nowDateOnly.setHours(0, 0, 0, 0)
+          
+          const diffDays = Math.ceil((contractEnd.getTime() - nowDateOnly.getTime()) / (1000 * 60 * 60 * 24))
+          const { isMonthly, isYearly } = getRentType(tenant.rent_duration_unit)
+
+          if (diffDays < 0) {
+            paymentStatus = 'overdue'
+          } else if ((isYearly && diffDays <= 90) || (isMonthly && diffDays <= 7)) {
+            paymentStatus = 'reminder_needed'
+          }
         }
-        // Check if contract is expiring (within 30 days)
-        else if (diffDays >= 0 && diffDays <= 30) {
-          expiringList.push({
-            ...tenant,
-            paymentStatus: 'expiring',
-            daysRemaining: diffDays,
-            lastPayment
-          })
+
+        // Add to appropriate list based on status
+        if (paymentStatus === 'overdue') {
+          const deadline = lastPayment?.payment_deadline || tenant.contract_end_at
+          if (deadline) {
+            const deadlineDate = new Date(deadline)
+            deadlineDate.setHours(0, 0, 0, 0)
+            const nowDateOnly = new Date(now)
+            nowDateOnly.setHours(0, 0, 0, 0)
+            const diffDays = Math.ceil((deadlineDate.getTime() - nowDateOnly.getTime()) / (1000 * 60 * 60 * 24))
+            
+            overdueList.push({
+              ...tenant,
+              paymentStatus: 'overdue',
+              daysOverdue: Math.abs(diffDays),
+              lastPayment
+            })
+          }
+        } else if (paymentStatus === 'reminder_needed') {
+          const deadline = lastPayment?.payment_deadline || tenant.contract_end_at
+          if (deadline) {
+            const deadlineDate = new Date(deadline)
+            deadlineDate.setHours(0, 0, 0, 0)
+            const nowDateOnly = new Date(now)
+            nowDateOnly.setHours(0, 0, 0, 0)
+            const diffDays = Math.ceil((deadlineDate.getTime() - nowDateOnly.getTime()) / (1000 * 60 * 60 * 24))
+            
+            expiringList.push({
+              ...tenant,
+              paymentStatus: 'expiring',
+              daysRemaining: diffDays,
+              lastPayment
+            })
+          }
         }
       }
 
@@ -182,7 +284,7 @@ export default function TenantPaymentCard() {
                         {tenant.name}
                       </p>
                       <p className="text-xs text-gray-600 mt-1">
-                        Jatuh tempo: {tenant.contract_end_at ? formatDate(tenant.contract_end_at) : '-'}
+                        Jatuh tempo: {tenant.lastPayment?.payment_deadline ? formatDate(tenant.lastPayment.payment_deadline) : (tenant.contract_end_at ? formatDate(tenant.contract_end_at) : '-')}
                       </p>
                       {tenant.daysOverdue !== undefined && (
                         <p className="text-xs text-red-600 mt-1 font-medium">
@@ -224,7 +326,7 @@ export default function TenantPaymentCard() {
                         {tenant.name}
                       </p>
                       <p className="text-xs text-gray-600 mt-1">
-                        Jatuh tempo: {tenant.contract_end_at ? formatDate(tenant.contract_end_at) : '-'}
+                        Jatuh tempo: {tenant.lastPayment?.payment_deadline ? formatDate(tenant.lastPayment.payment_deadline) : (tenant.contract_end_at ? formatDate(tenant.contract_end_at) : '-')}
                       </p>
                       {tenant.daysRemaining !== undefined && (
                         <p className="text-xs text-yellow-600 mt-1 font-medium">
