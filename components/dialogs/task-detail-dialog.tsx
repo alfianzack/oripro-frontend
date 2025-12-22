@@ -5,7 +5,7 @@ import { Task } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { X, Calendar, Clock, CheckCircle2, QrCode, Building2, User } from 'lucide-react'
+import { X, Calendar, Clock, Building2 } from 'lucide-react'
 
 interface TaskDetailDialogProps {
   open: boolean
@@ -113,22 +113,7 @@ export default function TaskDetailDialog({
             {/* Status Badges */}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={task.is_main_task ? 'default' : 'outline'}>
-                {task.is_main_task ? 'Main Task' : 'Sub Task'}
-              </Badge>
-              {task.is_need_validation && (
-                <Badge variant="default">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Requires Validation
-                </Badge>
-              )}
-              {task.is_scan && (
-                <Badge variant="default">
-                  <QrCode className="h-3 w-3 mr-1" />
-                  Requires Scan
-                </Badge>
-              )}
-              <Badge variant={task.is_all_times ? 'default' : 'outline'}>
-                {task.is_all_times ? 'All Times' : 'Scheduled'}
+                {task.is_main_task ? 'Main Task' : 'Child Task'}
               </Badge>
             </div>
 

@@ -385,8 +385,10 @@ export default function TaskParentsPage() {
             </div>
           ) : null}
         </TableCell>
-        <TableCell className="font-medium" style={{ paddingLeft: level > 0 ? `${level * 2}rem` : undefined }}>
-          {task.name}
+        <TableCell className="font-medium max-w-[300px]" style={{ paddingLeft: level > 0 ? `${level * 2}rem` : undefined }}>
+          <div className="truncate" title={task.name}>
+            {task.name}
+          </div>
         </TableCell>
         <TableCell>{task.duration} menit</TableCell>
         <TableCell>
@@ -644,7 +646,7 @@ export default function TaskParentsPage() {
                             htmlFor={`parent-${task.id}`}
                             className="flex-1 cursor-pointer"
                           >
-                            <div className="font-medium">{task.name}</div>
+                            <div className="font-medium truncate" title={task.name}>{task.name}</div>
                             <div className="text-sm text-muted-foreground">
                               {taskGroups.find(tg => tg.id === task.task_group_id)?.name || 'No group'}
                             </div>
@@ -664,7 +666,8 @@ export default function TaskParentsPage() {
                       return parent ? (
                         <span
                           key={parentId}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm truncate max-w-[200px] inline-block"
+                          title={parent.name}
                         >
                           {parent.name}
                         </span>
