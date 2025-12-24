@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Loader2, Camera } from 'lucide-react'
-import { UserTask, userTasksApi } from '@/lib/api'
+import { UserTask, userTasksApi, settingsApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 interface CompleteTaskDialogProps {
@@ -38,8 +38,28 @@ export function CompleteTaskDialog({
   const [qrLocation, setQrLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [isLocationValid, setIsLocationValid] = useState<boolean | null>(null)
   const [isCheckingLocation, setIsCheckingLocation] = useState(false)
+  const [radiusDistance, setRadiusDistance] = useState<number>(20000) // Default 20000 meters
 
   const task = userTask?.task
+
+  // Load radius distance setting on mount
+  useEffect(() => {
+    const loadRadiusDistance = async () => {
+      try {
+        const response = await settingsApi.getSettingByKey('task_radius_distance')
+        if (response.success && response.data) {
+          const value = parseFloat(response.data.value)
+          if (!isNaN(value) && value > 0) {
+            setRadiusDistance(value)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading task radius distance:', error)
+        // Keep default value on error
+      }
+    }
+    loadRadiusDistance()
+  }, [])
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -77,9 +97,10 @@ export function CompleteTaskDialog({
           
           const distance = calculateDistance(userLat, userLon, qrLat, qrLon)
           console.log('[LOCATION] Distance:', distance, 'meters')
+          console.log('[LOCATION] Max allowed distance:', radiusDistance, 'meters')
           
-          // Allow if within 50 meters (adjust as needed)
-          const maxDistance = 20000 // meters
+          // Use radius distance from settings
+          const maxDistance = radiusDistance
           const isValid = distance <= maxDistance
           
           setIsLocationValid(isValid)

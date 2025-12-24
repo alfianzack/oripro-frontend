@@ -1016,6 +1016,7 @@ export interface Tenant {
   deposit?: number
   payment_term?: string
   status?: string // 'inactive' | 'active' | 'pending' | 'expired' | 'terminated' | 'blacklisted'
+  payment_status?: 'paid' | 'scheduled' | 'reminder_needed' | 'overdue'
   created_by?: string
   updated_by?: string
   created_at: string
@@ -1832,6 +1833,43 @@ export const dashboardApi = {
   },
 }
 
+// Settings interfaces
+export interface Setting {
+  id: number
+  key: string
+  value: string
+  description?: string
+  created_by?: string
+  updated_by?: string
+  created_at: string
+  updated_at: string
+}
+
+// Settings API functions
+export const settingsApi = {
+  async getSettings(): Promise<ApiResponse<Setting[]>> {
+    return apiClient.get<Setting[]>('/api/settings')
+  },
+  async getSettingById(id: number): Promise<ApiResponse<Setting>> {
+    return apiClient.get<Setting>(`/api/settings/${id}`)
+  },
+  async getSettingByKey(key: string): Promise<ApiResponse<Setting>> {
+    return apiClient.get<Setting>(`/api/settings?key=${encodeURIComponent(key)}`)
+  },
+  async createSetting(data: { key: string; value: string; description?: string }): Promise<ApiResponse<Setting>> {
+    return apiClient.post<Setting>('/api/settings', data)
+  },
+  async updateSetting(id: number, data: { value: string; description?: string }): Promise<ApiResponse<Setting>> {
+    return apiClient.put<Setting>(`/api/settings/${id}`, data)
+  },
+  async updateSettingByKey(key: string, data: { value: string; description?: string }): Promise<ApiResponse<Setting>> {
+    return apiClient.put<Setting>(`/api/settings/${key}`, data)
+  },
+  async deleteSetting(id: number): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(`/api/settings/${id}`)
+  },
+}
+
 // Predefined menu structure for access control
 export const MENU_STRUCTURE: MenuAccess[] = [
   {
@@ -1926,6 +1964,12 @@ export const MENU_STRUCTURE: MenuAccess[] = [
         id: 'setting-alert',
         name: 'Notification Alert',
         path: '/notification-alert',
+        hasAccess: false
+      },
+      {
+        id: 'setting-options',
+        name: 'Setting Options',
+        path: '/setting-options',
         hasAccess: false
       }
     ]

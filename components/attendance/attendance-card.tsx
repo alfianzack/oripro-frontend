@@ -1,7 +1,8 @@
 'use client'
 
-import { assetsApi, attendanceApi } from "@/lib/api";
+import { assetsApi, attendanceApi, settingsApi, authApi, usersApi, Attendance, User } from "@/lib/api";
 import React, { useEffect, useState } from "react";
+import { MapPin, AtSign, CheckCircle2, LogIn, LogOut, Clock, RefreshCw } from "lucide-react";
 
 interface TodayAttendanceStatus {
   hasCheckedIn: boolean;
@@ -20,6 +21,44 @@ export default function AttendanceCard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastAttendance, setLastAttendance] = useState<string | null>(null);
   const [todayAttendanceStatus, setTodayAttendanceStatus] = useState<TodayAttendanceStatus | null>(null);
+  const [radiusDistance, setRadiusDistance] = useState<number>(20000); // Default 20000 meters
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
+  const [currentDistance, setCurrentDistance] = useState<number | null>(null);
+
+  // Load current user
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const user = await authApi.getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Error loading current user:', error);
+      }
+    };
+    loadCurrentUser();
+  }, []);
+
+  // Load attendance history (last 10 days)
+  useEffect(() => {
+    const loadAttendanceHistory = async () => {
+      try {
+        const response = await attendanceApi.getUserAttendanceHistory(10);
+        if (response.success && response.data) {
+          const responseData = response.data as any;
+          const history = Array.isArray(responseData.data) 
+            ? responseData.data 
+            : (Array.isArray(responseData) ? responseData : []);
+          setAttendanceHistory(history);
+        }
+      } catch (error) {
+        console.error('Error loading attendance history:', error);
+      }
+    };
+    if (currentUser?.id) {
+      loadAttendanceHistory();
+    }
+  }, [currentUser?.id, refreshKey]);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -27,6 +66,39 @@ export default function AttendanceCard() {
     if (savedAttendance) {
       setLastAttendance(savedAttendance);
     }
+  }, []);
+
+  // Load radius distance setting from table settings with key "attendance_radius_distance"
+  useEffect(() => {
+    const loadRadiusDistance = async () => {
+      try {
+        const response = await settingsApi.getSettingByKey('attendance_radius_distance');
+        if (response.success && response.data) {
+          // Handle different response structures
+          const settingData = response.data as any;
+          // Get value from setting object - could be direct or nested
+          const settingValue = settingData.value || (settingData.data && settingData.data.value);
+          
+          if (settingValue) {
+            const value = parseFloat(settingValue);
+            if (!isNaN(value) && value > 0) {
+              console.log('Loaded attendance radius distance from settings:', value);
+              setRadiusDistance(value);
+            } else {
+              console.warn('Invalid radius distance value from settings:', settingValue);
+            }
+          } else {
+            console.warn('No value found in attendance radius distance setting');
+          }
+        } else {
+          console.warn('Failed to load attendance radius distance setting:', response.error || response.message);
+        }
+      } catch (error) {
+        console.error('Error loading attendance radius distance:', error);
+        // Keep default value (20000 meters) on error
+      }
+    };
+    loadRadiusDistance();
   }, []);
 
   // Check today's attendance status
@@ -185,38 +257,76 @@ export default function AttendanceCard() {
   }, [refreshKey]);
 
   useEffect(() => {
-    // 2. Fetch asset latlongs (dummy API, replace with real endpoint)
+    // 2. Fetch user assets from user_assets table
     async function fetchAssets() {
-      // Example: fetch("/api/assets") or hardcode for demo
-      // For demo, hardcode 2 assets with more realistic coordinates
-      // Using Jakarta coordinates as example
-      const response = await assetsApi.getAssets();
-      
-      if (response.success && response.data) {
-        const responseData = response.data as any
-        const assetsData = Array.isArray(responseData.data) ? responseData.data : []
-        console.log('Assets data:', assetsData);
-        setAssets(assetsData)
-      } else {
-        console.error('Gagal memuat data assets')
+      try {
+        // Use currentUser from state instead of fetching again
+        if (!currentUser || !currentUser.id) {
+          console.error('User tidak ditemukan');
+          setLoading(false);
+          return;
+        }
+
+        // Get user assets from user_assets table
+        const response = await usersApi.getUserAssets(currentUser.id);
+        
+        if (response.success && response.data) {
+          const responseData = response.data as any;
+          // Handle different response structures
+          const userAssetsData = Array.isArray(responseData.data) 
+            ? responseData.data 
+            : (Array.isArray(responseData) ? responseData : []);
+          
+          console.log('User assets data:', userAssetsData);
+          
+          // Map user assets to format expected by attendance card
+          // Extract asset data from user_assets (asset object contains full asset data)
+          const mappedAssets = userAssetsData
+            .filter((ua: any) => {
+              // Filter only assets that have valid coordinates
+              // Asset data is in ua.asset object
+              const asset = ua.asset;
+              return asset && asset.latitude && asset.longitude;
+            })
+            .map((ua: any) => {
+              // Use asset object which contains full asset data including coordinates
+              const asset = ua.asset;
+              return {
+                id: asset.id || ua.asset_id,
+                name: asset.name || ua.asset_name || 'Unknown Asset',
+                lat: asset.latitude,
+                lng: asset.longitude,
+              };
+            });
+          
+          console.log('Mapped assets for attendance:', mappedAssets);
+          setAssets(mappedAssets);
+        } else {
+          console.error('Gagal memuat data user assets:', response.error || response.message);
+          setAssets([]);
+        }
+      } catch (error) {
+        console.error('Error fetching user assets:', error);
+        setAssets([]);
       }
-      
     }
-    fetchAssets();
-  }, [refreshKey]);
+    if (currentUser?.id) {
+      fetchAssets();
+    }
+  }, [refreshKey, currentUser?.id]);
 
   useEffect(() => {
-    // 3. Cek apakah user dekat dengan salah satu asset (misal < 100 meter)
+    // 3. Cek apakah user dekat dengan salah satu asset
     if (location && assets.length > 0) {
       console.log('Checking distance for location:', location);
       console.log('Available assets:', assets);
+      console.log('Radius distance allowed:', radiusDistance);
       
-      let found = false;
       let nearest = null;
-      let minDistance = 20000;
+      let nearestDistance = Infinity;
       
+      // Find the nearest asset (regardless of radius)
       for (const asset of assets) {
-        
         // Check different possible field names for coordinates
         const assetLat = asset.lat || (asset as any).latitude || (asset as any).latitude_coordinate;
         const assetLng = asset.lng || (asset as any).longitude || (asset as any).longitude_coordinate;
@@ -227,40 +337,61 @@ export default function AttendanceCard() {
         }
         
         const dist = getDistanceFromLatLonInMeters(location.lat, location.lng, assetLat, assetLng);
-        console.log('Distance:', dist);
-        if (dist < minDistance) { // 1000 meter threshold for easier testing
-          found = true;
+        console.log(`Distance to ${asset.name}:`, dist, 'meters');
+        
+        // Find the nearest asset
+        if (dist < nearestDistance) {
+          nearestDistance = dist;
           nearest = asset;
-          minDistance = dist;
-          break;
         }
       }
       
-      setIsNearAsset(found);
-      
-      // Ensure nearest asset has valid ID before setting - can be UUID (string) or number
-      if (nearest && nearest.id) {
-        const assetId = nearest.id; // Keep as-is (UUID string or number)
+      // Set current distance to nearest asset
+      if (nearest && nearestDistance !== Infinity) {
+        setCurrentDistance(nearestDistance);
+        console.log('Nearest asset:', nearest.name, 'Distance:', nearestDistance, 'meters');
         
-        // Basic validation - just check it's not empty/null/undefined
-        if (assetId !== null && assetId !== undefined && assetId !== '') {
-          setNearestAsset({id: String(assetId), name: nearest.name});
-          // Check today's attendance status if near asset
-          console.log('Checking today status for asset ID:', assetId);
-          console.log('Found:', found);
-          if (found) {
-            checkTodayStatus(assetId);
+        // Check if within radius
+        const withinRadius = nearestDistance <= radiusDistance;
+        setIsNearAsset(withinRadius);
+        console.log('Within radius:', withinRadius, `(${nearestDistance} <= ${radiusDistance})`);
+        
+        // Set nearest asset regardless of radius (so we can show info)
+        if (nearest.id) {
+          const assetId = nearest.id;
+          if (assetId !== null && assetId !== undefined && assetId !== '') {
+            setNearestAsset({id: String(assetId), name: nearest.name});
+            
+            // Only check today status if within radius
+            if (withinRadius) {
+              console.log('Checking today status for asset ID:', assetId);
+              checkTodayStatus(assetId);
+            }
+          } else {
+            console.error('Invalid asset ID:', nearest.id);
+            setNearestAsset(null);
           }
         } else {
-          console.error('Invalid asset ID:', nearest.id);
           setNearestAsset(null);
         }
       } else {
+        console.log('No nearest asset found');
         setNearestAsset(null);
+        setCurrentDistance(null);
+        setIsNearAsset(false);
       }
+    } else if (location && assets.length === 0) {
+      console.log('No assets available');
+      setNearestAsset(null);
+      setCurrentDistance(null);
+      setIsNearAsset(false);
     }
-    setLoading(false);
-  }, [location, assets]);
+    
+    // Set loading to false when we have location or when we've checked all assets
+    if (location !== null) {
+      setLoading(false);
+    }
+  }, [location, assets, radiusDistance]);
 
   const handleAbsensi = async () => {
     if (!nearestAsset || !location) return;
@@ -321,9 +452,22 @@ export default function AttendanceCard() {
       localStorage.setItem('lastAttendance', JSON.stringify(attendanceData));
       setLastAttendance(JSON.stringify(attendanceData));
       
-      // Refresh today status after a short delay to ensure database is updated
+      // Refresh today status and attendance history after a short delay to ensure database is updated
       setTimeout(async () => {
         await checkTodayStatus(assetId);
+        // Reload attendance history
+        try {
+          const historyResponse = await attendanceApi.getUserAttendanceHistory(10);
+          if (historyResponse.success && historyResponse.data) {
+            const responseData = historyResponse.data as any;
+            const history = Array.isArray(responseData.data) 
+              ? responseData.data 
+              : (Array.isArray(responseData) ? responseData : []);
+            setAttendanceHistory(history);
+          }
+        } catch (error) {
+          console.error('Error reloading attendance history:', error);
+        }
       }, 500);
       
       // Auto reset after 3 seconds
@@ -344,6 +488,7 @@ export default function AttendanceCard() {
     setIsNearAsset(false);
     setNearestAsset(null);
     setLocation(null);
+    setCurrentDistance(null);
     setRefreshKey(prev => prev + 1);
     
     // Reload location
@@ -362,6 +507,36 @@ export default function AttendanceCard() {
     }
   };
 
+  // Format employee ID (e.g., ID400099)
+  const formatEmployeeId = (userId: string | undefined) => {
+    if (!userId) return 'ID-';
+    // Extract last 6 characters and pad with zeros if needed
+    const idPart = userId.length > 6 ? userId.slice(-6) : userId.padStart(6, '0');
+    // Convert to numeric format if possible
+    const numericPart = idPart.replace(/\D/g, '');
+    if (numericPart.length > 0) {
+      return `ID${numericPart.padStart(6, '0')}`;
+    }
+    return `ID${idPart}`;
+  };
+
+  // Group attendance history by date
+  const groupAttendanceByDate = (history: Attendance[]) => {
+    const grouped: { [key: string]: Attendance[] } = {};
+    history.forEach((attendance) => {
+      const date = new Date(attendance.check_in_time).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      if (!grouped[date]) {
+        grouped[date] = [];
+      }
+      grouped[date].push(attendance);
+    });
+    return grouped;
+  };
+
   if (loading) {
     return (
       <div className="p-6 bg-white rounded-lg shadow flex items-center justify-center min-h-[120px]">
@@ -370,149 +545,160 @@ export default function AttendanceCard() {
     );
   }
 
+  const groupedHistory = groupAttendanceByDate(attendanceHistory);
+  const isInsideRadius = isNearAsset && currentDistance !== null && currentDistance <= radiusDistance;
+
   return (
-    <div className="p-6 bg-white rounded-lg shadow flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Absensi Lokasi</h2>
-        <button 
-          onClick={handleRefresh}
-          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded transition-colors"
-        >
-          🔄 Refresh
-        </button>
-      </div>
-      
-      {  nearestAsset ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-green-800 font-medium">
-              Anda berada di sekitar: <span className="font-bold">{nearestAsset.name}</span>
+    <div className="space-y-4">
+      {/* Attendance Status Card */}
+      {nearestAsset ? (
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 space-y-4 mb-4">
+        <div className="flex items-start gap-3">
+          <MapPin className="h-5 w-5 text-gray-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-xs text-gray-500 mb-1">Nearest Location</div>
+            <div className="text-sm font-semibold text-gray-900">{nearestAsset.name}</div>
+          </div>
+        </div>
+        
+         <div className="flex items-start gap-3">
+           <AtSign className="h-5 w-5 text-gray-600 mt-0.5" />
+           <div className="flex-1">
+             <div className="flex items-center justify-between mb-1">
+               <div className="text-xs text-gray-500">Attendance Radius</div>
+               <button
+                 onClick={handleRefresh}
+                 disabled={loading}
+                 className="p-1.5 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                 title="Refresh jarak"
+               >
+                 <RefreshCw className={`h-4 w-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
+               </button>
+             </div>
+             <div className="text-sm font-semibold text-gray-900">
+               {currentDistance !== null 
+                 ? (currentDistance < 1000 
+                     ? `${Math.round(currentDistance)} meters` 
+                     : `${(currentDistance / 1000).toFixed(1)} km`)
+                 : (radiusDistance < 1000 
+                     ? `${Math.round(radiusDistance)} meters` 
+                     : `${(radiusDistance / 1000).toFixed(1)} km`)
+               }
+             </div>
+           </div>
+         </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+          <span className="text-sm text-gray-700">Radius Status</span>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md ${
+            isInsideRadius 
+              ? 'bg-green-500 text-white' 
+              : 'bg-red-100 text-red-700'
+          }`}>
+            <CheckCircle2 className={`h-4 w-4 ${isInsideRadius ? 'text-white' : 'text-red-700'}`} />
+            <span className="text-xs font-medium">
+              {isInsideRadius ? 'Inside Radius' : 'Outside Radius'}
             </span>
           </div>
-          
-          {/* Attendance Status Info */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            {/* Display current date */}
-            <div className="text-xs text-blue-600 mb-2 font-medium">
-              {formatDateWithDay(new Date().toISOString())}
-            </div>
-            
-            {todayAttendanceStatus ? (
-              <>
-                {todayAttendanceStatus.hasCheckedIn && !todayAttendanceStatus.hasCheckedOut && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-blue-800">
-                      <span className="text-lg">✅</span>
-                      <span>Sudah check-in hari ini. Silakan check-out saat pulang.</span>
-                    </div>
-                    {todayAttendanceStatus.attendance?.check_in_time && (
-                      <div className="text-sm text-blue-700 ml-7">
-                        Check-in: {formatTime(todayAttendanceStatus.attendance.check_in_time)}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {todayAttendanceStatus.hasCheckedIn && todayAttendanceStatus.hasCheckedOut && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-blue-800">
-                      <span className="text-lg">✅</span>
-                      <span>Sudah check-in dan check-out hari ini.</span>
-                    </div>
-                    {todayAttendanceStatus.attendance?.check_in_time && (
-                      <div className="text-sm text-blue-700 ml-7">
-                        Check-in: {formatTime(todayAttendanceStatus.attendance.check_in_time)}
-                      </div>
-                    )}
-                    {todayAttendanceStatus.attendance?.check_out_time && (
-                      <div className="text-sm text-blue-700 ml-7">
-                        Check-out: {formatTime(todayAttendanceStatus.attendance.check_out_time)}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!todayAttendanceStatus.hasCheckedIn && (
-                  <div className="flex items-center gap-2 text-blue-800">
-                    <span className="text-lg">❌</span>
-                    <span>Belum check-in hari ini.</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-2 text-blue-800">
-                <span className="text-lg">⏳</span>
-                <span>Memuat status absensi...</span>
-              </div>
-            )}
-          </div>
-          
-          {/* Dynamic Button - Always show if near asset */}
-          <button
-            className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-              todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl'
-                : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl'
-            } ${attendanceStatus === "success" ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={handleAbsensi}
-            disabled={attendanceStatus === "success"}
-          >
-            {todayAttendanceStatus ? (
-              todayAttendanceStatus.hasCheckedIn && !todayAttendanceStatus.hasCheckedOut
-                ? 'Check Out'
-                : 'Check In'
-            ) : (
-              'Check In'
-            )}
-          </button>
-          
-          {attendanceStatus === "success" && (
-            <div className="flex items-center justify-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <span className="text-lg">✅</span>
-              <span className="text-green-800 font-medium">
-                {todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut
-                  ? 'Check-out berhasil!'
-                  : 'Check-in berhasil!'
-                }
-              </span>
-            </div>
-          )}
-          {attendanceStatus === "error" && (
-            <div className="flex items-center justify-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <span className="text-lg">❌</span>
-              <span className="text-red-800 font-medium">Gagal absen. Coba lagi.</span>
-            </div>
-          )}
         </div>
-      ) : (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <span className="text-lg">❌</span>
-          <span className="text-red-800">
-            Anda tidak berada di sekitar asset yang terdaftar. Silakan pindah ke lokasi asset untuk melakukan absensi.
+      </div>
+    ) : (
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-4">
+        <div className="text-center text-gray-600 py-4">
+          <p className="text-sm">Mendeteksi lokasi terdekat...</p>
+        </div>
+      </div>
+    )}
+
+    {/* Warning message when outside radius */}
+    {nearestAsset && !isInsideRadius && (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold text-red-800 mb-1">Anda tidak berada pada radius absensi</h4>
+            <p className="text-xs text-red-700">
+              Anda berada di luar radius yang diizinkan untuk melakukan absensi. 
+              {currentDistance !== null && (
+                <span> Jarak Anda saat ini: {currentDistance < 1000 
+                  ? `${Math.round(currentDistance)} meters` 
+                  : `${(currentDistance / 1000).toFixed(1)} km`} dari {nearestAsset.name}. 
+                  Radius yang diizinkan: {radiusDistance < 1000 
+                    ? `${Math.round(radiusDistance)} meters` 
+                    : `${(radiusDistance / 1000).toFixed(1)} km`}.</span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Action Buttons */}
+    {nearestAsset && isInsideRadius && (
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={handleAbsensi}
+          disabled={
+            attendanceStatus === "success" || 
+            (todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut)
+          }
+          className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+            attendanceStatus === "success" || 
+            (todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut)
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
+          }`}
+        >
+          <LogIn className="h-5 w-5" />
+          <span>Check In</span>
+        </button>
+        
+        <button
+          onClick={handleAbsensi}
+          disabled={
+            attendanceStatus === "success" || 
+            !todayAttendanceStatus?.hasCheckedIn ||
+            todayAttendanceStatus?.hasCheckedOut
+          }
+          className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+            attendanceStatus === "success" || 
+            !todayAttendanceStatus?.hasCheckedIn ||
+            todayAttendanceStatus?.hasCheckedOut
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'
+          }`}
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Check Out</span>
+        </button>
+      </div>
+    )}
+
+    {/* Success/Error Messages */}
+    {attendanceStatus === "success" && (
+      <div className="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-medium">
+            {todayAttendanceStatus?.hasCheckedIn && !todayAttendanceStatus?.hasCheckedOut
+              ? 'Check-out berhasil!'
+              : 'Check-in berhasil!'
+            }
           </span>
         </div>
-      )}
-      
-      {/* Last Attendance Info */}
-      {lastAttendance && (
-        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded mt-2">
-          <div className="font-medium">Absensi Terakhir:</div>
-          {(() => {
-            try {
-              const data = JSON.parse(lastAttendance);
-              const date = new Date(data.timestamp);
-              return (
-                <div>
-                  <div>Asset: {data.assetName}</div>
-                  <div>Hari: {date.toLocaleDateString('id-ID', { weekday: 'long' })}</div>
-                  <div>Tanggal: {date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                  <div>Waktu: {date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-              );
-            } catch {
-              return <div>Data absensi tidak valid</div>;
-            }
-          })()}
+      </div>
+    )}
+    {attendanceStatus === "error" && (
+      <div className="mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5 text-red-600" />
+          <span className="text-sm font-medium">Gagal absen. Coba lagi.</span>
         </div>
+      </div>
       )}
     </div>
   );
