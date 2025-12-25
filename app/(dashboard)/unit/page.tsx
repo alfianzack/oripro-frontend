@@ -12,9 +12,11 @@ import { Home, Building2, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import UnitsTable from '@/components/table/units-table'
 import UnitDetailDialog from '@/components/dialogs/unit-detail-dialog'
 import toast from 'react-hot-toast'
+import { useMenuPermissions } from '@/hooks/useMenuPermissions'
 
 export default function UnitsPage() {
   const router = useRouter()
+  const { can_add, can_edit, can_delete } = useMenuPermissions()
   const [units, setUnits] = useState<Unit[]>([])
   const [filteredUnits, setFilteredUnits] = useState<Unit[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,10 +207,12 @@ export default function UnitsPage() {
             Kelola unit dan ruang sewa
           </p>
         </div>
-        <Button onClick={() => router.push('/unit/create')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Unit
-        </Button>
+        {can_add && (
+          <Button onClick={() => router.push('/unit/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Unit
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -368,6 +372,8 @@ export default function UnitsPage() {
               loading={loading}
               pagination={pagination || undefined}
               onPageChange={handlePageChange}
+              can_edit={can_edit}
+              can_delete={can_delete}
             />
           )}
         </CardContent>

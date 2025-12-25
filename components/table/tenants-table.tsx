@@ -91,6 +91,8 @@ interface TenantsTableProps {
   loading?: boolean
   pagination?: PaginationInfo
   onPageChange?: (offset: number) => void
+  can_edit?: boolean
+  can_delete?: boolean
 }
 
 export default function TenantsTable({ 
@@ -100,7 +102,9 @@ export default function TenantsTable({
   onRefresh, 
   loading = false,
   pagination,
-  onPageChange
+  onPageChange,
+  can_edit = true,
+  can_delete = true
 }: TenantsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
@@ -379,12 +383,16 @@ export default function TenantsTable({
                           <Button size="icon" variant="ghost" onClick={() => onView(tenant)} className="rounded-[50%] text-blue-500 bg-blue-500/10">
                               <Eye className="w-5 h-5" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => onEdit(tenant)} className="rounded-[50%] text-green-600 bg-green-600/10">
-                              <Edit className="w-5 h-5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(tenant)} className="rounded-[50%] text-red-500 bg-red-500/10">
-                              <Trash2 className="w-5 h-5" />
-                          </Button>
+                          {can_edit && (
+                            <Button size="icon" variant="ghost" onClick={() => onEdit(tenant)} className="rounded-[50%] text-green-600 bg-green-600/10">
+                                <Edit className="w-5 h-5" />
+                            </Button>
+                          )}
+                          {can_delete && (
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(tenant)} className="rounded-[50%] text-red-500 bg-red-500/10">
+                                <Trash2 className="w-5 h-5" />
+                            </Button>
+                          )}
                       </div>
                   </TableCell>
                 </TableRow>

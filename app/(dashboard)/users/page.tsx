@@ -12,9 +12,11 @@ import { Home, UsersRound, Plus, Search, RefreshCw, Loader2 } from 'lucide-react
 import UsersTable from '@/components/table/users-table'
 import UserDetailDialog from '@/components/dialogs/user-detail-dialog'
 import toast from 'react-hot-toast'
+import { useMenuPermissions } from '@/hooks/useMenuPermissions'
 
 export default function UsersPage() {
   const router = useRouter()
+  const { can_add, can_edit, can_delete } = useMenuPermissions()
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -213,10 +215,12 @@ export default function UsersPage() {
             Kelola pengguna dan akses sistem
           </p>
         </div>
-        <Button onClick={() => router.push('/users/create')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah User
-        </Button>
+        {can_add && (
+          <Button onClick={() => router.push('/users/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah User
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -388,6 +392,8 @@ export default function UsersPage() {
               loading={loading}
               pagination={pagination || undefined}
               onPageChange={handlePageChange}
+              can_edit={can_edit}
+              can_delete={can_delete}
             />
           )}
         </CardContent>

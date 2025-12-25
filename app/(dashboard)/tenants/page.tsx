@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Home, Users, Plus, Search, RefreshCw, Loader2, FileText } from 'lucide-react'
+import { useMenuPermissions } from '@/hooks/useMenuPermissions'
 
 // Category options
 const CATEGORY_OPTIONS = [
@@ -50,6 +51,7 @@ import toast from 'react-hot-toast'
 
 export default function TenantsPage() {
   const router = useRouter()
+  const { can_add, can_edit, can_delete } = useMenuPermissions()
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [filteredTenants, setFilteredTenants] = useState<Tenant[]>([])
   const [loading, setLoading] = useState(true)
@@ -285,7 +287,7 @@ export default function TenantsPage() {
             Kelola data tenant dan kontrak sewa
           </p>
         </div>
-        {!isTenantUser && (
+        {!isTenantUser && can_add && (
           <Button onClick={() => router.push('/tenants/create')}>
             <Plus className="mr-2 h-4 w-4" />
             Tambah Tenant
@@ -456,6 +458,8 @@ export default function TenantsPage() {
               loading={loading}
               pagination={!isTenantUser ? (pagination || undefined) : undefined}
               onPageChange={handlePageChange}
+              can_edit={can_edit}
+              can_delete={can_delete}
             />
           )}
         </CardContent>

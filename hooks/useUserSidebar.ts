@@ -49,8 +49,14 @@ interface SidebarItem {
     title: string
     url: string
     circleColor: string
+    can_add?: boolean
+    can_edit?: boolean
+    can_delete?: boolean
   }>
   label?: string
+  can_add?: boolean
+  can_edit?: boolean
+  can_delete?: boolean
 }
 
 interface UserSidebar {

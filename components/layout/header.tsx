@@ -18,7 +18,7 @@ const Header = () => {
                 {/* <ModeToggle/> */}
                 {/* <LanguageSelect/> */}
                 {/* <MessageDropdown/> */}
-                <NotificationDropdown/>
+                {/* <NotificationDropdown/> */}
                 <ProfileDropdown/>
             </div>
         </header>

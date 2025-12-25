@@ -12,9 +12,11 @@ import { Home, Boxes, Plus, Search, RefreshCw, Loader2 } from 'lucide-react'
 import AssetsTable from '@/components/table/assets-table'
 import AssetDetailDialog from '@/components/dialogs/asset-detail-dialog'
 import toast from 'react-hot-toast'
+import { useMenuPermissions } from '@/hooks/useMenuPermissions'
 
 export default function AssetsPage() {
   const router = useRouter()
+  const { can_add, can_edit, can_delete } = useMenuPermissions()
   const [assets, setAssets] = useState<Asset[]>([])
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
@@ -218,10 +220,12 @@ export default function AssetsPage() {
             Kelola data aset dan properti
           </p>
         </div>
-        <Button onClick={() => router.push('/asset/create')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Asset
-        </Button>
+        {can_add && (
+          <Button onClick={() => router.push('/asset/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Asset
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -405,6 +409,8 @@ export default function AssetsPage() {
               loading={loading}
               pagination={pagination || undefined}
               onPageChange={handlePageChange}
+              can_edit={can_edit}
+              can_delete={can_delete}
             />
           )}
         </CardContent>

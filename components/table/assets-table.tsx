@@ -39,6 +39,8 @@ interface AssetsTableProps {
   loading?: boolean
   pagination?: PaginationInfo
   onPageChange?: (offset: number) => void
+  can_edit?: boolean
+  can_delete?: boolean
 }
 
 export default function AssetsTable({ 
@@ -48,7 +50,9 @@ export default function AssetsTable({
   onRefresh, 
   loading = false,
   pagination,
-  onPageChange
+  onPageChange,
+  can_edit = true,
+  can_delete = true
 }: AssetsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null)
@@ -267,12 +271,16 @@ export default function AssetsTable({
                           <Button size="icon" variant="ghost" onClick={() => onView(asset)} className="rounded-[50%] text-blue-500 bg-blue-500/10">
                               <Eye className="w-5 h-5" />
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => onEdit(asset)} className="rounded-[50%] text-green-600 bg-green-600/10">
-                              <Edit className="w-5 h-5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(asset)} className="rounded-[50%] text-red-500 bg-red-500/10">
-                              <Trash2 className="w-5 h-5" />
-                          </Button>
+                          {can_edit && (
+                            <Button size="icon" variant="ghost" onClick={() => onEdit(asset)} className="rounded-[50%] text-green-600 bg-green-600/10">
+                                <Edit className="w-5 h-5" />
+                            </Button>
+                          )}
+                          {can_delete && (
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteClick(asset)} className="rounded-[50%] text-red-500 bg-red-500/10">
+                                <Trash2 className="w-5 h-5" />
+                            </Button>
+                          )}
                       </div>
                   </TableCell>
                 </TableRow>
