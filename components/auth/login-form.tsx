@@ -107,7 +107,7 @@ const LoginForm = () => {
             router.push('/dashboard-worker')
           } else {
             // Fallback untuk role lain atau jika role tidak ditemukan
-            console.warn('Role tidak dikenali:', roleName, '- redirecting to welcome')
+            console.log('Role tidak dikenali:', roleName, '- redirecting to welcome')
             router.push('/welcome')
           }
         } else {

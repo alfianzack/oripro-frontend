@@ -23,14 +23,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
 const userFormSchema = z.object({
   email: z.string().email('Email tidak valid'),
-  password: z.string().min(6, 'Password minimal 6 karakter').optional().or(z.literal('')),
+  password: z.string()
+    .refine((val) => {
+      // Allow empty password for update (optional)
+      if (!val || val === '') return true
+      // Validate password requirements
+      const hasUppercase = /[A-Z]/.test(val)
+      const hasLowercase = /[a-z]/.test(val)
+      const hasNumber = /[0-9]/.test(val)
+      const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val)
+      const minLength = val.length >= 6
+      return hasUppercase && hasLowercase && hasNumber && hasSpecialChar && minLength
+    }, {
+      message: 'Password harus mengandung huruf besar, huruf kecil, angka, dan simbol (min. 6 karakter)'
+    })
+    .optional()
+    .or(z.literal('')),
   name: z.string().min(1, 'Nama wajib diisi'),
   phone: z.string().min(1, 'Nomor telepon wajib diisi'),
   gender: z.string().min(1, 'Jenis kelamin wajib dipilih'),
@@ -53,6 +68,13 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
   const [rolesLoading, setRolesLoading] = useState(false)
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordValidation, setPasswordValidation] = useState({
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+    minLength: false
+  })
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
@@ -130,6 +152,51 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
   useEffect(() => {
     form.setValue('assetIds', selectedAssets)
   }, [selectedAssets, form])
+
+  const validatePassword = (password: string) => {
+    const hasUppercase = /[A-Z]/.test(password)
+    const hasLowercase = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    const minLength = password.length >= 6
+
+    setPasswordValidation({
+      hasUppercase,
+      hasLowercase,
+      hasNumber,
+      hasSpecialChar,
+      minLength
+    })
+
+    return hasUppercase && hasLowercase && hasNumber && hasSpecialChar && minLength
+  }
+
+  const generatePassword = () => {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+    const numbers = '0123456789'
+    const specialChars = '!@#$%^&*()_+-=[]{}|;:,.<>?'
+    
+    // Ensure at least one of each type
+    let password = ''
+    password += uppercase[Math.floor(Math.random() * uppercase.length)]
+    password += lowercase[Math.floor(Math.random() * lowercase.length)]
+    password += numbers[Math.floor(Math.random() * numbers.length)]
+    password += specialChars[Math.floor(Math.random() * specialChars.length)]
+    
+    // Fill the rest randomly (total 12 characters)
+    const allChars = uppercase + lowercase + numbers + specialChars
+    for (let i = password.length; i < 12; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)]
+    }
+    
+    // Shuffle the password
+    password = password.split('').sort(() => Math.random() - 0.5).join('')
+    
+    // Set the password in the form
+    form.setValue('password', password)
+    validatePassword(password)
+  }
 
   const handleSubmit = async (data: UserFormData) => {
     try {
@@ -219,11 +286,11 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                 <FormLabel>Jenis Kelamin <span className="text-red-500">*</span></FormLabel>
                 <Select onValueChange={(value) => field.onChange(value)} value={field.value?.toString()}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Pilih jenis kelamin" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="w-full">
                     <SelectItem value="male">Laki-laki</SelectItem>
                     <SelectItem value="female">Perempuan</SelectItem>
                   </SelectContent>
@@ -243,24 +310,91 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                 Password {user ? '(kosongkan jika tidak ingin mengubah)' : '*'}
               </FormLabel>
               <FormControl>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder={user ? 'Kosongkan jika tidak ingin mengubah' : 'Masukkan password'} 
-                    {...field} 
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder={user ? 'Kosongkan jika tidak ingin mengubah' : 'Masukkan password'} 
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        if (e.target.value) {
+                          validatePassword(e.target.value)
+                        } else {
+                          setPasswordValidation({
+                            hasUppercase: false,
+                            hasLowercase: false,
+                            hasNumber: false,
+                            hasSpecialChar: false,
+                            minLength: false
+                          })
+                        }
+                      }}
+                      className="pr-20"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {!user && (
+                        <button
+                          type="button"
+                          onClick={generatePassword}
+                          className="text-gray-500 hover:text-gray-700 focus:outline-none p-1"
+                          title="Generate Password"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-gray-500 hover:text-gray-700 focus:outline-none p-1"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  {field.value && (
+                    <div className="space-y-1 mt-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.minLength ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={passwordValidation.minLength ? 'text-green-600' : 'text-gray-500'}>
+                          Minimal 6 karakter
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.hasUppercase ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={passwordValidation.hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                          Huruf besar (A-Z)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.hasLowercase ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={passwordValidation.hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                          Huruf kecil (a-z)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                          Angka (0-9)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className={`w-2 h-2 rounded-full ${passwordValidation.hasSpecialChar ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <span className={passwordValidation.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}>
+                          Simbol (!@#$%^&*...)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {!field.value && !user && (
+                    <p className="text-xs text-muted-foreground">
+                      Masukkan min. 6 karakter dengan kombinasi Huruf Kapital, Huruf Kecil, Angka, dan Simbol
+                    </p>
+                  )}
                 </div>
               </FormControl>
               <FormMessage />
@@ -278,13 +412,13 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                 <FormLabel>Role</FormLabel>
                 <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder={
                         rolesLoading ? "Memuat roles..." : "Pilih role (opsional)"
                       } />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="w-full">
                     <SelectItem value="none">Tidak ada role</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.id.toString()}>
@@ -306,11 +440,11 @@ export default function UserForm({ user, onSubmit, onCancel, loading = false }: 
                 <FormLabel>Status</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Pilih status" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="w-full">
                     <SelectItem value="active">Aktif</SelectItem>
                     <SelectItem value="inactive">Tidak Aktif</SelectItem>
                   </SelectContent>
