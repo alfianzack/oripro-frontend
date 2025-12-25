@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { RouteGuard } from "@/components/route-guard";
 
 export function ClientRoot({
   defaultOpen,
@@ -29,7 +30,9 @@ export function ClientRoot({
             <Header />
           </SidebarInset>
           <div className="bg-neutral-100 dark:bg-[#1e2734] md:p-6 p-4 flex-1">
-            {children}
+            <RouteGuard>
+              {children}
+            </RouteGuard>
           </div>
           <Footer />
         </main>

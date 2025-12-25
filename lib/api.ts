@@ -549,6 +549,12 @@ export const usersApi = {
     return apiClient.get<{ menus: any[] }>('/api/users/menus')
   },
 
+  async checkMenuAccess(url: string): Promise<ApiResponse<{ hasAccess: boolean }>> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('url', url)
+    return apiClient.get<{ hasAccess: boolean }>(`/api/users/check-menu-access?${queryParams.toString()}`)
+  },
+
   async getUserSidebar(): Promise<ApiResponse<{ navMain: any[] }>> {
     return apiClient.get<{ navMain: any[] }>('/api/users/sidebar')
   },
