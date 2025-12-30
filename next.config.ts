@@ -15,16 +15,30 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/welcome',
+        permanent: false,
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
-    // Ensure html5-qrcode is only bundled for client-side
+    // Client-side fallbacks
     if (!isServer) {
       config.resolve.fallback = {
         ...(config.resolve.fallback || {}),
         fs: false,
         path: false,
         crypto: false,
+        stream: false,
+        util: false,
+        buffer: false,
+        process: false,
       };
     }
+
     return config;
   },
   // Security headers to protect against various attacks

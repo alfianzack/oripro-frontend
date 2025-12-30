@@ -1,8 +1,12 @@
 import React from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import CustomSelect from "@/components/shared/custom-select";
 import CountryList from "@/components/shared/country-list";
-import WorldMapChart from "@/components/charts/world-map-chart";
+
+const WorldMapChart = dynamic(() => import("@/components/charts/world-map-chart"), {
+  ssr: false,
+});
 
 const TopCountriesCard = () => {
   return (
