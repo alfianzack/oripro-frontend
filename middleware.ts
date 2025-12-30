@@ -1,4 +1,3 @@
-import { auth } from "./auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -69,17 +68,15 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // For protected routes (including /welcome), check authentication
-  let session = null;
-  let isAuthenticated = false;
-
-  try {
-    session = await auth();
-    isAuthenticated = !!session?.user;
-  } catch (error) {
-    console.log('Auth middleware error:', error);
-    isAuthenticated = false;
-  }
+  // For protected routes, check for session cookie
+  // NextAuth stores session in a cookie named 'authjs.session-token' (or similar)
+  // Check for the session cookie instead of calling auth() which requires Node.js runtime
+  const sessionToken = req.cookies.get("authjs.session-token") || 
+                       req.cookies.get("__Secure-authjs.session-token") ||
+                       req.cookies.get("next-auth.session-token") ||
+                       req.cookies.get("__Secure-next-auth.session-token");
+  
+  const isAuthenticated = !!sessionToken;
 
   // If not authenticated and not on public route, redirect to login
   if (!isAuthenticated) {
@@ -92,43 +89,16 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-
-
-// import { auth } from "./auth";
-// import { NextResponse } from "next/server";
-// import type { NextRequest } from "next/server";
-
-// const publicRoutes = [
-//   "/auth/login",
-//   "/auth/register",
-//   "/auth/forgot-password",
-//   "/auth/create-password",
-// ];
-
-// export async function middleware(req: NextRequest) {
-//   const { pathname } = req.nextUrl;
-
-//   if (
-//     pathname.startsWith("/_next/") ||   
-//     pathname.startsWith("/static/") ||  
-//     pathname.startsWith("/favicon.ico") ||
-//     pathname.startsWith("/robots.txt") ||
-//     pathname.startsWith("/api/") ||      
-//     pathname.startsWith("/public/")       
-//   ) {
-//     return NextResponse.next();
-//   }
-
-//   if (publicRoutes.some(route => pathname.startsWith(route))) {
-//     return NextResponse.next();
-//   }
-
-//   const session = await auth();
-
-//   if (!session) {
-//     const loginUrl = new URL("/auth/login", req.url);
-//     return NextResponse.redirect(loginUrl);
-//   }
-
-//   return NextResponse.next();
-// }
+// Export config to ensure middleware runs in Edge Runtime
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+};
