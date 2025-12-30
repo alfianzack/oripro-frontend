@@ -1,3 +1,5 @@
+"use client";
+
 import CustomSelect from '@/components/shared/custom-select';
 import { Card, CardContent } from '@/components/ui/card';
 import React from 'react';
