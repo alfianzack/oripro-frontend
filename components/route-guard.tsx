@@ -10,6 +10,7 @@ const EXCLUDED_ROUTES = [
   '/auth',
   '/welcome',
   '/view-profile',
+  '/menus',
 ]
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
