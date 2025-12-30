@@ -91,26 +91,23 @@ export function useUserSidebar(): UserSidebar {
           const responseData = resData.data as any;
           // Konversi string icon ke komponen Lucide
           
-          if (process.env.NODE_ENV === 'development') {
-          // Tambahkan "Manage Menus" di bawah "Settings" jika belum ada (khusus development)
-            if (Array.isArray(responseData.navMain)) {
-              responseData.navMain = responseData.navMain.map((item: any) => {
-                if (item.title === "Setting" && Array.isArray(item.items)) {
-                  // Cek apakah "Manage Menus" sudah ada
-                  const hasManageMenus = item.items.some(
-                    (sub: any) => sub.title === "Manage Menus"
-                  );
-                  if (!hasManageMenus) {
-                    item.items.push({
-                      title: "Manage Menus",
-                      url: "/menus",
-                      circleColor: "bg-purple-600",
-                    });
-                  }
+          if (Array.isArray(responseData.navMain)) {
+            responseData.navMain = responseData.navMain.map((item: any) => {
+              if (item.title === "Setting" && Array.isArray(item.items)) {
+                // Cek apakah "Manage Menus" sudah ada
+                const hasManageMenus = item.items.some(
+                  (sub: any) => sub.title === "Manage Menus"
+                );
+                if (!hasManageMenus) {
+                  item.items.push({
+                    title: "Manage Menus",
+                    url: "/menus",
+                    circleColor: "bg-purple-600",
+                  });
                 }
-                return item;
-              });
-            }
+              }
+              return item;
+            });
           }
           const processedNavMain = (responseData.navMain || []).map((item: any) => ({
             ...item,
