@@ -7,6 +7,8 @@ import { showToast } from '@/lib/toast'
 
 // Routes yang tidak perlu di-check (public routes atau routes khusus)
 const EXCLUDED_ROUTES = [
+  '/tasks',
+  '/work',
   '/auth',
   '/welcome',
   '/view-profile',
