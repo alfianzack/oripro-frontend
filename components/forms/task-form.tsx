@@ -814,9 +814,50 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
               // Normalize days to numbers for comparison
               const normalizedDays = (field.value || []).map(d => typeof d === 'string' ? parseInt(d) : d).filter(d => !isNaN(d))
               
+              const handleSelectAll = () => {
+                const allDays = DAYS_OF_WEEK.map(day => day.value)
+                const allSelected = allDays.every(day => normalizedDays.includes(day))
+                
+                if (allSelected) {
+                  // If all are selected, deselect all
+                  form.setValue('days', [])
+                } else {
+                  // If not all are selected, select all
+                  form.setValue('days', allDays)
+                }
+              }
+              
+              const handleSelectWeekdays = () => {
+                // Weekdays: Monday (1) to Friday (5)
+                const weekdays = [1, 2, 3, 4, 5]
+                form.setValue('days', weekdays)
+              }
+              
               return (
                 <FormItem>
-                  <FormLabel>Days of Week</FormLabel>
+                  <div className="flex items-center justify-between mb-2">
+                    <FormLabel>Days of Week</FormLabel>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectWeekdays}
+                        className="text-xs"
+                      >
+                        Weekdays Only
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        className="text-xs"
+                      >
+                        Select All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
                     {DAYS_OF_WEEK.map((day) => (
                       <div key={day.value} className="flex items-center space-x-2">
