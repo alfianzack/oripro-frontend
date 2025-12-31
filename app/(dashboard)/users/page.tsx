@@ -27,7 +27,7 @@ export default function UsersPage() {
   // Filter dan sorting states
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [order, setOrder] = useState<string>('a-z')
+  const [order, setOrder] = useState<string>('newest')
   const [roles, setRoles] = useState<Role[]>([])
   
   // Pagination states
@@ -367,7 +367,7 @@ export default function UsersPage() {
                 setSearchTerm('')
                 setRoleFilter('all')
                 setStatusFilter('all')
-                setOrder('a-z')
+                setOrder('newest')
                 setOffset(0)
               }}
             >

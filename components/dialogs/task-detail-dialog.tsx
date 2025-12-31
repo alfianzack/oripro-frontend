@@ -110,13 +110,6 @@ export default function TaskDetailDialog({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
-            {/* Status Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={task.is_main_task ? 'default' : 'outline'}>
-                {task.is_main_task ? 'Main Task' : 'Child Task'}
-              </Badge>
-            </div>
-
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -129,6 +122,16 @@ export default function TaskDetailDialog({
                       Name
                     </label>
                     <p className="text-sm font-medium">{task.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <Badge variant={task.is_main_task ? 'default' : 'outline'}>
+                        {task.is_main_task ? 'Main Task' : 'Child Task'}
+                      </Badge>
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">

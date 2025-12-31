@@ -99,13 +99,6 @@ export default function TaskGroupDetailDialog({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
-            {/* Status Badge */}
-            <div className="flex items-center justify-between">
-              <Badge variant={taskGroup.is_active ? 'default' : 'secondary'}>
-                {taskGroup.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -118,6 +111,16 @@ export default function TaskGroupDetailDialog({
                       Name
                     </label>
                     <p className="text-sm font-medium">{taskGroup.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <Badge variant={taskGroup.is_active ? 'default' : 'secondary'}>
+                        {taskGroup.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
                   </div>
                   {taskGroup.description && (
                     <div className="md:col-span-2">

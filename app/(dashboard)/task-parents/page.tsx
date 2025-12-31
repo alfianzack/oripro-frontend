@@ -146,22 +146,45 @@ export default function TaskParentsPage() {
 
   const loadTaskGroups = async () => {
     try {
-      const response = await taskGroupsApi.getTaskGroups()
+      // Fetch all task groups for the filter dropdown
+      // Try with parameters first to get all task groups
+      const response = await taskGroupsApi.getTaskGroups({
+        limit: 100, // Get a large number to ensure we get all task groups
+        offset: 0
+      })
       if (response.success && response.data) {
         const responseData = response.data as any
-        // Handle new format: { taskGroups: [...], total: ..., ... }
-        let taskGroupsData: any[] = []
-        if (responseData.taskGroups && Array.isArray(responseData.taskGroups)) {
-          taskGroupsData = responseData.taskGroups
-        } else if (Array.isArray(responseData.data)) {
-          taskGroupsData = responseData.data
-        } else if (Array.isArray(responseData)) {
+        // Handle different response structures
+        let taskGroupsData: TaskGroup[] = []
+        
+        // Check if responseData is directly an array
+        if (Array.isArray(responseData)) {
           taskGroupsData = responseData
+        } else if (responseData && typeof responseData === 'object') {
+          // Check nested structures
+          if (responseData.data && Array.isArray(responseData.data.taskGroups)) {
+            // Format: responseData.data.taskGroups
+            taskGroupsData = responseData.data.taskGroups
+          } else if (Array.isArray(responseData.taskGroups)) {
+            // Format: responseData.taskGroups
+            taskGroupsData = responseData.taskGroups
+          } else if (Array.isArray(responseData.data)) {
+            taskGroupsData = responseData.data
+          }
         }
+        
+        if (!Array.isArray(taskGroupsData)) {
+          taskGroupsData = []
+        }
+        
         setTaskGroups(taskGroupsData)
+      } else {
+        console.error('Failed to load task groups:', response.error)
+        setTaskGroups([])
       }
     } catch (error) {
       console.error('Load task groups error:', error)
+      setTaskGroups([])
     }
   }
 
@@ -228,9 +251,11 @@ export default function TaskParentsPage() {
         rootTasks.push(taskWithChildren)
       } else {
         // Child task - add to each parent's children
+        let hasParentInResults = false
         parentIds.forEach(parentId => {
           const parent = taskMap.get(parentId)
           if (parent) {
+            hasParentInResults = true
             if (!parent.children) {
               parent.children = []
             }
@@ -240,6 +265,12 @@ export default function TaskParentsPage() {
             }
           }
         })
+        
+        // If none of the parents are in the filtered results, show the child task as root
+        // This ensures child tasks are visible even when their parents don't match the filter
+        if (!hasParentInResults) {
+          rootTasks.push(taskWithChildren)
+        }
       }
     })
 
