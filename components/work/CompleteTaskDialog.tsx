@@ -29,6 +29,7 @@ export function CompleteTaskDialog({
     fileScan: null as File | null,
     scanCode: ''
   })
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false)
   const [filePreview, setFilePreview] = useState<{
     before?: string
     after?: string
@@ -171,7 +172,28 @@ export function CompleteTaskDialog({
 
   const captureFromCamera = async (field: 'fileBefore' | 'fileAfter' | 'fileScan') => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Browser tidak mendukung akses kamera. Pastikan menggunakan browser modern dan HTTPS.')
+        return
+      }
+
+      // Check if we're on HTTPS or localhost (required for camera access)
+      const isSecure = window.location.protocol === 'https:' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1'
+      
+      if (!isSecure) {
+        toast.error('Akses kamera memerlukan koneksi HTTPS. Silakan gunakan HTTPS atau localhost.')
+        return
+      }
+
+      // Mark camera modal as open
+      setIsCameraModalOpen(true)
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera on mobile
+      })
       const video = document.createElement('video')
       video.srcObject = stream
       video.play()
@@ -183,45 +205,185 @@ export function CompleteTaskDialog({
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
 
+        // Create modal overlay with very high z-index and pointer-events
         const modal = document.createElement('div')
-        modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50'
-        modal.innerHTML = `
-          <div class="bg-white p-4 rounded-lg max-w-md w-full">
-            <video id="camera-preview" autoplay class="w-full mb-4"></video>
-            <div class="flex gap-2">
-              <button id="capture-btn" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded">Ambil Foto</button>
-              <button id="cancel-btn" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded">Batal</button>
-            </div>
-          </div>
-        `
-        document.body.appendChild(modal)
-
-        const previewVideo = modal.querySelector('#camera-preview') as HTMLVideoElement
+        modal.id = 'camera-modal-overlay'
+        modal.style.cssText = 'position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; pointer-events: auto;'
+        
+        // Create modal content
+        const modalContent = document.createElement('div')
+        modalContent.id = 'camera-modal-content'
+        modalContent.style.cssText = 'background-color: white; padding: 1rem; border-radius: 0.5rem; max-width: 28rem; width: 100%; margin: 1rem; position: relative; z-index: 10001; pointer-events: auto;'
+        
+        // Create video element
+        const previewVideo = document.createElement('video')
+        previewVideo.id = 'camera-preview'
+        previewVideo.setAttribute('autoplay', '')
+        previewVideo.setAttribute('playsinline', '')
+        previewVideo.style.cssText = 'width: 100%; margin-bottom: 1rem; border-radius: 0.5rem; pointer-events: none;'
         previewVideo.srcObject = stream
-
-        const captureBtn = modal.querySelector('#capture-btn') as HTMLButtonElement
-        const cancelBtn = modal.querySelector('#cancel-btn') as HTMLButtonElement
-
-        captureBtn.onclick = () => {
+        
+        // Create button container
+        const buttonContainer = document.createElement('div')
+        buttonContainer.style.cssText = 'display: flex; gap: 0.5rem; pointer-events: auto;'
+        
+        // Disable pointer events on all dialogs below first
+        const existingDialogs = document.querySelectorAll('[data-radix-dialog-content]')
+        const dialogOverlays = document.querySelectorAll('[data-radix-dialog-overlay]')
+        
+        existingDialogs.forEach((dialog: any) => {
+          dialog.style.pointerEvents = 'none'
+        })
+        
+        dialogOverlays.forEach((overlay: any) => {
+          overlay.style.pointerEvents = 'none'
+        })
+        
+        // Prevent Dialog from closing while camera modal is open
+        const preventDialogClose = (e: Event) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+        }
+        
+        // Add event listeners to prevent dialog close
+        existingDialogs.forEach((dialog: any) => {
+          dialog.addEventListener('click', preventDialogClose, true)
+          dialog.addEventListener('mousedown', preventDialogClose, true)
+        })
+        
+        dialogOverlays.forEach((overlay: any) => {
+          overlay.addEventListener('click', preventDialogClose, true)
+          overlay.addEventListener('mousedown', preventDialogClose, true)
+        })
+        
+        // Re-enable pointer events and remove listeners when modal is removed
+        const cleanup = () => {
+          existingDialogs.forEach((dialog: any) => {
+            dialog.style.pointerEvents = ''
+            dialog.removeEventListener('click', preventDialogClose, true)
+            dialog.removeEventListener('mousedown', preventDialogClose, true)
+          })
+          
+          dialogOverlays.forEach((overlay: any) => {
+            overlay.style.pointerEvents = ''
+            overlay.removeEventListener('click', preventDialogClose, true)
+            overlay.removeEventListener('mousedown', preventDialogClose, true)
+          })
+        }
+        
+        // Function to close camera modal and re-enable underlying dialog
+        const closeModal = () => {
+          stream.getTracks().forEach(track => track.stop())
+          if (document.body.contains(modal)) {
+            document.body.removeChild(modal)
+          }
+          // Mark camera modal as closed
+          setIsCameraModalOpen(false)
+          // Re-enable pointer events on underlying dialog
+          // Use setTimeout to ensure modal removal is complete
+          setTimeout(() => {
+            cleanup()
+          }, 50)
+        }
+        
+        // Create capture button
+        const captureBtn = document.createElement('button')
+        captureBtn.id = 'capture-btn'
+        captureBtn.type = 'button'
+        captureBtn.textContent = 'Ambil Foto'
+        captureBtn.style.cssText = 'flex: 1; background-color: rgb(37, 99, 235); color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; border: none; cursor: pointer; font-weight: 500; pointer-events: auto; z-index: 10002; position: relative;'
+        
+        const handleCapture = (e: MouseEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
           context?.drawImage(previewVideo, 0, 0)
           canvas.toBlob((blob) => {
             if (blob) {
               const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' })
               handleFileChange(field, file)
             }
-            stream.getTracks().forEach(track => track.stop())
-            document.body.removeChild(modal)
+            // Close only the camera modal, keep Complete Task dialog open
+            closeModal()
           }, 'image/jpeg', 0.9)
         }
-
-        cancelBtn.onclick = () => {
-          stream.getTracks().forEach(track => track.stop())
-          document.body.removeChild(modal)
+        
+        captureBtn.addEventListener('click', handleCapture, true)
+        captureBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+        }, true)
+        
+        // Create cancel button
+        const cancelBtn = document.createElement('button')
+        cancelBtn.id = 'cancel-btn'
+        cancelBtn.type = 'button'
+        cancelBtn.textContent = 'Batal'
+        cancelBtn.style.cssText = 'flex: 1; background-color: rgb(209, 213, 219); color: rgb(55, 65, 81); padding: 0.5rem 1rem; border-radius: 0.25rem; border: none; cursor: pointer; font-weight: 500; pointer-events: auto; z-index: 10002; position: relative;'
+        
+        const handleCancel = (e: MouseEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+          // Close only the camera modal, keep Complete Task dialog open
+          closeModal()
         }
+        
+        cancelBtn.addEventListener('click', handleCancel, true)
+        cancelBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+        }, true)
+        
+        // Assemble modal
+        buttonContainer.appendChild(captureBtn)
+        buttonContainer.appendChild(cancelBtn)
+        modalContent.appendChild(previewVideo)
+        modalContent.appendChild(buttonContainer)
+        modal.appendChild(modalContent)
+        
+        // Block all interactions with underlying content
+        modal.addEventListener('click', (e) => {
+          // Only allow clicks on the modal content itself
+          if (e.target === modal || e.target === modalContent || 
+              e.target === previewVideo || e.target === buttonContainer) {
+            e.stopPropagation()
+            e.stopImmediatePropagation()
+          }
+        }, true)
+        
+        // Prevent any pointer events from reaching elements below
+        modal.addEventListener('mousedown', (e) => {
+          if (e.target === modal) {
+            e.preventDefault()
+            e.stopPropagation()
+            e.stopImmediatePropagation()
+          }
+        }, true)
+        
+        document.body.appendChild(modal)
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accessing camera:', error)
-      toast.error('Gagal mengakses kamera')
+      const errorName = error?.name || 'UnknownError'
+      let errorMsg = 'Gagal mengakses kamera'
+      
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        errorMsg = 'Izin kamera ditolak. Silakan berikan izin kamera di pengaturan browser dan refresh halaman.'
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        errorMsg = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.'
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+        errorMsg = 'Kamera sedang digunakan oleh aplikasi lain. Tutup aplikasi lain yang menggunakan kamera.'
+      } else if (errorName === 'OverconstrainedError' || errorName === 'ConstraintNotSatisfiedError') {
+        errorMsg = 'Kamera tidak mendukung resolusi yang diminta. Coba gunakan kamera lain.'
+      } else if (error?.message) {
+        errorMsg = `Gagal mengakses kamera: ${error.message}`
+      }
+      
+      toast.error(errorMsg)
     }
   }
 
@@ -605,6 +767,14 @@ export function CompleteTaskDialog({
   const handleSubmit = async () => {
     if (!userTask || !task) return
 
+    // Validation: If task requires validation, at least one foto (before or after) must be provided
+    if (task.is_need_validation) {
+      if (!formData.fileBefore && !formData.fileAfter) {
+        toast.error('Task ini memerlukan minimal satu foto (before atau after). Silakan ambil atau pilih foto terlebih dahulu.')
+        return
+      }
+    }
+
     // Validation: If task requires scan, scan code must be provided
     if (task.is_scan) {
       if (!formData.scanCode || formData.scanCode.trim() === '') {
@@ -681,6 +851,9 @@ export function CompleteTaskDialog({
           onOpenChange(false)
           resetForm()
           onComplete()
+          
+          // Check if this is a child task and auto-complete parent if all children are done
+          await checkAndCompleteParentTask(userTask)
         } else {
           throw new Error(response.error || 'Gagal menyelesaikan task')
         }
@@ -695,6 +868,9 @@ export function CompleteTaskDialog({
           onOpenChange(false)
           resetForm()
           onComplete()
+          
+          // Check if this is a child task and auto-complete parent if all children are done
+          await checkAndCompleteParentTask(userTask)
         } else {
           throw new Error(response.error || 'Gagal menyelesaikan task')
         }
@@ -721,10 +897,111 @@ export function CompleteTaskDialog({
     setIsCheckingLocation(false)
   }
 
+  // Check if all child tasks are completed and auto-complete parent if needed
+  const checkAndCompleteParentTask = async (completedUserTask: UserTask) => {
+    try {
+      // Check if this is a child task (has parent_user_task_id)
+      const parentUserTaskId = completedUserTask.parent_user_task_id
+      
+      if (!parentUserTaskId) {
+        // This is not a child task (no parent), no need to check
+        return
+      }
+
+      // Fetch updated tasks to get current status
+      const response = await userTasksApi.getUserTasks()
+      if (!response.success || !response.data) {
+        console.error('Failed to fetch tasks for parent check')
+        return
+      }
+
+      const responseData = response.data as any
+      let allTasks: UserTask[] = []
+      
+      if (Array.isArray(responseData)) {
+        allTasks = responseData
+      } else if (responseData && typeof responseData === 'object' && Array.isArray(responseData.data)) {
+        allTasks = responseData.data
+      } else if (responseData && typeof responseData === 'object' && responseData.tasks && Array.isArray(responseData.tasks)) {
+        allTasks = responseData.tasks
+      }
+
+      // Find parent task
+      const parentTask = allTasks.find((task: UserTask) => {
+        const taskId = task.user_task_id || task.id
+        return taskId && (taskId.toString() === parentUserTaskId.toString())
+      })
+
+      if (!parentTask) {
+        console.log('Parent task not found')
+        return
+      }
+
+      // Check if parent task is a main task
+      const isParentMainTask = parentTask.task?.is_main_task || parentTask.is_main_task
+      if (!isParentMainTask) {
+        // Parent is not a main task, don't auto-complete
+        return
+      }
+
+      // Check if parent task is already completed
+      const isParentCompleted = parentTask.status === 'completed' || parentTask.completed_at
+      if (isParentCompleted) {
+        return
+      }
+
+      // Get all child tasks (sub_user_task)
+      const childTasks = parentTask.sub_user_task || []
+      
+      if (childTasks.length === 0) {
+        // No child tasks, nothing to check
+        return
+      }
+
+      // Check if all child tasks are completed
+      const allChildrenCompleted = childTasks.every((childTask: UserTask) => {
+        return childTask.status === 'completed' || childTask.completed_at
+      })
+
+      if (allChildrenCompleted) {
+        // All children are completed, auto-complete parent
+        const parentTaskId = parentTask.user_task_id || parentTask.id
+        if (!parentTaskId) {
+          console.error('Parent task ID not found')
+          return
+        }
+
+        const completeResponse = await userTasksApi.completeUserTask(Number(parentTaskId), {
+          notes: 'Auto-completed: All child tasks are completed'
+        })
+
+        if (completeResponse.success) {
+          toast.success('Main task otomatis diselesaikan karena semua child task sudah selesai')
+          // Trigger reload
+          onComplete()
+        } else {
+          console.error('Failed to auto-complete parent task:', completeResponse.error)
+        }
+      }
+    } catch (error) {
+      console.error('Error checking and completing parent task:', error)
+      // Don't show error to user, this is a background operation
+    }
+  }
+
   if (!userTask || !task) return null
 
+  // Prevent dialog from closing while camera modal is open
+  const handleDialogOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isCameraModalOpen) {
+      // Don't close if camera modal is open
+      return
+    }
+    onOpenChange(newOpen)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Complete Task: {task.name}</DialogTitle>
@@ -906,7 +1183,8 @@ export function CompleteTaskDialog({
                 isSubmitting || 
                 isCheckingLocation || 
                 (qrLocation !== null && isLocationValid === false) ||
-                (task.is_scan && (!formData.scanCode || formData.scanCode.trim() === ''))
+                (task.is_scan && (!formData.scanCode || formData.scanCode.trim() === '')) ||
+                (task.is_need_validation && !formData.fileBefore && !formData.fileAfter)
               }
             >
               {isSubmitting ? (

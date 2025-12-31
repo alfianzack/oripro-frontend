@@ -1675,6 +1675,7 @@ export interface UserTask {
   completed_at?: string | null
   notes?: string | null
   code?: string
+  time?: string
   is_main_task?: boolean
   parent_user_task_id?: number | string | null
   created_at: string

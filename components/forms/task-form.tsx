@@ -66,10 +66,12 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
   const [roles, setRoles] = useState<Role[]>([])
   const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([])
   const [parentTasks, setParentTasks] = useState<Task[]>([])
+  const [scanCodes, setScanCodes] = useState<{ code: string; taskName: string }[]>([])
   const [assetsLoading, setAssetsLoading] = useState(true)
   const [rolesLoading, setRolesLoading] = useState(true)
   const [taskGroupsLoading, setTaskGroupsLoading] = useState(true)
   const [parentTasksLoading, setParentTasksLoading] = useState(true)
+  const [scanCodesLoading, setScanCodesLoading] = useState(false)
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -180,6 +182,59 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
     }
     loadParentTasks()
   }, [task, selectedAssetId])
+
+  // Load scan codes from tasks in task groups related to the selected asset
+  useEffect(() => {
+    const loadScanCodes = async () => {
+      // Only load if asset_id is selected
+      if (!selectedAssetId) {
+        setScanCodes([])
+        setScanCodesLoading(false)
+        return
+      }
+
+      setScanCodesLoading(true)
+      try {
+        // Get all tasks with the selected asset that belong to task groups and have scan_code
+        const response = await tasksApi.getTasks({ 
+          asset_id: selectedAssetId 
+        })
+        if (response.success && response.data) {
+          const responseData = response.data as any
+          const tasksData = responseData.data?.tasks || responseData.tasks || responseData.data || []
+          
+          // Filter tasks that:
+          // 1. Have a task_group_id (belong to a task group)
+          // 2. Have a scan_code
+          const tasksWithScanCode = tasksData.filter((t: Task) => 
+            t.task_group_id && t.scan_code && t.scan_code.trim() !== ''
+          )
+          
+          // Extract unique scan codes with task names
+          const scanCodeMap = new Map<string, string>()
+          tasksWithScanCode.forEach((t: Task) => {
+            if (t.scan_code && !scanCodeMap.has(t.scan_code)) {
+              scanCodeMap.set(t.scan_code, t.name || '')
+            }
+          })
+          
+          // Convert to array
+          const codes = Array.from(scanCodeMap.entries()).map(([code, taskName]) => ({
+            code,
+            taskName
+          }))
+          
+          setScanCodes(codes)
+        }
+      } catch (error) {
+        console.error('Load scan codes error:', error)
+        setScanCodes([])
+      } finally {
+        setScanCodesLoading(false)
+      }
+    }
+    loadScanCodes()
+  }, [selectedAssetId])
 
   // Update form values when task changes (for edit mode)
   useEffect(() => {
@@ -545,15 +600,100 @@ export default function TaskForm({ task, onSubmit, onCancel, loading = false }: 
           <FormField
             control={form.control}
             name="scan_code"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scan Code</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter scan code" {...field} value={field.value || ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const selectedValue = field.value || null
+              const stringValue = selectedValue ? String(selectedValue) : ''
+              const isInDropdown = stringValue && scanCodes.some(item => item.code === stringValue)
+              const [useManualEntry, setUseManualEntry] = useState(!isInDropdown && stringValue !== '')
+              
+              // Update manual entry state when value changes
+              useEffect(() => {
+                if (stringValue && !isInDropdown) {
+                  setUseManualEntry(true)
+                } else if (isInDropdown) {
+                  setUseManualEntry(false)
+                }
+              }, [stringValue, isInDropdown])
+              
+              return (
+                <FormItem>
+                  <FormLabel>Scan Code</FormLabel>
+                  <div className="space-y-2">
+                    {!useManualEntry && scanCodes.length > 0 && (
+                      <Select 
+                        onValueChange={(value) => {
+                          if (value === '__manual__') {
+                            setUseManualEntry(true)
+                            field.onChange(null)
+                          } else {
+                            field.onChange(value)
+                            setUseManualEntry(false)
+                          }
+                        }} 
+                        value={isInDropdown ? stringValue : undefined}
+                        disabled={scanCodesLoading || !selectedAssetId}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              !selectedAssetId 
+                                ? "Select asset first" 
+                                : scanCodesLoading 
+                                  ? "Loading scan codes..." 
+                                  : "Select scan code"
+                            } />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {scanCodes.map((item) => (
+                            <SelectItem key={item.code} value={item.code}>
+                              {item.code} {item.taskName ? `(${item.taskName})` : ''}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__manual__">Enter manually</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {(useManualEntry || scanCodes.length === 0) && (
+                      <div className="space-y-2">
+                        {!useManualEntry && scanCodes.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setUseManualEntry(true)}
+                            className="w-full"
+                          >
+                            Enter manually
+                          </Button>
+                        )}
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter scan code manually" 
+                            value={stringValue}
+                            onChange={(e) => {
+                              const value = e.target.value.trim()
+                              field.onChange(value || null)
+                            }}
+                          />
+                        </FormControl>
+                      </div>
+                    )}
+                  </div>
+                  {selectedAssetId && scanCodes.length === 0 && !scanCodesLoading && (
+                    <p className="text-sm text-muted-foreground">
+                      No scan codes found in task groups for this asset. You can enter manually.
+                    </p>
+                  )}
+                  {!selectedAssetId && (
+                    <p className="text-sm text-muted-foreground">
+                      Please select an asset first to load scan codes from related task groups.
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
           />
         )}
 

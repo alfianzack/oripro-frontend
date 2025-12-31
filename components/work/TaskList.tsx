@@ -283,6 +283,12 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-muted-foreground overflow-x-auto">
+                {userTask.time && (
+                  <>
+                    <span className="whitespace-nowrap">Waktu: {userTask.time}</span>
+                    {(task.is_main_task || task.asset?.name) && <span>•</span>}
+                  </>
+                )}
                 {task.is_main_task && (
                   <>
                     <span className="whitespace-nowrap">{task.duration} menit</span>
@@ -320,13 +326,14 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                 <TableHead>Name</TableHead>
                 <TableHead>Main_task or Child_task</TableHead>
                 <TableHead>Asset_name</TableHead>
+                <TableHead>Time</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayableMainTasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Tidak ada task yang memerlukan validasi atau scan untuk hari ini
                   </TableCell>
                 </TableRow>
@@ -380,6 +387,7 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                           </Badge>
                         </TableCell>
                         <TableCell>{task.asset?.name || '-'}</TableCell>
+                        <TableCell>{userTask.time || '-'}</TableCell>
                         <TableCell>
                           {shouldShowMainTask ? getTaskActions(userTask) : '-'}
                         </TableCell>
@@ -408,6 +416,7 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                               </Badge>
                             </TableCell>
                             <TableCell>{subTaskData.asset?.name || '-'}</TableCell>
+                            <TableCell>{subTask.time || '-'}</TableCell>
                             <TableCell>
                               {getTaskActions(subTask)}
                             </TableCell>

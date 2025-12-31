@@ -55,13 +55,33 @@ function WorkContent() {
       
       if (response.success && response.data) {
         const responseData = response.data as any
-        const tasks = Array.isArray(responseData.data) ? responseData.data : []
+        // Handle different response structures
+        let tasks: UserTask[] = []
+        
+        // Check if responseData is directly an array
+        if (Array.isArray(responseData)) {
+          tasks = responseData
+        } 
+        // Check if responseData has a nested data property
+        else if (responseData && typeof responseData === 'object' && Array.isArray(responseData.data)) {
+          tasks = responseData.data
+        }
+        // Check for other nested structures
+        else if (responseData && typeof responseData === 'object' && responseData.tasks && Array.isArray(responseData.tasks)) {
+          tasks = responseData.tasks
+        }
+        
+        if (tasks.length === 0 && responseData) {
+          console.warn('No tasks found in response. Response structure:', responseData)
+        }
+        
         setUserTasks(tasks)
       } else {
         console.error('Failed to load user tasks:', response.error)
         setUserTasks([])
       }
     } catch (error) {
+      console.error('Error loading user tasks:', error)
       toast.error('Terjadi kesalahan saat memuat data')
       setUserTasks([])
     } finally {
