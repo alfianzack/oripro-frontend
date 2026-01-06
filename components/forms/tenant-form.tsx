@@ -305,15 +305,34 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         deposit_reason: '',
         payment_term: (() => {
           // Convert payment_term from number (0 or 1) to string ('year' or 'month')
+          // Database: 0 = year, 1 = month
+          // Frontend: 'year' = DURATION_UNITS.YEAR, 'month' = DURATION_UNITS.MONTH
           if (tenant.payment_term !== undefined && tenant.payment_term !== null) {
+            // Handle number: 0 = year, 1 = month
             if (typeof tenant.payment_term === 'number') {
               return tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
-            } else if (typeof tenant.payment_term === 'string') {
-              const termStr = tenant.payment_term.toLowerCase()
-              return (termStr === 'year' || termStr === DURATION_UNITS.YEAR) ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+            }
+            // Handle string: "0" = year, "1" = month, or "year"/"month"
+            if (typeof tenant.payment_term === 'string') {
+              const termStr = tenant.payment_term.trim().toLowerCase()
+              // Check if it's numeric string
+              if (termStr === '0') {
+                return DURATION_UNITS.YEAR
+              }
+              if (termStr === '1') {
+                return DURATION_UNITS.MONTH
+              }
+              // Check if it's already in string format
+              if (termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
+                return DURATION_UNITS.YEAR
+              }
+              if (termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
+                return DURATION_UNITS.MONTH
+              }
             }
           }
-          // Default based on rent_duration_unit
+          // Default: if rent_duration_unit is YEAR, default payment_term to MONTH (monthly payment for yearly contract)
+          // Otherwise default to MONTH
           return rentDurationUnit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH
         })(),
         status: statusValue,
@@ -1420,7 +1439,24 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                 {tenant ? (
                   <div className="p-3 bg-gray-50 border rounded-md">
                     <p className="font-medium">
-                      {formData.payment_term === DURATION_UNITS.MONTH ? 'Bulanan' : formData.payment_term === DURATION_UNITS.YEAR ? 'Tahunan' : '-'}
+                      {(() => {
+                        // Ensure we have the correct value
+                        const paymentTerm = formData.payment_term || ''
+                        if (paymentTerm === DURATION_UNITS.MONTH || paymentTerm === 'month') {
+                          return 'Bulanan'
+                        }
+                        if (paymentTerm === DURATION_UNITS.YEAR || paymentTerm === 'year') {
+                          return 'Tahunan'
+                        }
+                        // Fallback: try to get from tenant directly
+                        if (tenant.payment_term !== undefined && tenant.payment_term !== null) {
+                          const termValue = typeof tenant.payment_term === 'number' 
+                            ? tenant.payment_term 
+                            : parseInt(String(tenant.payment_term), 10)
+                          return termValue === 0 ? 'Tahunan' : 'Bulanan'
+                        }
+                        return '-'
+                      })()}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Periode pembayaran tidak dapat diubah saat edit tenant</p>
                   </div>
