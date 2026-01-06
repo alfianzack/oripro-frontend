@@ -167,7 +167,6 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
         // If unit_ids is array, take first one; if string, use directly
         unitId = Array.isArray(tenant.unit_ids) ? (tenant.unit_ids[0] || '') : tenant.unit_ids
       }
-      
       // Extract category value from tenant.category object or category_id
       let categoryValue: number = 0
       
@@ -1441,21 +1440,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     <p className="font-medium">
                       {(() => {
                         // Ensure we have the correct value
-                        const paymentTerm = formData.payment_term || ''
-                        if (paymentTerm === DURATION_UNITS.MONTH || paymentTerm === 'month') {
-                          return 'Bulanan'
-                        }
-                        if (paymentTerm === DURATION_UNITS.YEAR || paymentTerm === 'year') {
-                          return 'Tahunan'
-                        }
-                        // Fallback: try to get from tenant directly
-                        if (tenant.payment_term !== undefined && tenant.payment_term !== null) {
-                          const termValue = typeof tenant.payment_term === 'number' 
-                            ? tenant.payment_term 
-                            : parseInt(String(tenant.payment_term), 10)
-                          return termValue === 0 ? 'Tahunan' : 'Bulanan'
-                        }
-                        return '-'
+                        console.log("tenant.payment_term", tenant.payment_term)
+                        return Number(tenant.payment_term) === 0 ? 'Tahunan' : 'Bulanan'
                       })()}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Periode pembayaran tidak dapat diubah saat edit tenant</p>

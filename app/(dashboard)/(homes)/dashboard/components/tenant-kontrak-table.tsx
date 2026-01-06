@@ -42,6 +42,12 @@ export default function TenantKontrakTable() {
 
       // Process each tenant
       for (const tenant of allTenants) {
+        // Skip tenants that are not active
+        const tenantStatus = tenant.status?.toLowerCase() || ''
+        if (tenantStatus !== 'active') {
+          continue
+        }
+        
         // Get payment logs for this tenant
         let unpaidPayment: TenantPaymentLog | null = null
         let paymentStatus: 'overdue' | 'reminder_needed' | 'scheduled' = 'scheduled'
