@@ -9,9 +9,9 @@ import { tenantsApi } from "@/lib/api"
 import { useEffect, useState } from "react"
 
 interface TenantWithPayment extends Tenant {
-  paymentDate?: string
+  deadlineDate?: string
   paymentStatus?: 'overdue' | 'reminder_needed' | 'scheduled'
-  lastPayment?: TenantPaymentLog | null
+  unpaidPayment?: TenantPaymentLog | null
 }
 
 export default function TenantKontrakTable() {
@@ -43,33 +43,49 @@ export default function TenantKontrakTable() {
       // Process each tenant
       for (const tenant of allTenants) {
         // Get payment logs for this tenant
-        let lastPayment: TenantPaymentLog | null = null
+        let unpaidPayment: TenantPaymentLog | null = null
         let paymentStatus: 'overdue' | 'reminder_needed' | 'scheduled' = 'scheduled'
-        let paymentDate: string | undefined
+        let deadlineDate: string | undefined
 
         try {
-          const paymentsResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, { limit: 10 })
+          const paymentsResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, { limit: 100 })
           if (paymentsResponse.success && paymentsResponse.data) {
             const paymentsData = paymentsResponse.data as any
             const payments = Array.isArray(paymentsData.data) ? paymentsData.data : (Array.isArray(paymentsData) ? paymentsData : [])
             
             if (payments.length > 0) {
-              // Get the most recent payment (sorted by deadline)
-              lastPayment = payments.sort((a: TenantPaymentLog, b: TenantPaymentLog) => {
-                const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
-                const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
-                return dateB - dateA
-              })[0]
+              // Filter only unpaid payments (status 0 = unpaid, status 2 = expired)
+              const unpaidPayments = payments.filter((payment: TenantPaymentLog) => 
+                payment.status === 0 || payment.status === 2
+              )
 
-              if (lastPayment && lastPayment.payment_deadline) {
-                paymentDate = lastPayment.payment_deadline
-                const deadlineDate = new Date(lastPayment.payment_deadline)
-                const diffTime = deadlineDate.getTime() - now.getTime()
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+              if (unpaidPayments.length > 0) {
+                // Get the most urgent unpaid payment (overdue first, then by deadline date)
+                unpaidPayments.sort((a: TenantPaymentLog, b: TenantPaymentLog) => {
+                  const dateA = a.payment_deadline ? new Date(a.payment_deadline).getTime() : 0
+                  const dateB = b.payment_deadline ? new Date(b.payment_deadline).getTime() : 0
+                  const nowTime = now.getTime()
+                  
+                  // Prioritize overdue payments
+                  const aIsOverdue = dateA < nowTime
+                  const bIsOverdue = dateB < nowTime
+                  
+                  if (aIsOverdue && !bIsOverdue) return -1
+                  if (!aIsOverdue && bIsOverdue) return 1
+                  
+                  // If both overdue or both not overdue, sort by deadline date
+                  return dateA - dateB
+                })
 
-                // Determine status based on payment status and days
-                if (lastPayment.status === 0 || lastPayment.status === 2) {
-                  // Unpaid or expired
+                unpaidPayment = unpaidPayments[0]
+
+                if (unpaidPayment && unpaidPayment.payment_deadline) {
+                  deadlineDate = unpaidPayment.payment_deadline
+                  const deadline = new Date(unpaidPayment.payment_deadline)
+                  const diffTime = deadline.getTime() - now.getTime()
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+                  // Determine status based on days
                   if (diffDays < 0) {
                     paymentStatus = 'overdue'
                   } else if (diffDays <= 7) {
@@ -77,9 +93,6 @@ export default function TenantKontrakTable() {
                   } else {
                     paymentStatus = 'scheduled'
                   }
-                } else {
-                  // Paid
-                  paymentStatus = 'scheduled'
                 }
               }
             }
@@ -88,23 +101,23 @@ export default function TenantKontrakTable() {
           console.error(`Error loading payments for tenant ${tenant.id}:`, error)
         }
 
-        // Only include tenants with payment information
-        if (lastPayment) {
+        // Only include tenants with unpaid payments
+        if (unpaidPayment && deadlineDate) {
           tenantsWithPayment.push({
             ...tenant,
-            paymentDate,
+            deadlineDate,
             paymentStatus,
-            lastPayment
+            unpaidPayment
           })
         }
       }
 
-      // Sort by payment date (overdue first, then by date)
+      // Sort by deadline date (overdue first, then by date)
       tenantsWithPayment.sort((a, b) => {
         if (a.paymentStatus === 'overdue' && b.paymentStatus !== 'overdue') return -1
         if (a.paymentStatus !== 'overdue' && b.paymentStatus === 'overdue') return 1
-        if (a.paymentDate && b.paymentDate) {
-          return new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime()
+        if (a.deadlineDate && b.deadlineDate) {
+          return new Date(a.deadlineDate).getTime() - new Date(b.deadlineDate).getTime()
         }
         return 0
       })
@@ -199,18 +212,18 @@ export default function TenantKontrakTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-sm font-semibold text-gray-700">Nama Tenant</TableHead>
-                  <TableHead className="text-sm font-semibold text-gray-700">Tanggal Pembayaran</TableHead>
+                  <TableHead className="text-sm font-semibold text-gray-700">Tanggal Jatuh Tempo</TableHead>
                   <TableHead className="text-sm font-semibold text-gray-700">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tenants.map((tenant) => (
                   <TableRow key={tenant.id}>
-                    <TableCell className="font-medium text-sm text-gray-900">
+                    <TableCell className="font-medium text-sm text-gray-900 max-w-xs whitespace-normal break-words">
                       {getTenantUnitName(tenant)}
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
-                      {formatDate(tenant.paymentDate)}
+                      {formatDate(tenant.deadlineDate)}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(tenant.paymentStatus || 'scheduled')}
@@ -224,7 +237,7 @@ export default function TenantKontrakTable() {
           <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
             <div>
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Tidak ada data tenant kontrak</p>
+              <p>Tidak ada tenant dengan pembayaran yang belum dibayar</p>
             </div>
           </div>
         )}
