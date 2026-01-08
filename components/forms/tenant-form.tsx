@@ -1538,7 +1538,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       </Card>
 
       {/* Harga Bayar Sewa */}
-      {!tenant && formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
+      {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
         <Card>
           <CardHeader>
             <CardTitle>Harga Bayar Sewa</CardTitle>
@@ -1547,17 +1547,58 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div className="text-2xl font-bold text-gray-900">
                 {(() => {
-                  const rentPrice = formData.rent_price || 0
-                  const downPayment = formData.down_payment || 0
-                  const duration = parseInt(formData.rent_duration) || 0
-                  const durationUnit = formData.rent_duration_unit
-                  const paymentTerm = formData.payment_term
+                  // Use tenant values when editing (more reliable), fall back to formData when creating
+                  const rentPrice = tenant?.rent_price || formData.rent_price || 0
+                  const downPayment = tenant?.down_payment || formData.down_payment || 0
+                  const duration = tenant?.rent_duration ? parseInt(String(tenant.rent_duration)) : (parseInt(formData.rent_duration) || 0)
+                  
+                  // For duration unit and payment term, use tenant values if available, otherwise formData
+                  let durationUnit: string
+                  let paymentTerm: string | undefined
+                  
+                  if (tenant) {
+                    // When editing: use tenant values and convert if needed
+                    // Normalize rent_duration_unit from tenant
+                    if (typeof tenant.rent_duration_unit === 'number') {
+                      durationUnit = tenant.rent_duration_unit === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+                    } else if (typeof tenant.rent_duration_unit === 'string') {
+                      const unitStr = tenant.rent_duration_unit.toLowerCase().trim()
+                      durationUnit = (unitStr === 'year' || unitStr === DURATION_UNITS.YEAR) ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+                    } else {
+                      durationUnit = formData.rent_duration_unit
+                    }
+                    
+                    // Normalize payment_term from tenant
+                    if (tenant.payment_term !== null && tenant.payment_term !== undefined) {
+                      if (typeof tenant.payment_term === 'number') {
+                        paymentTerm = tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+                      } else if (typeof tenant.payment_term === 'string') {
+                        const termStr = tenant.payment_term.trim().toLowerCase()
+                        if (termStr === '0' || termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
+                          paymentTerm = DURATION_UNITS.YEAR
+                        } else if (termStr === '1' || termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
+                          paymentTerm = DURATION_UNITS.MONTH
+                        } else {
+                          paymentTerm = formData.payment_term
+                        }
+                      } else {
+                        paymentTerm = formData.payment_term
+                      }
+                    } else {
+                      paymentTerm = formData.payment_term
+                    }
+                  } else {
+                    // When creating: use formData values
+                    durationUnit = formData.rent_duration_unit
+                    paymentTerm = formData.payment_term
+                  }
                   
                   // Store constants in variables to prevent optimization issues in production builds
                   const YEAR_CONST = DURATION_UNITS.YEAR
                   const MONTH_CONST = DURATION_UNITS.MONTH
                   
                   console.log("Harga Bayar Sewa calculation:", {
+                    isEditing: !!tenant,
                     rentPrice,
                     downPayment,
                     duration,
@@ -1565,6 +1606,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     paymentTerm,
                     durationUnitType: typeof durationUnit,
                     paymentTermType: typeof paymentTerm,
+                    tenantRentDurationUnit: tenant?.rent_duration_unit,
+                    tenantPaymentTerm: tenant?.payment_term,
                     DURATION_UNITS_YEAR: YEAR_CONST,
                     DURATION_UNITS_MONTH: MONTH_CONST,
                     durationUnitEqualsYear: durationUnit === YEAR_CONST,
@@ -1577,36 +1620,60 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     let numberOfPayments = 0
                     
                     // Normalize to strings for reliable comparison (important for production builds)
+                    // Use direct string literals to avoid any constant optimization issues
                     const normalizedPaymentTerm = String(paymentTerm).toLowerCase().trim()
                     const normalizedDurationUnit = String(durationUnit).toLowerCase().trim()
-                    const normalizedYear = String(YEAR_CONST).toLowerCase().trim()
-                    const normalizedMonth = String(MONTH_CONST).toLowerCase().trim()
+                    const YEAR_STR = 'year'
+                    const MONTH_STR = 'month'
                     
-                    console.log("Harga Bayar Sewa: normalized values:", {
+                    // Explicitly check each condition with direct string comparisons
+                    // Use both strict equality and includes() as fallback for production builds
+                    const isPaymentYear = normalizedPaymentTerm === YEAR_STR || normalizedPaymentTerm.includes('year')
+                    const isPaymentMonth = normalizedPaymentTerm === MONTH_STR || normalizedPaymentTerm.includes('month')
+                    const isDurationYear = normalizedDurationUnit === YEAR_STR || normalizedDurationUnit.includes('year')
+                    const isDurationMonth = normalizedDurationUnit === MONTH_STR || normalizedDurationUnit.includes('month')
+                    const isSameUnit = normalizedPaymentTerm === normalizedDurationUnit || 
+                                      (normalizedPaymentTerm.includes('year') && normalizedDurationUnit.includes('year')) ||
+                                      (normalizedPaymentTerm.includes('month') && normalizedDurationUnit.includes('month'))
+                    
+                    console.log("Harga Bayar Sewa: normalized values and checks:", {
                       normalizedPaymentTerm,
                       normalizedDurationUnit,
-                      normalizedYear,
-                      normalizedMonth,
-                      paymentTermEqualsYear: normalizedPaymentTerm === normalizedYear,
-                      paymentTermEqualsMonth: normalizedPaymentTerm === normalizedMonth,
-                      durationUnitEqualsYear: normalizedDurationUnit === normalizedYear,
-                      durationUnitEqualsMonth: normalizedDurationUnit === normalizedMonth
+                      normalizedPaymentTermLength: normalizedPaymentTerm.length,
+                      normalizedDurationUnitLength: normalizedDurationUnit.length,
+                      YEAR_STR,
+                      MONTH_STR,
+                      isPaymentYear,
+                      isPaymentMonth,
+                      isDurationYear,
+                      isDurationMonth,
+                      isSameUnit,
+                      rawPaymentTerm: paymentTerm,
+                      rawDurationUnit: durationUnit,
+                      rawPaymentTermType: typeof paymentTerm,
+                      rawDurationUnitType: typeof durationUnit
                     })
                     
-                    // Check payment_term first
-                    if (normalizedPaymentTerm === normalizedDurationUnit) {
+                    // Check payment_term first - use explicit boolean checks
+                    if (isSameUnit) {
                       // If payment_term is same as rent_duration_unit, number of payments is duration
                       numberOfPayments = duration
-                      console.log("Harga Bayar Sewa: same units, numberOfPayments = duration =", duration)
+                      console.log("Harga Bayar Sewa: BRANCH 1 - same units, numberOfPayments = duration =", duration)
+                    } else if (isPaymentMonth && isDurationYear) {
+                      // If payment_term is month and rent_duration_unit is year, number of payments is duration * 12
+                      numberOfPayments = duration * 12
+                      console.log("Harga Bayar Sewa: BRANCH 2 - month payment with year duration, numberOfPayments =", numberOfPayments, "calculation:", duration, "* 12 =", duration * 12)
                     } else {
-                      // If payment_term is not the same as rent_duration_unit
-                      if (normalizedPaymentTerm === normalizedMonth && normalizedDurationUnit === normalizedYear) {
-                        // If payment_term is month and rent_duration_unit is year, number of payments is duration * 12
-                        numberOfPayments = duration * 12
-                        console.log("Harga Bayar Sewa: month payment with year duration, numberOfPayments =", numberOfPayments)
-                      } else {
-                        console.log("Harga Bayar Sewa: no matching condition, normalizedPaymentTerm:", normalizedPaymentTerm, "normalizedDurationUnit:", normalizedDurationUnit)
-                      }
+                      console.log("Harga Bayar Sewa: BRANCH 3 - no matching condition", {
+                        normalizedPaymentTerm,
+                        normalizedDurationUnit,
+                        isPaymentYear,
+                        isPaymentMonth,
+                        isDurationYear,
+                        isDurationMonth,
+                        isSameUnit,
+                        conditionCheck: `isPaymentMonth (${isPaymentMonth}) && isDurationYear (${isDurationYear}) = ${isPaymentMonth && isDurationYear}`
+                      })
                     }
                     
                     console.log("Harga Bayar Sewa: numberOfPayments =", numberOfPayments)
