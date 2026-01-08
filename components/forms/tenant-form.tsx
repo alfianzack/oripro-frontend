@@ -306,33 +306,58 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           // Convert payment_term from number (0 or 1) to string ('year' or 'month')
           // Database: 0 = year, 1 = month
           // Frontend: 'year' = DURATION_UNITS.YEAR, 'month' = DURATION_UNITS.MONTH
-          if (tenant.payment_term !== undefined && tenant.payment_term !== null) {
-            // Handle number: 0 = year, 1 = month
-            if (typeof tenant.payment_term === 'number') {
-              return tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
-            }
-            // Handle string: "0" = year, "1" = month, or "year"/"month"
-            if (typeof tenant.payment_term === 'string') {
-              const termStr = tenant.payment_term.trim().toLowerCase()
-              // Check if it's numeric string
-              if (termStr === '0') {
-                return DURATION_UNITS.YEAR
-              }
-              if (termStr === '1') {
-                return DURATION_UNITS.MONTH
-              }
-              // Check if it's already in string format
-              if (termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
-                return DURATION_UNITS.YEAR
-              }
-              if (termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
-                return DURATION_UNITS.MONTH
-              }
-            }
+          // Important: 0 is a valid value (year), so check type first, not truthiness
+          console.log("Converting payment_term:", {
+            raw: tenant.payment_term,
+            type: typeof tenant.payment_term,
+            isNull: tenant.payment_term === null,
+            isUndefined: tenant.payment_term === undefined,
+            rentDurationUnit
+          })
+          
+          if (tenant.payment_term === null || tenant.payment_term === undefined) {
+            // If null/undefined, use default
+            const defaultValue = rentDurationUnit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH
+            console.log("payment_term is null/undefined, using default:", defaultValue)
+            return defaultValue
           }
+          
+          // Handle number: 0 = year, 1 = month
+          if (typeof tenant.payment_term === 'number') {
+            const converted = tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
+            console.log("payment_term is number:", tenant.payment_term, "converted to:", converted)
+            return converted
+          }
+          
+          // Handle string: "0" = year, "1" = month, or "year"/"month"
+          if (typeof tenant.payment_term === 'string') {
+            const termStr = tenant.payment_term.trim().toLowerCase()
+            // Check if it's numeric string
+            if (termStr === '0') {
+              console.log("payment_term is string '0', converted to:", DURATION_UNITS.YEAR)
+              return DURATION_UNITS.YEAR
+            }
+            if (termStr === '1') {
+              console.log("payment_term is string '1', converted to:", DURATION_UNITS.MONTH)
+              return DURATION_UNITS.MONTH
+            }
+            // Check if it's already in string format
+            if (termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
+              console.log("payment_term is string 'year', converted to:", DURATION_UNITS.YEAR)
+              return DURATION_UNITS.YEAR
+            }
+            if (termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
+              console.log("payment_term is string 'month', converted to:", DURATION_UNITS.MONTH)
+              return DURATION_UNITS.MONTH
+            }
+            console.log("payment_term is unknown string format:", tenant.payment_term, "termStr:", termStr)
+          }
+          
           // Default: if rent_duration_unit is YEAR, default payment_term to MONTH (monthly payment for yearly contract)
           // Otherwise default to MONTH
-          return rentDurationUnit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH
+          const defaultValue = rentDurationUnit === DURATION_UNITS.YEAR ? DURATION_UNITS.MONTH : DURATION_UNITS.MONTH
+          console.log("payment_term using default:", defaultValue)
+          return defaultValue
         })(),
         status: statusValue,
       })
@@ -1505,6 +1530,16 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   const durationUnit = formData.rent_duration_unit
                   const paymentTerm = formData.payment_term
                   
+                  console.log("Harga Bayar Sewa calculation:", {
+                    rentPrice,
+                    downPayment,
+                    duration,
+                    durationUnit,
+                    paymentTerm,
+                    DURATION_UNITS_YEAR: DURATION_UNITS.YEAR,
+                    DURATION_UNITS_MONTH: DURATION_UNITS.MONTH
+                  })
+                  
                   if (duration > 0 && paymentTerm) {
                     let numberOfPayments = 0
                     
@@ -1512,16 +1547,24 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                     if (paymentTerm === durationUnit) {
                       // If payment_term is same as rent_duration_unit, number of payments is duration
                       numberOfPayments = duration
+                      console.log("Harga Bayar Sewa: same units, numberOfPayments = duration =", duration)
                     } else {
                       // If payment_term is not the same as rent_duration_unit
                       if (paymentTerm === DURATION_UNITS.MONTH && durationUnit === DURATION_UNITS.YEAR) {
                         // If payment_term is month and rent_duration_unit is year, number of payments is duration * 12
                         numberOfPayments = duration * 12
+                        console.log("Harga Bayar Sewa: month payment with year duration, numberOfPayments =", numberOfPayments)
+                      } else {
+                        console.log("Harga Bayar Sewa: no matching condition, paymentTerm:", paymentTerm, "durationUnit:", durationUnit)
                       }
                     }
                     
+                    console.log("Harga Bayar Sewa: numberOfPayments =", numberOfPayments)
+                    
                     // Harga bayar is (rentPrice - downPayment) / number of payments
                     const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
+                    
+                    console.log("Harga Bayar Sewa: pricePerTerm =", pricePerTerm, "(rentPrice - downPayment) / numberOfPayments =", `(${rentPrice} - ${downPayment}) / ${numberOfPayments}`)
                     
                     if (numberOfPayments > 0 && pricePerTerm > 0) {
                       return new Intl.NumberFormat('id-ID', {
@@ -1531,6 +1574,8 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                         maximumFractionDigits: 0,
                       }).format(pricePerTerm)
                     }
+                  } else {
+                    console.log("Harga Bayar Sewa: early return - duration:", duration, "paymentTerm:", paymentTerm)
                   }
                   return 'Rp0'
                 })()}
