@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Tenant, DURATION_UNIT_LABELS, TenantDepositLog, TenantPaymentLog, tenantsApi, UpdateTenantPaymentData, CreateTenantPaymentData } from '@/lib/api'
+import { Tenant, DURATION_UNIT_LABELS, DURATION_UNITS, TenantDepositLog, TenantPaymentLog, tenantsApi, UpdateTenantPaymentData, CreateTenantPaymentData } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -110,6 +110,7 @@ export default function TenantDetailDialog({
     notes: '',
     paid_amount: undefined
   })
+  const [paidAmountDisplay, setPaidAmountDisplay] = useState<string>('')
   const [updatingPayment, setUpdatingPayment] = useState(false)
   const [allPaidPayments, setAllPaidPayments] = useState<TenantPaymentLog[]>([])
   const [createPaymentDialogOpen, setCreatePaymentDialogOpen] = useState(false)
@@ -338,15 +339,49 @@ export default function TenantDetailDialog({
     }
   }
 
+  // Format price: convert number to string with thousand separators (dots)
+  const formatPrice = (value: number | string | undefined): string => {
+    if (value === null || value === undefined || value === '') return ''
+    const numValue = typeof value === 'string' ? parseFloat(value.replace(/\./g, '')) : value
+    if (isNaN(numValue)) return ''
+    if (numValue === 0) return '0'
+    // Convert to integer string and add thousand separators
+    const integerPart = Math.floor(numValue).toString()
+    return integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  }
+
+  // Parse price input: remove separators and leading zeros
+  const parsePrice = (value: string): number => {
+    if (!value || value.trim() === '') return 0
+    // Remove thousand separators (dots) and any non-digit characters
+    const cleaned = value.replace(/\./g, '').replace(/[^\d]/g, '')
+    if (!cleaned || cleaned === '') return 0
+    // Remove leading zeros but keep at least one digit if all zeros
+    const parsed = cleaned.replace(/^0+(?=\d)/, '') || '0'
+    return parseFloat(parsed) || 0
+  }
+
   const handleUpdatePayment = (payment: TenantPaymentLog) => {
     setSelectedPayment(payment)
+    const paidAmount = payment.paid_amount
     setUpdatePaymentData({
       payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString().split('T')[0] : '',
       payment_method: payment.payment_method || '',
       notes: payment.notes || '',
-      paid_amount: payment.paid_amount
+      paid_amount: paidAmount
     })
+    // Set formatted display value using formatPrice
+    setPaidAmountDisplay(formatPrice(paidAmount))
     setUpdatePaymentDialogOpen(true)
+  }
+
+  const handlePaidAmountChange = (value: string) => {
+    const parsedValue = parsePrice(value)
+    setPaidAmountDisplay(formatPrice(parsedValue))
+    setUpdatePaymentData(prev => ({ 
+      ...prev, 
+      paid_amount: parsedValue > 0 ? parsedValue : undefined 
+    }))
   }
 
   const handleUpdatePaymentSubmit = async () => {
@@ -359,6 +394,7 @@ export default function TenantDetailDialog({
       if (response.success) {
         toast.success('Status pembayaran berhasil diperbarui')
         setUpdatePaymentDialogOpen(false)
+        setPaidAmountDisplay('')
         // Reload payment logs and total
         const offset = (paymentPage - 1) * paymentLimit
         const reloadResponse = await tenantsApi.getTenantPaymentLogs(tenant.id, {
@@ -516,6 +552,85 @@ export default function TenantDetailDialog({
   }
 
   const { totalMustPay, totalPaid, remaining } = calculateTotalAmountDue()
+
+  // Calculate price per term (harga bayar sewa)
+  const calculatePricePerTerm = () => {
+    if (!tenant) {
+      console.log("calculatePricePerTerm: no tenant")
+      return null
+    }
+    
+    const rentPrice = tenant.rent_price || 0
+    const downPayment = tenant.down_payment || 0
+    const duration = parseInt(String(tenant.rent_duration)) || 0
+    
+    // Normalize rent_duration_unit to number: 0 = year, 1 = month
+    let durationUnitNum: number
+    if (typeof tenant.rent_duration_unit === 'number') {
+      durationUnitNum = tenant.rent_duration_unit
+    } else if (typeof tenant.rent_duration_unit === 'string') {
+      const unitStr = tenant.rent_duration_unit.toLowerCase()
+      durationUnitNum = (unitStr === 'year' || unitStr === DURATION_UNITS.YEAR) ? 0 : 1
+    } else {
+      durationUnitNum = 1 // default to month
+    }
+    
+    // Normalize payment_term to number: 0 = year, 1 = month
+    let paymentTermNum: number
+    if (typeof tenant.payment_term === 'number') {
+      paymentTermNum = tenant.payment_term
+    } else if (typeof tenant.payment_term === 'string') {
+      const termStr = tenant.payment_term.trim().toLowerCase()
+      if (termStr === '0' || termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
+        paymentTermNum = 0
+      } else if (termStr === '1' || termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
+        paymentTermNum = 1
+      } else {
+        paymentTermNum = 1 // default to month
+      }
+    } else {
+      paymentTermNum = 1 // default to month
+    }
+    
+    console.log("calculatePricePerTerm: durationUnitNum", durationUnitNum, "paymentTermNum", paymentTermNum)
+    
+    let numberOfPayments = 0
+    
+    // Check payment_term first
+    if (paymentTermNum === durationUnitNum) {
+      // If payment_term is same as rent_duration_unit, number of payments is duration
+      numberOfPayments = duration
+      console.log("calculatePricePerTerm: same units, numberOfPayments = duration =", duration)
+    } else {
+      // If payment_term is not the same as rent_duration_unit
+      if (paymentTermNum === 1 && durationUnitNum === 0) {
+        // If payment_term is month (1) and rent_duration_unit is year (0), number of payments is duration * 12
+        numberOfPayments = duration * 12
+        console.log("calculatePricePerTerm: month payment with year duration, numberOfPayments =", numberOfPayments)
+      } else {
+        console.log("calculatePricePerTerm: no matching condition, numberOfPayments stays 0")
+      }
+    }
+    console.log("numberOfPayments", numberOfPayments)
+    
+    // Harga bayar is (rentPrice - downPayment) / number of payments
+    if (numberOfPayments > 0) {
+      return (rentPrice - downPayment) / numberOfPayments
+    }
+    
+    return null
+  }
+
+  const pricePerTerm = calculatePricePerTerm()
+  console.log("pricePerTerm", pricePerTerm)
+  const formattedPricePerTerm = pricePerTerm 
+    ? new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(pricePerTerm)
+    : null
 
   if (!tenant || !open) return null
 
@@ -732,6 +847,77 @@ export default function TenantDetailDialog({
                                 : '-'}
                             </p>
                           </div>
+                          {(
+                            <div>
+                              <label className="text-sm font-medium text-muted-foreground">
+                                Harga Bayar Sewa
+                              </label>
+                              <p className="text-sm font-medium">
+                                {(() => {
+                                  const rentPrice = tenant.rent_price || 0
+                                  const downPayment = tenant.down_payment || 0
+                                  const duration = parseInt(String(tenant.rent_duration)) || 0
+                                  
+                                  // Normalize rent_duration_unit to number: 0 = year, 1 = month
+                                  let durationUnitNum: number
+                                  if (typeof tenant.rent_duration_unit === 'number') {
+                                    durationUnitNum = tenant.rent_duration_unit
+                                  } else if (typeof tenant.rent_duration_unit === 'string') {
+                                    const unitStr = tenant.rent_duration_unit.toLowerCase()
+                                    durationUnitNum = (unitStr === 'year' || unitStr === DURATION_UNITS.YEAR) ? 0 : 1
+                                  } else {
+                                    durationUnitNum = 1 // default to month
+                                  }
+                                  
+                                  // Normalize payment_term to number: 0 = year, 1 = month
+                                  let paymentTermNum: number
+                                  if (typeof tenant.payment_term === 'number') {
+                                    paymentTermNum = tenant.payment_term
+                                  } else if (typeof tenant.payment_term === 'string') {
+                                    const termStr = tenant.payment_term.trim().toLowerCase()
+                                    if (termStr === '0' || termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
+                                      paymentTermNum = 0
+                                    } else if (termStr === '1' || termStr === 'month' || termStr === DURATION_UNITS.MONTH) {
+                                      paymentTermNum = 1
+                                    } else {
+                                      paymentTermNum = 1 // default to month
+                                    }
+                                  } else {
+                                    paymentTermNum = 1 // default to month
+                                  }
+                                  
+                                  if (duration > 0) {
+                                    let numberOfPayments = 0
+                                    
+                                    // Check payment_term first
+                                    if (paymentTermNum === durationUnitNum) {
+                                      // If payment_term is same as rent_duration_unit, number of payments is duration
+                                      numberOfPayments = duration
+                                    } else {
+                                      // If payment_term is not the same as rent_duration_unit
+                                      if (paymentTermNum === 1 && durationUnitNum === 0) {
+                                        // If payment_term is month (1) and rent_duration_unit is year (0), number of payments is duration * 12
+                                        numberOfPayments = duration * 12
+                                      }
+                                    }
+                                    
+                                    // Harga bayar is (rentPrice - downPayment) / number of payments
+                                    const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
+                                    
+                                    if (numberOfPayments > 0 && pricePerTerm > 0) {
+                                      return new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0,
+                                      }).format(pricePerTerm)
+                                    }
+                                  }
+                                  return '-'
+                                })()}
+                              </p>
+                            </div>
+                          )}
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">
                               Unit & Asset
@@ -1340,7 +1526,12 @@ export default function TenantDetailDialog({
       </div>
 
       {/* Update Payment Dialog */}
-      <Dialog open={updatePaymentDialogOpen} onOpenChange={setUpdatePaymentDialogOpen}>
+      <Dialog open={updatePaymentDialogOpen} onOpenChange={(open) => {
+        setUpdatePaymentDialogOpen(open)
+        if (!open) {
+          setPaidAmountDisplay('')
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Status Pembayaran</DialogTitle>
@@ -1383,15 +1574,11 @@ export default function TenantDetailDialog({
               <Label htmlFor="paid_amount">Jumlah Dibayar</Label>
               <Input
                 id="paid_amount"
-                type="number"
-                value={updatePaymentData.paid_amount !== undefined ? updatePaymentData.paid_amount : ''}
-                onChange={(e) => setUpdatePaymentData(prev => ({ 
-                  ...prev, 
-                  paid_amount: e.target.value ? parseFloat(e.target.value) : undefined 
-                }))}
-                placeholder="Masukkan jumlah yang dibayar"
-                min="0"
-                step="0.01"
+                type="text"
+                value={paidAmountDisplay}
+                onChange={(e) => handlePaidAmountChange(e.target.value)}
+                placeholder={pricePerTerm ? formatPrice(pricePerTerm) : "Masukkan jumlah yang dibayar"}
+                inputMode="decimal"
               />
             </div>
             <div className="space-y-2">
@@ -1407,7 +1594,10 @@ export default function TenantDetailDialog({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setUpdatePaymentDialogOpen(false)}
+              onClick={() => {
+                setUpdatePaymentDialogOpen(false)
+                setPaidAmountDisplay('')
+              }}
               disabled={updatingPayment}
             >
               Batal
@@ -1526,3 +1716,4 @@ export default function TenantDetailDialog({
     </div>
   )
 }
+

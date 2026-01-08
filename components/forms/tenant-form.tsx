@@ -1506,16 +1506,21 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   const paymentTerm = formData.payment_term
                   
                   if (duration > 0 && paymentTerm) {
-                    let durationInMonths = duration
-                    if (durationUnit === DURATION_UNITS.YEAR) {
-                      durationInMonths = duration * 12
+                    let numberOfPayments = 0
+                    
+                    // Check payment_term first
+                    if (paymentTerm === durationUnit) {
+                      // If payment_term is same as rent_duration_unit, number of payments is duration
+                      numberOfPayments = duration
+                    } else {
+                      // If payment_term is not the same as rent_duration_unit
+                      if (paymentTerm === DURATION_UNITS.MONTH && durationUnit === DURATION_UNITS.YEAR) {
+                        // If payment_term is month and rent_duration_unit is year, number of payments is duration * 12
+                        numberOfPayments = duration * 12
+                      }
                     }
                     
-                    let numberOfPayments = durationInMonths
-                    if (paymentTerm === DURATION_UNITS.YEAR) {
-                      numberOfPayments = durationInMonths / 12
-                    }
-                    
+                    // Harga bayar is (rentPrice - downPayment) / number of payments
                     const pricePerTerm = numberOfPayments > 0 ? (rentPrice - downPayment) / numberOfPayments : 0
                     
                     if (numberOfPayments > 0 && pricePerTerm > 0) {
