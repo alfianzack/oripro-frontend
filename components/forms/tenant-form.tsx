@@ -324,23 +324,46 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
           
           // Handle number: 0 = year, 1 = month
           if (typeof tenant.payment_term === 'number') {
-            const converted = tenant.payment_term === 0 ? DURATION_UNITS.YEAR : DURATION_UNITS.MONTH
-            console.log("payment_term is number:", tenant.payment_term, "converted to:", converted)
-            return converted
+            // Explicitly check for 0 (year) first, then 1 (month), then default
+            if (tenant.payment_term === 0) {
+              console.log("payment_term is number 0, converted to:", DURATION_UNITS.YEAR)
+              return DURATION_UNITS.YEAR
+            } else if (tenant.payment_term === 1) {
+              console.log("payment_term is number 1, converted to:", DURATION_UNITS.MONTH)
+              return DURATION_UNITS.MONTH
+            } else {
+              console.log("payment_term is number but not 0 or 1:", tenant.payment_term, "defaulting to MONTH")
+              return DURATION_UNITS.MONTH
+            }
           }
           
           // Handle string: "0" = year, "1" = month, or "year"/"month"
           if (typeof tenant.payment_term === 'string') {
             const termStr = tenant.payment_term.trim().toLowerCase()
-            // Check if it's numeric string
-            if (termStr === '0') {
+            console.log("payment_term is string, trimmed/lowercase:", termStr)
+            
+            // Check if it's numeric string first (most common case from API)
+            if (termStr === '0' || termStr === '0.0' || termStr === '0.00') {
               console.log("payment_term is string '0', converted to:", DURATION_UNITS.YEAR)
               return DURATION_UNITS.YEAR
             }
-            if (termStr === '1') {
+            if (termStr === '1' || termStr === '1.0' || termStr === '1.00') {
               console.log("payment_term is string '1', converted to:", DURATION_UNITS.MONTH)
               return DURATION_UNITS.MONTH
             }
+            
+            // Try parsing as number if it looks numeric
+            const parsedNum = parseFloat(termStr)
+            if (!isNaN(parsedNum)) {
+              if (parsedNum === 0) {
+                console.log("payment_term parsed as number 0, converted to:", DURATION_UNITS.YEAR)
+                return DURATION_UNITS.YEAR
+              } else if (parsedNum === 1) {
+                console.log("payment_term parsed as number 1, converted to:", DURATION_UNITS.MONTH)
+                return DURATION_UNITS.MONTH
+              }
+            }
+            
             // Check if it's already in string format
             if (termStr === 'year' || termStr === DURATION_UNITS.YEAR) {
               console.log("payment_term is string 'year', converted to:", DURATION_UNITS.YEAR)
@@ -350,7 +373,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
               console.log("payment_term is string 'month', converted to:", DURATION_UNITS.MONTH)
               return DURATION_UNITS.MONTH
             }
-            console.log("payment_term is unknown string format:", tenant.payment_term, "termStr:", termStr)
+            console.log("payment_term is unknown string format:", tenant.payment_term, "termStr:", termStr, "parsedNum:", parsedNum)
           }
           
           // Default: if rent_duration_unit is YEAR, default payment_term to MONTH (monthly payment for yearly contract)
@@ -1515,7 +1538,7 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
       </Card>
 
       {/* Harga Bayar Sewa */}
-      {formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
+      {!tenant && formData.rent_price > 0 && formData.rent_duration && formData.payment_term && String(formData.payment_term).trim() !== '' && (
         <Card>
           <CardHeader>
             <CardTitle>Harga Bayar Sewa</CardTitle>
@@ -1530,32 +1553,59 @@ export default function TenantForm({ tenant, onSubmit, loading = false }: Tenant
                   const durationUnit = formData.rent_duration_unit
                   const paymentTerm = formData.payment_term
                   
+                  // Store constants in variables to prevent optimization issues in production builds
+                  const YEAR_CONST = DURATION_UNITS.YEAR
+                  const MONTH_CONST = DURATION_UNITS.MONTH
+                  
                   console.log("Harga Bayar Sewa calculation:", {
                     rentPrice,
                     downPayment,
                     duration,
                     durationUnit,
                     paymentTerm,
-                    DURATION_UNITS_YEAR: DURATION_UNITS.YEAR,
-                    DURATION_UNITS_MONTH: DURATION_UNITS.MONTH
+                    durationUnitType: typeof durationUnit,
+                    paymentTermType: typeof paymentTerm,
+                    DURATION_UNITS_YEAR: YEAR_CONST,
+                    DURATION_UNITS_MONTH: MONTH_CONST,
+                    durationUnitEqualsYear: durationUnit === YEAR_CONST,
+                    durationUnitEqualsMonth: durationUnit === MONTH_CONST,
+                    paymentTermEqualsYear: paymentTerm === YEAR_CONST,
+                    paymentTermEqualsMonth: paymentTerm === MONTH_CONST
                   })
                   
                   if (duration > 0 && paymentTerm) {
                     let numberOfPayments = 0
                     
+                    // Normalize to strings for reliable comparison (important for production builds)
+                    const normalizedPaymentTerm = String(paymentTerm).toLowerCase().trim()
+                    const normalizedDurationUnit = String(durationUnit).toLowerCase().trim()
+                    const normalizedYear = String(YEAR_CONST).toLowerCase().trim()
+                    const normalizedMonth = String(MONTH_CONST).toLowerCase().trim()
+                    
+                    console.log("Harga Bayar Sewa: normalized values:", {
+                      normalizedPaymentTerm,
+                      normalizedDurationUnit,
+                      normalizedYear,
+                      normalizedMonth,
+                      paymentTermEqualsYear: normalizedPaymentTerm === normalizedYear,
+                      paymentTermEqualsMonth: normalizedPaymentTerm === normalizedMonth,
+                      durationUnitEqualsYear: normalizedDurationUnit === normalizedYear,
+                      durationUnitEqualsMonth: normalizedDurationUnit === normalizedMonth
+                    })
+                    
                     // Check payment_term first
-                    if (paymentTerm === durationUnit) {
+                    if (normalizedPaymentTerm === normalizedDurationUnit) {
                       // If payment_term is same as rent_duration_unit, number of payments is duration
                       numberOfPayments = duration
                       console.log("Harga Bayar Sewa: same units, numberOfPayments = duration =", duration)
                     } else {
                       // If payment_term is not the same as rent_duration_unit
-                      if (paymentTerm === DURATION_UNITS.MONTH && durationUnit === DURATION_UNITS.YEAR) {
+                      if (normalizedPaymentTerm === normalizedMonth && normalizedDurationUnit === normalizedYear) {
                         // If payment_term is month and rent_duration_unit is year, number of payments is duration * 12
                         numberOfPayments = duration * 12
                         console.log("Harga Bayar Sewa: month payment with year duration, numberOfPayments =", numberOfPayments)
                       } else {
-                        console.log("Harga Bayar Sewa: no matching condition, paymentTerm:", paymentTerm, "durationUnit:", durationUnit)
+                        console.log("Harga Bayar Sewa: no matching condition, normalizedPaymentTerm:", normalizedPaymentTerm, "normalizedDurationUnit:", normalizedDurationUnit)
                       }
                     }
                     
