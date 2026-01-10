@@ -1091,6 +1091,7 @@ export const tenantsApi = {
     user_id?: string
     category?: number | string
     status?: number | string
+    payment_status?: string
     order?: string
     limit?: number
     offset?: number
@@ -1102,6 +1103,7 @@ export const tenantsApi = {
     if (params?.status !== undefined && params?.status !== null) {
       queryParams.append('status', params.status.toString())
     }
+    if (params?.payment_status) queryParams.append('payment_status', params.payment_status)
     if (params?.order) queryParams.append('order', params.order)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
@@ -1771,9 +1773,32 @@ export interface DashboardWorker {
 export interface DashboardDailyTaskCompletion {
   day: string
   date: string
-  completion: number
-  total: number
-  completed: number
+  keamanan: {
+    completion: number
+    total: number
+    completed: number
+  }
+  kebersihan: {
+    completion: number
+    total: number
+    completed: number
+  }
+}
+
+export interface DashboardMonthlyTaskCompletion {
+  month: string
+  monthStart: string
+  monthEnd: string
+  keamanan: {
+    completion: number
+    total: number
+    completed: number
+  }
+  kebersihan: {
+    completion: number
+    total: number
+    completed: number
+  }
 }
 
 export interface DashboardData {
@@ -1784,6 +1809,7 @@ export interface DashboardData {
   expiringTenants: DashboardExpiringTenant[]
   workers: DashboardWorker[]
   dailyTaskCompletion: DashboardDailyTaskCompletion[]
+  monthlyTaskCompletion: DashboardMonthlyTaskCompletion[]
 }
 
 export interface DashboardStats {

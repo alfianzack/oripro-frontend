@@ -1371,7 +1371,7 @@ export default function TenantDetailDialog({
                               className="flex items-center gap-2"
                             >
                               <Plus className="h-4 w-4" />
-                              Tambah Pembayaran
+                              Sisa Pembayaran
                             </Button>
                             <Label htmlFor="status-filter" className="text-sm">Filter Status:</Label>
                             <Select
@@ -1465,7 +1465,7 @@ export default function TenantDetailDialog({
                                               onClick={() => handleUpdatePayment(log)}
                                             >
                                               <Edit className="h-4 w-4 mr-1" />
-                                              Update
+                                              Pelunasan
                                             </Button>
                                           )}
                                         </TableCell>
@@ -1534,7 +1534,7 @@ export default function TenantDetailDialog({
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Status Pembayaran</DialogTitle>
+            <DialogTitle>Pelunasan Pembayaran</DialogTitle>
             <DialogDescription>
               Perbarui status pembayaran untuk {selectedPayment?.amount ? new Intl.NumberFormat('id-ID', {
                 style: 'currency',
@@ -1623,7 +1623,7 @@ export default function TenantDetailDialog({
       <Dialog open={createPaymentDialogOpen} onOpenChange={setCreatePaymentDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tambah Pembayaran</DialogTitle>
+            <DialogTitle>Sisa Pembayaran</DialogTitle>
             <DialogDescription>
               Tambahkan catatan pembayaran baru untuk tenant ini
             </DialogDescription>
@@ -1633,18 +1633,23 @@ export default function TenantDetailDialog({
               <Label htmlFor="create_amount">
                 Jumlah Pembayaran <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="create_amount"
-                type="number"
-                value={createPaymentData.amount || ''}
-                onChange={(e) => setCreatePaymentData(prev => ({ 
-                  ...prev, 
-                  amount: e.target.value ? parseFloat(e.target.value) : 0 
-                }))}
-                placeholder="Masukkan jumlah pembayaran"
-                min="0"
-                step="0.01"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground">Rp</span>
+                <Input
+                  id="create_amount"
+                  type="text"
+                  value={formatPrice(createPaymentData.amount || 0)}
+                  onChange={(e) => {
+                    const parsedValue = parsePrice(e.target.value)
+                    setCreatePaymentData(prev => ({ 
+                      ...prev, 
+                      amount: parsedValue
+                    }))
+                  }}
+                  placeholder="0"
+                  className="pl-10"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="create_payment_date">Tanggal Pembayaran</Label>

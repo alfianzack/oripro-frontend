@@ -62,6 +62,7 @@ export default function TenantsPage() {
   // Filter dan sorting states
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all')
   const [order, setOrder] = useState<string>('a-z')
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isTenantUser, setIsTenantUser] = useState(false)
@@ -98,6 +99,9 @@ export default function TenantsPage() {
         if (statusInt !== undefined) {
           filterParams.status = statusInt
         }
+      }
+      if (paymentStatusFilter !== 'all') {
+        filterParams.payment_status = paymentStatusFilter
       }
       if (order) {
         filterParams.order = order
@@ -194,7 +198,7 @@ export default function TenantsPage() {
     if (currentUser) {
       loadTenants()
     }
-  }, [searchTerm, categoryFilter, statusFilter, order, offset, currentUser, isTenantUser])
+  }, [searchTerm, categoryFilter, statusFilter, paymentStatusFilter, order, offset, currentUser, isTenantUser])
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset)
@@ -398,6 +402,19 @@ export default function TenantsPage() {
                 </SelectContent>
               </Select>
               
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="w-[200px] bg-white">
+                  <SelectValue placeholder="Status Pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status Pembayaran</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="reminder_needed">Reminder Needed</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+              
               <Select value={order} onValueChange={setOrder}>
                 <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Urutkan" />
@@ -417,6 +434,7 @@ export default function TenantsPage() {
                   setSearchTerm('')
                   setCategoryFilter('all')
                   setStatusFilter('all')
+                  setPaymentStatusFilter('all')
                   setOrder('a-z')
                   setOffset(0)
                 }}
@@ -460,6 +478,7 @@ export default function TenantsPage() {
               onPageChange={handlePageChange}
               can_edit={can_edit}
               can_delete={can_delete}
+              paymentStatusFilter={paymentStatusFilter}
             />
           )}
         </CardContent>

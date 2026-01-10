@@ -219,6 +219,7 @@ export default function TenantKontrakTable() {
                 <TableRow>
                   <TableHead className="text-sm font-semibold text-gray-700">Nama Tenant</TableHead>
                   <TableHead className="text-sm font-semibold text-gray-700">Tanggal Jatuh Tempo</TableHead>
+                  <TableHead className="text-sm font-semibold text-gray-700">Nominal</TableHead>
                   <TableHead className="text-sm font-semibold text-gray-700">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -230,6 +231,16 @@ export default function TenantKontrakTable() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {formatDate(tenant.deadlineDate)}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">
+                      {tenant.unpaidPayment?.amount ? (
+                        new Intl.NumberFormat('id-ID', {
+                          style: 'currency',
+                          currency: 'IDR',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }).format(tenant.unpaidPayment.amount)
+                      ) : '-'}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(tenant.paymentStatus || 'scheduled')}

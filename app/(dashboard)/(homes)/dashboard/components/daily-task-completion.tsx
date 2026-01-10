@@ -1,18 +1,27 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import dynamic from 'next/dynamic'
 import { ApexOptions } from "apexcharts"
-import { DashboardDailyTaskCompletion } from "@/lib/api"
+import { DashboardDailyTaskCompletion, DashboardMonthlyTaskCompletion } from "@/lib/api"
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false })
 
 interface DailyTaskCompletionProps {
   data: DashboardDailyTaskCompletion[]
+  monthlyData?: DashboardMonthlyTaskCompletion[]
 }
 
-export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) {
+export default function DailyTaskCompletion({ data, monthlyData = [] }: DailyTaskCompletionProps) {
+  const [viewMode, setViewMode] = useState<'mingguan' | 'bulanan'>('mingguan')
+  
+  // Determine which data to use based on view mode
+  const currentData = viewMode === 'mingguan' ? data : monthlyData
+  const categories = viewMode === 'mingguan' 
+    ? currentData.map(d => (d as DashboardDailyTaskCompletion).day)
+    : currentData.map(d => (d as DashboardMonthlyTaskCompletion).month)
   const chartOptions: ApexOptions = {
     chart: {
       type: 'bar',
@@ -37,12 +46,14 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
       colors: ['transparent']
     },
     xaxis: {
-      categories: data.map(d => d.day),
+      categories: categories,
       labels: {
         style: {
           fontSize: '12px',
           colors: '#6B7280'
-        }
+        },
+        rotate: viewMode === 'bulanan' ? -45 : 0,
+        rotateAlways: viewMode === 'bulanan'
       }
     },
     yaxis: {
@@ -106,17 +117,15 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
     }
   }
 
-  // Group data by role if available, otherwise use single series
-  // For now, we'll create two series (Cleaning and Security) with same data
-  // In production, this should come from backend grouped by role
+  // Extract data from keamanan and kebersihan objects
   const chartSeries = [
     {
-      name: 'Cleaning',
-      data: data.map(d => d.completion)
+      name: 'Kebersihan',
+      data: currentData.map(d => d.kebersihan?.completion || 0)
     },
     {
-      name: 'Security',
-      data: data.map(d => Math.max(0, d.completion - 5)) // Slight variation for demo
+      name: 'Keamanan',
+      data: currentData.map(d => d.keamanan?.completion || 0)
     }
   ]
 
@@ -124,9 +133,9 @@ export default function DailyTaskCompletion({ data }: DailyTaskCompletionProps) 
     <Card className="p-6 h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold text-gray-700">
-          Daily task completion
+          Task Completions
         </CardTitle>
-        <Select defaultValue="mingguan">
+        <Select value={viewMode} onValueChange={(value) => setViewMode(value as 'mingguan' | 'bulanan')}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Pilih Tampilan" />
           </SelectTrigger>

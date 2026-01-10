@@ -58,6 +58,7 @@ export default function DashboardPage() {
           expiringTenants: responseDataDashboard.expiringTenants || [],
           workers: responseDataDashboard.workers || [],
           dailyTaskCompletion: responseDataDashboard.dailyTaskCompletion || [],
+          monthlyTaskCompletion: responseDataDashboard.monthlyTaskCompletion || [],
         }
         setDashboardData(data)
       } else {
@@ -174,6 +175,7 @@ export default function DashboardPage() {
   const expiringTenants = dashboardData?.expiringTenants || []
   const workers = dashboardData?.workers || []
   const dailyTaskCompletion = dashboardData?.dailyTaskCompletion || []
+  const monthlyTaskCompletion = dashboardData?.monthlyTaskCompletion || []
 
   return (
     <>
@@ -310,7 +312,7 @@ export default function DashboardPage() {
 
             {/* Daily Task Completion */}
             <div className="lg:col-span-1 h-full">
-              <DailyTaskCompletion data={dailyTaskCompletion} />
+              <DailyTaskCompletion data={dailyTaskCompletion} monthlyData={monthlyTaskCompletion} />
             </div>
           </div>
         </div>

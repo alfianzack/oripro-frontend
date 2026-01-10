@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Tenant, tenantsApi, DURATION_UNIT_LABELS, DURATION_UNITS } from '@/lib/api'
 import {
   Table,
@@ -93,6 +93,7 @@ interface TenantsTableProps {
   onPageChange?: (offset: number) => void
   can_edit?: boolean
   can_delete?: boolean
+  paymentStatusFilter?: string
 }
 
 export default function TenantsTable({ 
@@ -104,7 +105,8 @@ export default function TenantsTable({
   pagination,
   onPageChange,
   can_edit = true,
-  can_delete = true
+  can_delete = true,
+  paymentStatusFilter = 'all'
 }: TenantsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null)
@@ -238,6 +240,25 @@ export default function TenantsTable({
     return Math.min(pagination.offset + pagination.limit, pagination.total)
   }
 
+  // Filter tenants by payment status
+  // Note: Payment status filtering is primarily handled by the backend via paymentStatusFilter query param
+  // This client-side filter is a fallback for cases where payment status is already in the tenant data
+  const filteredTenantsWithPayment = useMemo(() => {
+    if (paymentStatusFilter === 'all') {
+      return tenants
+    }
+    
+    // Filter by payment_status if it exists on the tenant object
+    return tenants.filter((tenant) => {
+      const paymentStatus = (tenant as any).payment_status || (tenant as TenantWithPaymentStatus).paymentStatus
+      if (!paymentStatus) {
+        // If no payment status, include it only if filter is 'all' (already handled above)
+        return false
+      }
+      return paymentStatus === paymentStatusFilter
+    })
+  }, [tenants, paymentStatusFilter])
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -277,8 +298,8 @@ export default function TenantsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              tenants.map((tenant, index) => {
-                const isLast = index === tenants.length - 1;
+              filteredTenantsWithPayment.map((tenant, index) => {
+                const isLast = index === filteredTenantsWithPayment.length - 1;
                 // Use status from database if available, otherwise calculate based on contract_end_at
                 let tenantStatus: string;
                 if (tenant.status) {
