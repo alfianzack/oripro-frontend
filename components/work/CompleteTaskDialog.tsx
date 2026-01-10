@@ -815,7 +815,6 @@ export function CompleteTaskDialog({
         }
       }
     }
-    }
 
     // Validation: If task requires scan, scan code must be provided
     if (task.is_scan) {
