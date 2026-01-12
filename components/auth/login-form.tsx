@@ -102,7 +102,7 @@ const LoginForm = () => {
           } else if (roleName === 'tenant') {
             // Tenant -> dashboard tenant
             router.push('/dashboard-tenant')
-          } else if (roleName === 'worker' || roleName === 'user' || roleName === 'keamanan' || roleName === 'kebersihan') {
+          } else if (roleName.toLowerCase() === 'worker' || roleName.toLowerCase() === 'user' || roleName.toLowerCase() === 'keamanan' || roleName.toLowerCase() === 'kebersihan' || roleName.toLowerCase() === 'security' || roleName.toLowerCase() === 'cleaning' ) {
             // Worker, user, atau keamanan dan kebersihan -> dashboard worker
             router.push('/dashboard-worker')
           } else {

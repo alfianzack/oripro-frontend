@@ -1705,10 +1705,16 @@ export const userTasksApi = {
   async getUserTasks(params?: {
     limit?: number
     offset?: number
+    user_id?: string
+    date_from?: string
+    date_to?: string
   }): Promise<ApiResponse<UserTask[]>> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.user_id) queryParams.append('user_id', params.user_id)
     if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.date_from) queryParams.append('date_from', params.date_from)
+    if (params?.date_to) queryParams.append('date_to', params.date_to)
     
     const endpoint = `/api/user-tasks${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
     return apiClient.get<UserTask[]>(endpoint)

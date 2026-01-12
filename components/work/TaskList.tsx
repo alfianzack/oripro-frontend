@@ -103,9 +103,16 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
       return []
     }
     
-    return userTask.sub_user_task.filter(subTask => {
+    const filtered = userTask.sub_user_task.filter(subTask => {
       const subTaskData = subTask.task
       return subTaskData && (subTaskData.is_need_validation || subTaskData.is_scan)
+    })
+    
+    // Sort by task name
+    return filtered.sort((a, b) => {
+      const nameA = a.task?.name || ''
+      const nameB = b.task?.name || ''
+      return nameA.localeCompare(nameB, 'id', { sensitivity: 'base' })
     })
   }
 

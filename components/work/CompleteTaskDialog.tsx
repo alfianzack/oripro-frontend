@@ -151,7 +151,7 @@ export function CompleteTaskDialog({
     if (file) {
       // For keamanan role with need_validation: only allow one attachment (either before OR after)
       // Clear the other file if user uploads a new one
-      if (task?.is_need_validation && userRoleName === 'keamanan' && field !== 'fileScan') {
+      if (task?.is_need_validation && (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') && field !== 'fileScan') {
         const otherField = field === 'fileBefore' ? 'fileAfter' : 'fileBefore'
         const otherPreviewKey = otherField === 'fileBefore' ? 'before' : 'after'
         
@@ -796,7 +796,7 @@ export function CompleteTaskDialog({
       const hasAfter = formData.fileAfter !== null
       
       // For keamanan role: must have exactly one attachment (either before OR after)
-      if (userRoleName === 'keamanan') {
+      if (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') {
         if (!hasBefore && !hasAfter) {
           toast.error('Untuk role keamanan, wajib mengupload satu foto (Before atau After)')
           return
@@ -808,7 +808,7 @@ export function CompleteTaskDialog({
       }
       
       // For kebersihan role: must have both before AND after attachments
-      if (userRoleName === 'kebersihan') {
+      if (userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') {
         if (!hasBefore || !hasAfter) {
           toast.error('Untuk role kebersihan, wajib mengupload foto Before dan After')
           return
@@ -1056,14 +1056,14 @@ export function CompleteTaskDialog({
           {task.is_need_validation && (
             <div className="space-y-4">
               {/* Role-based requirement message */}
-              {userRoleName === 'keamanan' && (
+              {(userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-sm text-blue-800">
                     <strong>Catatan:</strong> Untuk role keamanan, Anda hanya perlu mengupload satu foto (Before <strong>atau</strong> After)
                   </p>
                 </div>
               )}
-              {userRoleName === 'kebersihan' && (
+              {(userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-sm text-amber-800">
                     <strong>Catatan:</strong> Untuk role kebersihan, Anda wajib mengupload foto Before <strong>dan</strong> After
@@ -1071,7 +1071,7 @@ export function CompleteTaskDialog({
                 </div>
               )}
               <div>
-                <Label>Foto Before {userRoleName === 'kebersihan' && <span className="text-red-500">*</span>}</Label>
+                <Label>Foto Before {(userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') && <span className="text-red-500">*</span>}</Label>
                 <div className="flex gap-2 mt-2">
                   <Button
                     type="button"

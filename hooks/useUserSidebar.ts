@@ -18,7 +18,8 @@ import {
   FileText,
   UserRoundCheck,
   ListChecks, 
-  CircleAlert, 
+  CircleAlert,
+  UserRoundPen 
 } from "lucide-react"
 
 // Icon mapping untuk konversi dari string ke komponen Lucide
@@ -38,6 +39,7 @@ const iconMap: Record<string, LucideIcon> = {
   'UserRoundCheck': UserRoundCheck,
   'ListChecks': ListChecks,
   'CircleAlert': CircleAlert,
+  'UserRoundPen': UserRoundPen,
 }
 
 interface SidebarItem {
