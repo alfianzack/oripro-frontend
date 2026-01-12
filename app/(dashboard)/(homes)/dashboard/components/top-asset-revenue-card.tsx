@@ -79,11 +79,6 @@ export default function TopAssetRevenueCard() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                Lihat lainnya
-              </button>
-            </div>
           </>
         ) : (
           <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">

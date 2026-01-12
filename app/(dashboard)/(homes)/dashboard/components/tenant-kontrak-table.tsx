@@ -48,9 +48,17 @@ export default function TenantKontrakTable() {
           continue
         }
         
-        // Get payment logs for this tenant
+        // Payment status diambil langsung dari kolom payment_status di tabel tenant
+        // Status ini diupdate oleh backend melalui internal.js berdasarkan payment logs
+        const tenantPaymentStatus = tenant.payment_status || 'scheduled'
+        
+        // Skip tenant dengan status 'paid' karena tidak ada unpaid payment
+        if (tenantPaymentStatus === 'paid') {
+          continue
+        }
+
+        // Get payment logs untuk mendapatkan unpaid payment dan deadline date (hanya untuk display)
         let unpaidPayment: TenantPaymentLog | null = null
-        let paymentStatus: 'overdue' | 'reminder_needed' | 'scheduled' = 'scheduled'
         let deadlineDate: string | undefined
 
         try {
@@ -87,24 +95,24 @@ export default function TenantKontrakTable() {
 
                 if (unpaidPayment && unpaidPayment.payment_deadline) {
                   deadlineDate = unpaidPayment.payment_deadline
-                  const deadline = new Date(unpaidPayment.payment_deadline)
-                  const diffTime = deadline.getTime() - now.getTime()
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-                  // Determine status based on days
-                  if (diffDays < 0) {
-                    paymentStatus = 'overdue'
-                  } else if (diffDays <= 7) {
-                    paymentStatus = 'reminder_needed'
-                  } else {
-                    paymentStatus = 'scheduled'
-                  }
                 }
               }
             }
           }
         } catch (error) {
           console.error(`Error loading payments for tenant ${tenant.id}:`, error)
+        }
+
+        // Mapping payment_status dari database ke nilai yang digunakan di UI
+        // Database: 'paid', 'scheduled', 'reminder_needed', 'overdue'
+        // UI: 'overdue', 'reminder_needed', 'scheduled'
+        let paymentStatus: 'overdue' | 'reminder_needed' | 'scheduled' = 'scheduled'
+        if (tenantPaymentStatus === 'overdue') {
+          paymentStatus = 'overdue'
+        } else if (tenantPaymentStatus === 'reminder_needed') {
+          paymentStatus = 'reminder_needed'
+        } else if (tenantPaymentStatus === 'scheduled') {
+          paymentStatus = 'scheduled'
         }
 
         // Only include tenants with unpaid payments

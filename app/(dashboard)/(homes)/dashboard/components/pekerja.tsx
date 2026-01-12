@@ -30,7 +30,7 @@ export default function Pekerja({ workers }: PekerjaProps) {
         <CardTitle className="text-lg font-semibold text-gray-700">
           Pekerja
         </CardTitle>
-        <Link href="/users">
+        <Link href="/worker">
           <Button variant="ghost" size="sm" className="text-sm text-blue-600 hover:text-blue-700">
             Lihat Semua
           </Button>

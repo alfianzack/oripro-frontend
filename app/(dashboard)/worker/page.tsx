@@ -15,7 +15,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Search, Loader2, Eye, RefreshCw, UsersRound } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Search, Loader2, Eye, RefreshCw, UsersRound, Home, UserRoundPen } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function WorkerPage() {
@@ -157,6 +158,25 @@ export default function WorkerPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <UserRoundPen className="h-4 w-4" />
+              Data Pekerja
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Data Pekerja</h1>
@@ -168,10 +188,17 @@ export default function WorkerPage() {
       {/* Search and Filter */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UsersRound className="h-5 w-5" />
-            Daftar Pekerja
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <UsersRound className="h-5 w-5" />
+              Daftar Pekerja
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={loadWorkers} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -184,23 +211,6 @@ export default function WorkerPage() {
                 className="pl-10"
               />
             </div>
-            <Button
-              onClick={loadWorkers}
-              disabled={loading}
-              variant="outline"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Memuat...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </>
-              )}
-            </Button>
           </div>
 
           {/* Workers Table */}

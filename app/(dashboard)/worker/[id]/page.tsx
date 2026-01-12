@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import {
   Table,
   TableBody,
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Calendar, Clock, MapPin, CheckCircle2, Eye, RefreshCw, ArrowLeft, User as UserIcon, ChevronDown, ChevronRight } from 'lucide-react'
+import { Loader2, Calendar, Clock, MapPin, CheckCircle2, Eye, RefreshCw, ArrowLeft, User as UserIcon, ChevronDown, ChevronRight, Home, UserRoundPen } from 'lucide-react'
 import { attendanceApi, userTasksApi, usersApi, Attendance, UserTask, User } from '@/lib/api'
 import toast from 'react-hot-toast'
 import WorkerTaskDetailDialog from '@/components/dialogs/worker-task-detail-dialog'
@@ -624,24 +625,36 @@ function WorkerDetailContent() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/worker" className="flex items-center gap-2">
+              <UserRoundPen className="h-4 w-4" />
+              Data Pekerja
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4" />
+              Detail: {user.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/worker')}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Kembali
-            </Button>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight">Detail Pekerja</h1>
-          <p className="text-muted-foreground">
-            {user.name} - {user.email}
-          </p>
         </div>
       </div>
 

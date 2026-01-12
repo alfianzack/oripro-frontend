@@ -55,31 +55,23 @@ export default function DashboardTenantPage() {
     })
   }
 
-  const getPaymentStatus = (payment: TenantPaymentLog | null): 'terlambat' | 'jatuh-tempo-hari-ini' | 'lunas' | 'akan-datang' => {
-    if (!payment) return 'akan-datang'
+  // Menggunakan payment_status dari tabel tenant (bukan dihitung manual)
+  // Status ini diupdate oleh backend melalui internal.js berdasarkan payment logs
+  const getPaymentStatus = (tenant: TenantWithPayment): 'terlambat' | 'jatuh-tempo-hari-ini' | 'lunas' | 'akan-datang' => {
+    // Ambil payment_status langsung dari tenant table
+    const paymentStatus = tenant.payment_status || 'scheduled'
     
-    if (payment.status === 1) {
-      return 'lunas'
-    }
-
-    if (!payment.payment_deadline) {
-      return 'akan-datang'
-    }
-
-    const deadline = new Date(payment.payment_deadline)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    deadline.setHours(0, 0, 0, 0)
-
-    const diffTime = deadline.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return 'terlambat'
-    } else if (diffDays === 0) {
-      return 'jatuh-tempo-hari-ini'
-    } else {
-      return 'akan-datang'
+    // Mapping dari nilai ENUM di database ke nilai yang digunakan di UI
+    switch (paymentStatus) {
+      case 'paid':
+        return 'lunas'
+      case 'overdue':
+        return 'terlambat'
+      case 'reminder_needed':
+        return 'jatuh-tempo-hari-ini'
+      case 'scheduled':
+      default:
+        return 'akan-datang'
     }
   }
 
@@ -257,7 +249,7 @@ export default function DashboardTenantPage() {
     (tenant.allPayments || []).map(payment => ({
       ...payment,
       tenant,
-      status: getPaymentStatus(payment)
+      status: getPaymentStatus(tenant) // Menggunakan status dari tenant, bukan dari payment
     }))
   )
 
@@ -282,7 +274,7 @@ export default function DashboardTenantPage() {
     return tenantUnits.map(unit => {
       const asset = assets.find(a => a.id === unit.asset_id)
       const payment = tenant.currentPayment || null
-      const status = getPaymentStatus(payment)
+      const status = getPaymentStatus(tenant) // Menggunakan status dari tenant table, bukan dari payment
       
       return {
         tenant,
