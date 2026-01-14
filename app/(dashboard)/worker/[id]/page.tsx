@@ -989,9 +989,9 @@ function WorkerDetailContent() {
                                         <TableCell colSpan={6} className="p-0 bg-muted/30">
                                           <div className="p-4">
                                             <h4 className="text-sm font-semibold mb-3">Daftar Task - {formatDateShort(stat.date)}</h4>
-                                            <div className="rounded-md border bg-background overflow-x-auto">
+                                            <div className="rounded-md border bg-background max-h-[200px] overflow-y-auto overflow-x-auto">
                                               <Table>
-                                                <TableHeader>
+                                                <TableHeader className="sticky top-0 bg-background z-10">
                                                   <TableRow>
                                                     <TableHead>Nama Task</TableHead>
                                                     <TableHead>Waktu</TableHead>

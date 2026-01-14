@@ -139,26 +139,8 @@ export default function AssetsPage() {
     router.push(`/asset/edit/${asset.id}`)
   }
 
-  const handleView = async (asset: Asset) => {
-    try {
-      // Fetch full asset details including photos and sketch
-      const response = await assetsApi.getAsset(asset.id)
-      if (response.success && response.data) {
-        const responseData = response.data as any
-        
-        setSelectedAsset(responseData.data)
-        setDetailDialogOpen(true)
-      } else {
-        // Fallback to asset from list if detail fetch fails
-        setSelectedAsset(asset)
-        setDetailDialogOpen(true)
-      }
-    } catch (error) {
-      console.error('Error fetching asset details:', error)
-      // Fallback to asset from list on error
-      setSelectedAsset(asset)
-      setDetailDialogOpen(true)
-    }
+  const handleView = (asset: Asset) => {
+    router.push(`/asset/view/${asset.id}`)
   }
 
   const handleRefresh = () => {

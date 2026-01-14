@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Building2, Loader2 } from "lucide-react"
 import { assetsApi, Asset } from "@/lib/api"
 import LoadingSkeleton from "@/components/loading-skeleton"
@@ -68,37 +69,50 @@ export default function AssetTableCard() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         {assets.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-sm font-semibold text-gray-700">Nama Asset</TableHead>
-                  <TableHead className="text-sm font-semibold text-gray-700">Luas Area</TableHead>
-                  <TableHead className="text-sm font-semibold text-gray-700">Jumlah Unit</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assets.map((asset) => {
-                  const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
-                  const unitCount = getUnitCount(asset)
-                  
-                  return (
-                    <TableRow key={asset.id}>
-                      <TableCell className="font-medium text-sm text-gray-900">
-                        {asset.name || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {area ? `${area.toLocaleString('id-ID')} m²` : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {unitCount || 0}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <TooltipProvider>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-sm font-semibold text-gray-700 w-[40%]">Nama Asset</TableHead>
+                    <TableHead className="text-sm font-semibold text-gray-700 w-[30%]">Luas Area</TableHead>
+                    <TableHead className="text-sm font-semibold text-gray-700 w-[30%]">Jumlah Unit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assets.map((asset) => {
+                    const area = typeof asset.area === 'string' ? parseFloat(asset.area) : (typeof asset.area === 'number' ? asset.area : 0)
+                    const unitCount = getUnitCount(asset)
+                    
+                    return (
+                      <TableRow key={asset.id}>
+                        <TableCell className="font-medium text-sm text-gray-900 max-w-[150px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="truncate cursor-help">
+                                {asset.name || '-'}
+                              </div>
+                            </TooltipTrigger>
+                            {asset.name && asset.name.length > 20 && (
+                              <TooltipContent>
+                                <p>{asset.name}</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">
+                          {area ? `${area.toLocaleString('id-ID')} m²` : '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">
+                          {unitCount || 0}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </TooltipProvider>
         ) : (
           <div className="text-center py-8 text-muted-foreground flex-1 flex items-center justify-center">
             <div>

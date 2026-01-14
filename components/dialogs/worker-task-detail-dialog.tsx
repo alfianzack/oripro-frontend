@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserTask } from '@/lib/api'
+import { UserTask, User, usersApi } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { X, Calendar, Clock, Building2, CheckCircle2, XCircle, Play, User } from 'lucide-react'
+import { X, Calendar, Clock, Building2, CheckCircle2, XCircle, Play, User as UserIcon, Users, Loader2 } from 'lucide-react'
 
 interface WorkerTaskDetailDialogProps {
   open: boolean
@@ -19,10 +19,40 @@ export default function WorkerTaskDetailDialog({
   userTask
 }: WorkerTaskDetailDialogProps) {
   const [mounted, setMounted] = useState(false)
+  const [activeUsers, setActiveUsers] = useState<User[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Load active users when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadActiveUsers()
+    }
+  }, [open])
+
+  const loadActiveUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const response = await usersApi.getUsers({ 
+        status: 'active',
+        limit: 1000 
+      })
+      if (response.success && response.data) {
+        const responseData = response.data as any
+        const users = Array.isArray(responseData.data) 
+          ? responseData.data 
+          : (Array.isArray(responseData) ? responseData : [])
+        setActiveUsers(users.filter((user: User) => user.status === 'active'))
+      }
+    } catch (error) {
+      console.error('Error loading active users:', error)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -119,270 +149,181 @@ export default function WorkerTaskDetailDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div>
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              Detail Task Pekerja
+            <h2 className="text-lg font-semibold">
+              {task?.name || 'Detail Task'}
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {task?.name || 'Task Detail'}
-            </p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onOpenChange(false)}
-            className="rounded-full hover:bg-gray-100"
+            className="h-8 w-8"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {/* Task Information */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4">
+            {/* Status Badge */}
+            <div className="flex items-center gap-2">
+              {getStatusBadge()}
+              {task?.duration && (
+                <span className="text-xs text-muted-foreground">
+                  {task.duration} menit
+                </span>
+              )}
+            </div>
+
+            {/* Task Information - Compact */}
             {task && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informasi Task</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Nama Task
-                      </label>
-                      <p className="text-sm font-medium">{task.name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Tipe Task
-                      </label>
-                      <div className="mt-1">
-                        <Badge variant={task.is_main_task ? 'default' : 'outline'}>
-                          {task.is_main_task ? 'Main Task' : 'Child Task'}
-                        </Badge>
-                      </div>
-                    </div>
-                    {task.duration && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Durasi
-                        </label>
-                        <p className="text-sm font-medium">{task.duration} menit</p>
-                      </div>
-                    )}
-                    {task.scan_code && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Scan Code
-                        </label>
-                        <p className="text-sm font-medium">{task.scan_code}</p>
-                      </div>
-                    )}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {task.scan_code && (
+                  <div>
+                    <span className="text-muted-foreground">Scan Code: </span>
+                    <span className="font-medium">{task.scan_code}</span>
                   </div>
-                </CardContent>
-              </Card>
+                )}
+                <div>
+                  <span className="text-muted-foreground">Tipe: </span>
+                  <Badge variant={task.is_main_task ? 'default' : 'outline'} className="text-xs">
+                    {task.is_main_task ? 'Main' : 'Child'}
+                  </Badge>
+                </div>
+              </div>
             )}
 
-            {/* Status & Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Status & Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Status
-                    </label>
-                    <div className="mt-1">
-                      {getStatusBadge()}
-                    </div>
+            {/* Timeline - Compact */}
+            <div className="space-y-2 text-sm border-t pt-3">
+              {userTask.scheduled_at && (
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Jadwal: </span>
+                  <span className="font-medium">{formatDate(userTask.scheduled_at)}</span>
+                </div>
+              )}
+              {userTask.time && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Waktu: </span>
+                  <span className="font-medium">{userTask.time}</span>
+                </div>
+              )}
+              {(userTask.started_at || userTask.start_at) && (
+                <div className="flex items-center gap-2">
+                  <Play className="h-3 w-3 text-blue-600" />
+                  <span className="text-muted-foreground">Dimulai: </span>
+                  <span className="font-medium">{formatTime(userTask.started_at || userTask.start_at || null)}</span>
+                </div>
+              )}
+              {userTask.completed_at && (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  <span className="text-muted-foreground">Selesai: </span>
+                  <span className="font-medium">{formatTime(userTask.completed_at)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Asset & User - Compact */}
+            <div className="grid grid-cols-2 gap-3 text-sm border-t pt-3">
+              {task?.asset && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">Asset:</span>
                   </div>
-                  {userTask.scheduled_at && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Jadwal
-                      </label>
-                      <p className="text-sm font-medium">{formatDate(userTask.scheduled_at)}</p>
-                    </div>
-                  )}
-                  {userTask.time && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Waktu
-                      </label>
-                      <p className="text-sm font-medium">{userTask.time}</p>
-                    </div>
-                  )}
-                  {(userTask.started_at || userTask.start_at) && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Dimulai Pada
-                      </label>
-                      <p className="text-sm font-medium">
-                        {formatDate(userTask.started_at || userTask.start_at || null)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatTime(userTask.started_at || userTask.start_at || null)}
-                      </p>
-                    </div>
-                  )}
-                  {userTask.completed_at && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Selesai Pada
-                      </label>
-                      <p className="text-sm font-medium">{formatDate(userTask.completed_at)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatTime(userTask.completed_at)}
-                      </p>
-                    </div>
+                  <p className="font-medium">{task.asset.name}</p>
+                  {task.asset.code && (
+                    <p className="text-xs text-muted-foreground">Code: {task.asset.code}</p>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Asset & Location */}
-            {task?.asset && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Lokasi & Asset
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Asset
-                      </label>
-                      <p className="text-sm font-medium">{task.asset.name}</p>
-                      {task.asset.code && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Code: {task.asset.code}
-                        </p>
-                      )}
-                    </div>
-                    {task.asset.address && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Alamat
-                        </label>
-                        <p className="text-sm">{task.asset.address}</p>
-                      </div>
-                    )}
+              )}
+              {userTask.user && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <UserIcon className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">Pekerja:</span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* User Information */}
-            {userTask.user && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Informasi Pekerja
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Nama
-                      </label>
-                      <p className="text-sm font-medium">{userTask.user.name}</p>
-                    </div>
-                    {userTask.user.email && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                          Email
-                        </label>
-                        <p className="text-sm font-medium">{userTask.user.email}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  <p className="font-medium">{userTask.user.name}</p>
+                  {userTask.user.email && (
+                    <p className="text-xs text-muted-foreground">{userTask.user.email}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Notes */}
             {userTask.notes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Catatan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{userTask.notes}</p>
-                </CardContent>
-              </Card>
+              <div className="border-t pt-3">
+                <p className="text-sm text-muted-foreground mb-1">Catatan:</p>
+                <p className="text-sm whitespace-pre-wrap bg-gray-50 dark:bg-gray-800 p-2 rounded">{userTask.notes}</p>
+              </div>
             )}
 
             {/* Evidence */}
             {userTask.evidences && userTask.evidences.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bukti Pengerjaan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {userTask.evidences.map((evidence: any, index: number) => (
-                      <div key={index} className="space-y-2">
-                        {evidence.photo_url && (
-                          <img
-                            src={evidence.photo_url}
-                            alt={`Evidence ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                        )}
-                        {evidence.notes && (
-                          <p className="text-xs text-muted-foreground">{evidence.notes}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="border-t pt-3">
+                <p className="text-sm text-muted-foreground mb-2">Bukti Pengerjaan:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {userTask.evidences.map((evidence: any, index: number) => (
+                    <div key={index} className="space-y-1">
+                      {evidence.photo_url && (
+                        <img
+                          src={evidence.photo_url}
+                          alt={`Evidence ${index + 1}`}
+                          className="w-full h-24 object-cover rounded"
+                        />
+                      )}
+                      {evidence.notes && (
+                        <p className="text-xs text-muted-foreground">{evidence.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {/* Date Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Informasi Tanggal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {userTask.created_at && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Dibuat
-                      </label>
-                      <p className="text-sm font-medium">{formatDate(userTask.created_at)}</p>
-                    </div>
-                  )}
-                  {userTask.updated_at && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Diupdate
-                      </label>
-                      <p className="text-sm font-medium">{formatDate(userTask.updated_at)}</p>
-                    </div>
-                  )}
+            {/* Active Users List */}
+            <div className="border-t pt-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Daftar Pekerja Aktif</h3>
+              </div>
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
-              </CardContent>
-            </Card>
+              ) : activeUsers.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {activeUsers.map((user) => (
+                    <div 
+                      key={user.id} 
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                        <span className="font-medium">{user.name}</span>
+                      </div>
+                      {user.role && (
+                        <Badge variant="outline" className="text-xs">
+                          {user.role.name}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Tidak ada pekerja aktif
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

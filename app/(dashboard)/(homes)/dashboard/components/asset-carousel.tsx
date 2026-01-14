@@ -1,0 +1,287 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card } from "@/components/ui/card"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { assetsApi, unitsApi, tenantsApi, Asset, Unit, Tenant } from '@/lib/api'
+import { Button } from "@/components/ui/button"
+
+interface AssetWithUnits extends Asset {
+  totalUnits: number
+  occupiedUnits: number
+  availableUnits: number
+  photoUrl?: string
+}
+
+export default function AssetCarousel() {
+  const router = useRouter()
+  const [assets, setAssets] = useState<AssetWithUnits[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadAssetsData()
+  }, [])
+
+  const loadAssetsData = async () => {
+    try {
+      setLoading(true)
+      
+      // Load all assets
+      const assetsResponse = await assetsApi.getAssets({ limit: 1000 })
+      if (!assetsResponse.success || !assetsResponse.data) {
+        return
+      }
+
+      const responseData = assetsResponse.data as any
+      const assetsList: Asset[] = Array.isArray(responseData.data) 
+        ? responseData.data 
+        : (Array.isArray(responseData) ? responseData : [])
+
+      // Load all units
+      const unitsResponse = await unitsApi.getUnits({ limit: 10000 })
+      const unitsList: Unit[] = unitsResponse.success && unitsResponse.data
+        ? (Array.isArray((unitsResponse.data as any).data) 
+            ? (unitsResponse.data as any).data 
+            : (Array.isArray(unitsResponse.data) ? unitsResponse.data : []))
+        : []
+
+      // Load all tenants to get occupied units
+      const tenantsResponse = await tenantsApi.getTenants({ limit: 10000 })
+      const tenantsList: Tenant[] = tenantsResponse.success && tenantsResponse.data
+        ? (Array.isArray((tenantsResponse.data as any).data) 
+            ? (tenantsResponse.data as any).data 
+            : (Array.isArray(tenantsResponse.data) ? tenantsResponse.data : []))
+        : []
+
+      // Helper function to normalize UUID for comparison
+      const normalizeId = (id: any): string => {
+        if (!id) return ''
+        return String(id).trim().toLowerCase()
+      }
+
+      // Get all occupied unit IDs from active tenants
+      const occupiedUnitIds = new Set<string>()
+      const now = new Date()
+      tenantsList.forEach(tenant => {
+        // Check if tenant is active (contract not expired)
+        const endDate = tenant.contract_end_at ? new Date(tenant.contract_end_at) : null
+        if (endDate && endDate > now) {
+          // First try to use populated units array
+          if (tenant.units && tenant.units.length > 0) {
+            tenant.units.forEach(unit => {
+              if (unit && unit.id) {
+                occupiedUnitIds.add(normalizeId(unit.id))
+              }
+            })
+          } 
+          // Fallback to unit_ids array
+          else if (tenant.unit_ids && tenant.unit_ids.length > 0) {
+            tenant.unit_ids.forEach(id => {
+              if (id) {
+                occupiedUnitIds.add(normalizeId(id))
+              }
+            })
+          }
+        }
+      })
+
+      // Process assets with unit counts
+      const assetsWithUnits: AssetWithUnits[] = assetsList.map(asset => {
+        if (!asset || !asset.id) {
+          return {
+            ...asset,
+            totalUnits: 0,
+            occupiedUnits: 0,
+            availableUnits: 0,
+            photoUrl: undefined
+          }
+        }
+
+        const assetIdNormalized = normalizeId(asset.id)
+        
+        // Filter units for this asset (not deleted)
+        console.log('Units List:', unitsList)
+        const assetUnits = unitsList.filter(unit => {
+          if (!unit || unit.is_deleted) return false
+          if (!unit.asset?.id) return false
+          // Compare asset_id as normalized string to handle UUID comparison
+          const unitAssetIdNormalized = normalizeId(unit.asset?.id)
+          return unitAssetIdNormalized === assetIdNormalized
+        })
+        
+        const totalUnits = assetUnits.length
+       
+        // Count occupied units by checking if unit.id is in occupiedUnitIds
+        const occupiedUnits = assetUnits.filter(unit => {
+          if (!unit || !unit.id) return false
+          const unitIdStr = normalizeId(unit.id)
+          return occupiedUnitIds.has(unitIdStr)
+        }).length
+        
+        const availableUnits = Math.max(0, totalUnits - occupiedUnits)
+
+        // Get first photo as background
+        const photoUrl = asset.photos && asset.photos.length > 0 
+          ? asset.photos[0] 
+          : undefined
+
+        return {
+          ...asset,
+          totalUnits,
+          occupiedUnits,
+          availableUnits,
+          photoUrl
+        }
+      })
+      
+      // Debug log - verify data for current asset
+      console.log('Asset Carousel Data:', {
+        totalAssets: assetsWithUnits.length,
+        totalOccupiedUnitIds: occupiedUnitIds.size,
+        assets: assetsWithUnits.map(asset => ({
+          id: asset.id,
+          name: asset.name,
+          totalUnits: asset.totalUnits,
+          occupiedUnits: asset.occupiedUnits,
+          availableUnits: asset.availableUnits
+        }))
+      })
+
+      setAssets(assetsWithUnits)
+    } catch (err) {
+      console.error('Error loading assets data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev + 1) % assets.length)
+  }
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev - 1 + assets.length) % assets.length)
+  }
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index)
+  }
+
+  const handleAssetClick = (assetId: string | number) => {
+    router.push(`/asset/view/${assetId}`)
+  }
+
+  if (loading) {
+    return (
+      <Card className="h-[400px] flex items-center justify-center">
+        <div className="text-gray-500">Memuat data asset...</div>
+      </Card>
+    )
+  }
+
+  if (assets.length === 0) {
+    return (
+      <Card className="h-[400px] flex items-center justify-center">
+        <div className="text-gray-500">Tidak ada data asset</div>
+      </Card>
+    )
+  }
+
+  const currentAsset = assets[currentIndex]
+
+  return (
+    <Card 
+      className="relative h-[400px] overflow-hidden rounded-lg cursor-pointer"
+      onClick={() => handleAssetClick(currentAsset.id)}
+    >
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-gray-300"
+        style={{
+          backgroundImage: currentAsset.photoUrl 
+            ? `url(${currentAsset.photoUrl})` 
+            : undefined
+        }}
+      >
+        {/* Overlay untuk readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+      </div>
+
+      {/* Content */}
+      <div className="relative h-full flex flex-col justify-between p-6 text-white">
+        {/* Top Section - Asset Name and Location */}
+        <div>
+          <h3 className="text-2xl font-bold mb-2">{currentAsset.name}</h3>
+          <p className="text-sm text-white/90">{currentAsset.address}</p>
+        </div>
+
+        {/* Bottom Section - Unit Info */}
+        <div>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="text-sm">
+              <span className="font-semibold">Total Unit: </span>
+              <span>{currentAsset.totalUnits}</span>
+            </div>
+            <div className="text-sm">
+              <span className="font-semibold text-green-300">Terisi: </span>
+              <span className="text-green-300">{currentAsset.occupiedUnits}</span>
+            </div>
+            <div className="text-sm">
+              <span className="font-semibold text-red-300">Kosong: </span>
+              <span className="text-red-300">{currentAsset.availableUnits}</span>
+            </div>
+          </div>
+
+          {/* Pagination Dots */}
+          <div className="flex justify-center gap-2 mb-4">
+            {assets.map((_, index) => (
+              <button
+                key={index}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  goToSlide(index)
+                }}
+                className={`h-2 w-2 rounded-full transition-all ${
+                  index === currentIndex 
+                    ? 'bg-white w-8' 
+                    : 'bg-white/50 hover:bg-white/75'
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Arrows */}
+      {assets.length > 1 && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white border-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              prevSlide()
+            }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white border-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              nextSlide()
+            }}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+        </>
+      )}
+    </Card>
+  )
+}

@@ -14,9 +14,10 @@ import AssetTableCard from "@/app/(dashboard)/(homes)/dashboard/components/asset
 import TopAssetRevenueCard from "@/app/(dashboard)/(homes)/dashboard/components/top-asset-revenue-card";
 import Pekerja from "@/app/(dashboard)/(homes)/dashboard/components/pekerja";
 import DailyTaskCompletion from "@/app/(dashboard)/(homes)/dashboard/components/daily-task-completion";
-import { dashboardApi, DashboardData, DashboardStats, assetsApi, unitsApi, Asset } from '@/lib/api'
+import { dashboardApi, DashboardData, DashboardStats, assetsApi, unitsApi, tenantsApi, Asset, Tenant } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Building2, Warehouse, Home } from "lucide-react"
+import { DollarSign, Building2, Warehouse, Home, FileText } from "lucide-react"
+import AssetCarousel from "./components/asset-carousel"
 
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -27,6 +28,8 @@ export default function DashboardPage() {
   const [availableUnits, setAvailableUnits] = useState<number>(0)
   const [occupiedUnits, setOccupiedUnits] = useState<number>(0)
   const [totalUnits, setTotalUnits] = useState<number>(0)
+  const [activeContracts, setActiveContracts] = useState<number>(0)
+  const [averageContractPerYear, setAverageContractPerYear] = useState<string>('Rp 0')
 
   useEffect(() => {
     loadDashboardData()
@@ -34,6 +37,13 @@ export default function DashboardPage() {
     loadAssetsData()
     loadAvailableUnits()
   }, [])
+
+  // Load contract stats when stats are available
+  useEffect(() => {
+    if (stats) {
+      loadContractStats()
+    }
+  }, [stats])
 
   const loadDashboardData = async () => {
     try {
@@ -160,6 +170,66 @@ export default function DashboardPage() {
     }
   }
 
+  const loadContractStats = async (statsData?: DashboardStats) => {
+    try {
+      const currentStats = statsData || stats
+      
+      // Load all tenants
+      const tenantsResponse = await tenantsApi.getTenants({ limit: 10000 })
+      if (!tenantsResponse.success || !tenantsResponse.data) {
+        return
+      }
+
+      const responseData = tenantsResponse.data as any
+      const tenantsList: Tenant[] = Array.isArray(responseData.data) 
+        ? responseData.data 
+        : (Array.isArray(responseData) ? responseData : [])
+
+      // Calculate active contracts (contract_end_at > now)
+      const now = new Date()
+      const activeTenants = tenantsList.filter(tenant => {
+        if (!tenant.contract_end_at) return false
+        const endDate = new Date(tenant.contract_end_at)
+        return endDate > now
+      })
+
+      setActiveContracts(activeTenants.length)
+
+      // Calculate average contract per year
+      // Rata-rata kontrak/tahun = Total Revenue / Jumlah Kontrak Aktif
+      if (currentStats?.totalRevenue?.value && activeTenants.length > 0) {
+        const totalRevenue = currentStats.totalRevenue.value
+        
+        const average = totalRevenue / activeTenants.length
+        
+        // Format as currency
+        const formatted = new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(average)
+        
+        // Shorten format (e.g., Rp 59 Juta instead of Rp 59.000.000)
+        const millions = average / 1000000
+        if (millions >= 1) {
+          setAverageContractPerYear(`Rp${Math.round(millions)}Juta`)
+        } else {
+          const thousands = average / 1000
+          if (thousands >= 1) {
+            setAverageContractPerYear(`Rp${Math.round(thousands)}Rb`)
+          } else {
+            setAverageContractPerYear(formatted.replace('Rp', 'Rp '))
+          }
+        }
+      } else {
+        setAverageContractPerYear('Rp 0')
+      }
+    } catch (err) {
+      console.error('Error loading contract stats:', err)
+    }
+  }
+
   // Safe defaults untuk menghindari undefined errors
   const complaints = dashboardData?.complaints || {
     recent: [],
@@ -184,59 +254,64 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard Overview</h1>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {/* Total Revenue Card */}
-        <Card className="p-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700">
+      {/* Stats Cards - New Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Left Side - Revenue and Contract Stats in One Card */}
+        <Card className="p-6 shadow-sm">
+          {/* Total Revenue Section */}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-0">
+            <CardTitle className="text-base font-medium text-gray-700">
               Total Revenue
             </CardTitle>
             <DollarSign className="h-4 w-4 text-gray-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-6 px-0">
             <div className="text-2xl font-bold text-gray-900">
               {stats?.totalRevenue?.formatted || 'Rp 0'}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className={stats?.totalRevenue?.changeType === "positive" ? "text-green-600" : "text-red-600"}>
+              <span className={stats?.totalRevenue?.changeType === "positive" ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
                 {stats?.totalRevenue?.change || '+0% vs last year'}
               </span>
             </p>
           </CardContent>
+
+          {/* Two Small Cards Below */}
+          <div className="grid grid-cols-2 gap-6 pt-8 border-t border-gray-200">
+            {/* Total Kontrak Aktif */}
+            <div className="text-center">
+              <div className="flex flex-row items-center justify-center gap-2 mb-3">
+                <CardTitle className="text-xs font-medium text-gray-700">
+                  Total Kontrak
+                </CardTitle>
+                <FileText className="h-3 w-3 text-gray-500" />
+              </div>
+              <div className="text-xl font-bold text-gray-900 mb-1">{activeContracts}</div>
+              <p className="text-xs text-green-600 font-medium">
+                Aktif
+              </p>
+            </div>
+
+            {/* Rata-rata Kontrak/Tahun */}
+            <div className="text-center">
+              <div className="flex flex-row items-center justify-center gap-2 mb-3">
+                <CardTitle className="text-xs font-medium text-gray-700">
+                  Rata-rata Kontrak/Tahun
+                </CardTitle>
+                <DollarSign className="h-3 w-3 text-gray-500" />
+              </div>
+              <div className="text-xl font-bold text-gray-900 mb-1">{averageContractPerYear}</div>
+              <p className="text-xs text-green-600 font-medium">
+                Per kontrak
+              </p>
+            </div>
+          </div>
         </Card>
 
-        {/* Total Asset Peruri Card */}
-        <Card className="p-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700">
-              Total Asset Peruri
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{assetsData?.total || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              In all area
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total Units Card */}
-        <Card className="p-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-700">
-              Total Units
-            </CardTitle>
-            <Home className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{totalUnits || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {occupiedUnits || 0} Terisi • {availableUnits || 0} Kosong
-            </p>
-          </CardContent>
-        </Card>
+        {/* Right Side - Asset Carousel */}
+        <div>
+          <AssetCarousel />
+        </div>
       </div>
 
       {/* Main Content Grid */}
@@ -257,14 +332,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Asset and Tenant Kontrak Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         {/* Asset Table */}
         <div className="lg:col-span-1 h-full">
           <AssetTableCard />
         </div>
 
         {/* Tenant Kontrak Table */}
-        <div className="lg:col-span-1 h-full">
+        <div className="lg:col-span-3 h-full">
           <TenantKontrakTable />
         </div>
       </div>

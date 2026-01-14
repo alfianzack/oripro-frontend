@@ -1,18 +1,24 @@
 'use client'
 
 import React, { useState, useEffect, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Clock, CheckCircle2, Calendar, MapPin, ClipboardList } from 'lucide-react'
 import { attendanceApi, userTasksApi, Attendance, UserTask } from '@/lib/api'
 import toast from 'react-hot-toast'
 import LoadingSkeleton from '@/components/loading-skeleton'
 import AttendanceCard from '@/components/attendance/attendance-card'
+import { TaskList } from '@/components/work/TaskList'
+import { CompleteTaskDialog } from '@/components/work/CompleteTaskDialog'
 
 function DashboardWorkerContent() {
+  const router = useRouter()
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([])
   const [userTasks, setUserTasks] = useState<UserTask[]>([])
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(true)
   const [isLoadingTasks, setIsLoadingTasks] = useState(true)
+  const [selectedUserTask, setSelectedUserTask] = useState<UserTask | null>(null)
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false)
 
   // Load attendance history
   const loadAttendanceHistory = async () => {
@@ -84,32 +90,61 @@ function DashboardWorkerContent() {
     })
   }
 
-  // Get task status badge
-  const getTaskStatusBadge = (task: UserTask) => {
-    const isPending = task.status === 'pending' && !task.started_at && !task.start_at
-    const isInProgress = (task.status === 'in_progress' || task.status === 'inprogress') && 
-                         (task.started_at || task.start_at) && 
-                         !task.completed_at
-    const isCompleted = task.status === 'completed' || task.completed_at
+  // Get route based on task group or role
+  const getTaskRoute = (task: UserTask): string | null => {
+    const taskData = task.task
+    if (!taskData) return null
 
-    if (isCompleted) {
-      return (
-        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
-          Selesai
-        </span>
-      )
-    } else if (isInProgress) {
-      return (
-        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-          Sedang Dikerjakan
-        </span>
-      )
-    } else {
-      return (
-        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
-          Pending
-        </span>
-      )
+    // Check task_group name first
+    const taskGroupName = taskData.task_group?.name?.toLowerCase() || ''
+    if (taskGroupName.includes('security') || taskGroupName.includes('keamanan')) {
+      return '/security-guard'
+    }
+    if (taskGroupName.includes('cleaning') || taskGroupName.includes('kebersihan')) {
+      return '/cleaning-program'
+    }
+
+    // Fallback to role name
+    const roleName = taskData.role?.name?.toLowerCase() || ''
+    if (roleName.includes('security') || roleName.includes('keamanan')) {
+      return '/security-guard'
+    }
+    if (roleName.includes('cleaning') || roleName.includes('kebersihan')) {
+      return '/cleaning-program'
+    }
+
+    return null
+  }
+
+  const handleStartTask = async (userTaskId: number) => {
+    try {
+      const response = await userTasksApi.startUserTask(userTaskId)
+      
+      if (response.success) {
+        toast.success('Task berhasil dimulai')
+        await loadUserTasks()
+      } else {
+        throw new Error(response.error || 'Gagal memulai task')
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Terjadi kesalahan saat memulai task')
+      throw error
+    }
+  }
+
+  const handleCompleteTask = (userTask: UserTask) => {
+    setSelectedUserTask(userTask)
+    setIsCompleteDialogOpen(true)
+  }
+
+  const handleCompleteSuccess = () => {
+    loadUserTasks()
+  }
+
+  const handleTaskClick = (task: UserTask) => {
+    const route = getTaskRoute(task)
+    if (route) {
+      router.push(route)
     }
   }
 
@@ -221,90 +256,17 @@ function DashboardWorkerContent() {
                 Tugas Saya
               </CardTitle>
               <CardDescription>
-                Daftar tugas yang perlu dikerjakan
+                Daftar tugas yang perlu dikerjakan. Klik task untuk membuka halaman detail.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingTasks ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-                    <p className="text-muted-foreground">Memuat data task...</p>
-                  </div>
-                </div>
-              ) : userTasks.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">Belum ada tugas untuk hari ini</p>
-                  <a
-                    href="/work"
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  >
-                    Lihat semua tugas →
-                  </a>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {userTasks.slice(0, 10).map((task) => {
-                    const taskId = task.user_task_id || task.id || task.task_id
-                    return (
-                      <div
-                        key={taskId}
-                        className={`p-3 rounded-lg border transition-colors ${
-                          task.status === 'completed' || task.completed_at
-                            ? 'border-green-200 bg-green-50/30'
-                            : task.status === 'in_progress' || task.status === 'inprogress'
-                            ? 'border-blue-200 bg-blue-50/30'
-                            : 'border-gray-200 bg-white'
-                        } hover:bg-gray-50`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900 mb-1">
-                              {task.task?.name || 'Task'}
-                            </div>
-                            <div className="text-xs text-muted-foreground space-y-1">
-                              {task.task?.duration && (
-                                <div>Durasi: {task.task.duration} menit</div>
-                              )}
-                              {task.scheduled_at && (
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  <span>{formatDate(task.scheduled_at)}</span>
-                                </div>
-                              )}
-                              {task.started_at || task.start_at ? (
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  <span>Dimulai: {formatTime(task.started_at || task.start_at || '')}</span>
-                                </div>
-                              ) : null}
-                              {task.completed_at && (
-                                <div className="flex items-center gap-1 text-green-600">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  <span>Selesai: {formatTime(task.completed_at)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0">
-                            {getTaskStatusBadge(task)}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {userTasks.length > 10 && (
-                    <div className="text-center pt-2">
-                      <a
-                        href="/work"
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Lihat semua tugas ({userTasks.length}) →
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
+              <TaskList
+                userTasks={userTasks}
+                isLoading={isLoadingTasks}
+                onStartTask={handleStartTask}
+                onCompleteTask={handleCompleteTask}
+                onTaskClick={handleTaskClick}
+              />
             </CardContent>
           </Card>
 
@@ -350,6 +312,14 @@ function DashboardWorkerContent() {
           </Card>
         </div>
       </div>
+
+      {/* Complete Task Dialog */}
+      <CompleteTaskDialog
+        open={isCompleteDialogOpen}
+        onOpenChange={setIsCompleteDialogOpen}
+        userTask={selectedUserTask}
+        onComplete={handleCompleteSuccess}
+      />
     </div>
   )
 }

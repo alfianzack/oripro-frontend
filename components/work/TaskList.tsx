@@ -21,9 +21,10 @@ interface TaskListProps {
   isLoading?: boolean
   onStartTask: (userTaskId: number) => Promise<void>
   onCompleteTask: (userTask: UserTask) => void
+  onTaskClick?: (userTask: UserTask) => void
 }
 
-export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: TaskListProps) {
+export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask, onTaskClick }: TaskListProps) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string | number>>(new Set())
 
   if (isLoading) {
@@ -49,10 +50,25 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
     )
   }
 
+  // Helper function to parse time string (HH:mm) to minutes for sorting
+  const parseTimeToMinutes = (timeStr: string | undefined | null): number => {
+    if (!timeStr) return 9999 // Put tasks without time at the end
+    
+    const parts = timeStr.split(':')
+    if (parts.length !== 2) return 9999
+    
+    const hours = parseInt(parts[0], 10)
+    const minutes = parseInt(parts[1], 10)
+    
+    if (isNaN(hours) || isNaN(minutes)) return 9999
+    
+    return hours * 60 + minutes
+  }
+
   // Filter tasks yang bisa ditampilkan (is_need_validation atau is_scan)
   // Tampilkan main task jika memenuhi kriteria atau punya sub_task yang memenuhi kriteria
   const getDisplayableMainTasks = (tasks: UserTask[]): UserTask[] => {
-    return tasks.filter(userTask => {
+    const filtered = tasks.filter(userTask => {
       const task = userTask.task
       
       // Check if main task itself meets criteria
@@ -69,6 +85,13 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
       }
       
       return false
+    })
+    
+    // Sort by time (ascending - earliest first)
+    return filtered.sort((a, b) => {
+      const timeA = parseTimeToMinutes(a.time)
+      const timeB = parseTimeToMinutes(b.time)
+      return timeA - timeB
     })
   }
 
@@ -108,8 +131,17 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
       return subTaskData && (subTaskData.is_need_validation || subTaskData.is_scan)
     })
     
-    // Sort by task name
+    // Sort by time first, then by task name
     return filtered.sort((a, b) => {
+      const timeA = parseTimeToMinutes(a.time)
+      const timeB = parseTimeToMinutes(b.time)
+      
+      // If times are different, sort by time
+      if (timeA !== timeB) {
+        return timeA - timeB
+      }
+      
+      // If times are same or both missing, sort by name
       const nameA = a.task?.name || ''
       const nameB = b.task?.name || ''
       return nameA.localeCompare(nameB, 'id', { sensitivity: 'base' })
@@ -232,6 +264,12 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
       // If task has child tasks, expand/collapse them
       if (hasSubTasks) {
         toggleExpand(taskId)
+        return
+      }
+      
+      // If onTaskClick is provided, call it
+      if (onTaskClick) {
+        onTaskClick(userTask)
         return
       }
       
@@ -358,16 +396,41 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
 
                   if (!shouldShowMainTaskRow) return null
 
+                  const handleRowClick = (e: React.MouseEvent) => {
+                    // Don't trigger row click if clicking on buttons
+                    const target = e.target as HTMLElement
+                    if (target.closest('button')) {
+                      return
+                    }
+                    
+                    // If task has child tasks, expand/collapse them
+                    if (hasSubTasks) {
+                      toggleExpand(taskId)
+                      return
+                    }
+                    
+                    // If onTaskClick is provided, call it
+                    if (onTaskClick) {
+                      onTaskClick(userTask)
+                    }
+                  }
+
                   return (
                     <React.Fragment key={taskId}>
                       {/* Main Task Row */}
-                      <TableRow className={isExpanded && hasSubTasks ? 'bg-muted/50' : ''}>
+                      <TableRow 
+                        className={`${isExpanded && hasSubTasks ? 'bg-muted/50' : ''} ${onTaskClick ? 'cursor-pointer hover:bg-muted/30' : ''}`}
+                        onClick={onTaskClick ? handleRowClick : undefined}
+                      >
                         <TableCell>
                           {hasSubTasks ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => toggleExpand(taskId)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleExpand(taskId)
+                              }}
                               className="h-8 w-8 p-0"
                             >
                               {isExpanded ? (
@@ -395,7 +458,7 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                         </TableCell>
                         <TableCell>{task.asset?.name || '-'}</TableCell>
                         <TableCell>{userTask.time || '-'}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           {shouldShowMainTask ? getTaskActions(userTask) : '-'}
                         </TableCell>
                       </TableRow>
@@ -407,8 +470,22 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                         
                         if (!subTaskData) return null
 
+                        const handleSubTaskRowClick = (e: React.MouseEvent) => {
+                          const target = e.target as HTMLElement
+                          if (target.closest('button')) {
+                            return
+                          }
+                          if (onTaskClick) {
+                            onTaskClick(subTask)
+                          }
+                        }
+
                         return (
-                          <TableRow key={subTaskId} className="bg-muted/30">
+                          <TableRow 
+                            key={subTaskId} 
+                            className={`bg-muted/30 ${onTaskClick ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                            onClick={onTaskClick ? handleSubTaskRowClick : undefined}
+                          >
                             <TableCell>
                               <div className="w-8 flex items-center justify-center">
                                 <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300"></div>
@@ -424,7 +501,7 @@ export function TaskList({ userTasks, isLoading, onStartTask, onCompleteTask }: 
                             </TableCell>
                             <TableCell>{subTaskData.asset?.name || '-'}</TableCell>
                             <TableCell>{subTask.time || '-'}</TableCell>
-                            <TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                               {getTaskActions(subTask)}
                             </TableCell>
                           </TableRow>
