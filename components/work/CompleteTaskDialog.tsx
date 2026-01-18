@@ -65,6 +65,24 @@ export function CompleteTaskDialog({
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    // Validate inputs
+    if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+      console.error('[DISTANCE] Invalid coordinates:', { lat1, lon1, lat2, lon2 })
+      return Infinity
+    }
+
+    // Validate latitude range (-90 to 90)
+    if (lat1 < -90 || lat1 > 90 || lat2 < -90 || lat2 > 90) {
+      console.error('[DISTANCE] Invalid latitude range:', { lat1, lat2 })
+      return Infinity
+    }
+
+    // Validate longitude range (-180 to 180)
+    if (lon1 < -180 || lon1 > 180 || lon2 < -180 || lon2 > 180) {
+      console.error('[DISTANCE] Invalid longitude range:', { lon1, lon2 })
+      return Infinity
+    }
+
     const R = 6371e3 // Earth's radius in meters
     const φ1 = lat1 * Math.PI / 180
     const φ2 = lat2 * Math.PI / 180
@@ -76,7 +94,10 @@ export function CompleteTaskDialog({
               Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-    return R * c // Distance in meters
+    const distance = R * c // Distance in meters
+    
+    // Round to 2 decimal places for accuracy
+    return Math.round(distance * 100) / 100
   }
 
   // Check if user is near the QR code location
@@ -93,27 +114,50 @@ export function CompleteTaskDialog({
         (position) => {
           const userLat = position.coords.latitude
           const userLon = position.coords.longitude
+          const accuracy = position.coords.accuracy // Accuracy in meters
           
-          console.log('[LOCATION] User location:', { latitude: userLat, longitude: userLon })
+          console.log('[LOCATION] User location:', { 
+            latitude: userLat, 
+            longitude: userLon,
+            accuracy: accuracy ? `${accuracy.toFixed(2)}m` : 'unknown'
+          })
           console.log('[LOCATION] QR location:', { latitude: qrLat, longitude: qrLon })
           
           const distance = calculateDistance(userLat, userLon, qrLat, qrLon)
-          console.log('[LOCATION] Distance:', distance, 'meters')
-          console.log('[LOCATION] Max allowed distance:', radiusDistance, 'meters')
+          console.log('[LOCATION] Calculated distance:', distance, 'meters')
+          console.log('[LOCATION] Max allowed distance (radius):', radiusDistance, 'meters')
+          
+          // Validate distance calculation
+          if (distance === Infinity || isNaN(distance)) {
+            console.error('[LOCATION] ❌ Invalid distance calculation')
+            setIsLocationValid(false)
+            setIsCheckingLocation(false)
+            toast.error('Gagal menghitung jarak. Pastikan koordinat QR code valid.')
+            reject(new Error('Invalid distance calculation'))
+            return
+          }
           
           // Use radius distance from settings
           const maxDistance = radiusDistance
           const isValid = distance <= maxDistance
+          
+          console.log('[LOCATION] Validation result:', {
+            distance: `${distance.toFixed(2)}m`,
+            maxDistance: `${maxDistance}m`,
+            isValid: isValid ? '✅ VALID' : '❌ INVALID',
+            difference: `${Math.abs(distance - maxDistance).toFixed(2)}m`
+          })
           
           setIsLocationValid(isValid)
           setIsCheckingLocation(false)
           
           if (isValid) {
             console.log('[LOCATION] ✅ User is within range')
-            toast.success(`Lokasi valid! Jarak: ${Math.round(distance)}m`)
+            toast.success(`Lokasi valid! Jarak: ${Math.round(distance)}m (maks: ${maxDistance}m)`)
           } else {
             console.log('[LOCATION] ❌ User is too far away')
-            toast.error(`Anda terlalu jauh dari lokasi QR code. Jarak: ${Math.round(distance)}m (maks: ${maxDistance}m)`)
+            const distanceDiff = distance - maxDistance
+            toast.error(`Anda terlalu jauh dari lokasi QR code. Jarak: ${Math.round(distance)}m (maks: ${maxDistance}m, selisih: ${Math.round(distanceDiff)}m)`)
           }
           
           resolve(isValid)
@@ -128,20 +172,21 @@ export function CompleteTaskDialog({
               errorMsg = 'Izin lokasi ditolak. Silakan berikan izin lokasi di pengaturan browser.'
               break
             case error.POSITION_UNAVAILABLE:
-              errorMsg = 'Informasi lokasi tidak tersedia.'
+              errorMsg = 'Informasi lokasi tidak tersedia. Pastikan GPS aktif dan koneksi internet stabil.'
               break
             case error.TIMEOUT:
-              errorMsg = 'Request lokasi timeout.'
+              errorMsg = 'Request lokasi timeout. Pastikan GPS aktif dan coba lagi.'
               break
           }
           
           toast.error(errorMsg)
+          setIsLocationValid(false)
           reject(new Error(errorMsg))
         },
         {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          enableHighAccuracy: true, // Use GPS if available for better accuracy
+          timeout: 15000, // Increased timeout to 15 seconds
+          maximumAge: 0 // Always get fresh location, don't use cached
         }
       )
     })
@@ -149,24 +194,27 @@ export function CompleteTaskDialog({
 
   const handleFileChange = (field: 'fileBefore' | 'fileAfter' | 'fileScan', file: File | null) => {
     if (file) {
-      // For keamanan role with need_validation: only allow one attachment (either before OR after)
-      // Clear the other file if user uploads a new one
-      if (task?.is_need_validation && (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') && field !== 'fileScan') {
-        const otherField = field === 'fileBefore' ? 'fileAfter' : 'fileBefore'
-        const otherPreviewKey = otherField === 'fileBefore' ? 'before' : 'after'
-        
-        // Clear the other file and its preview if it exists
-        setFormData(prev => {
-          const newData = { ...prev }
-          newData[otherField] = null
-          newData[field] = file
-          return newData
-        })
-        setFilePreview(prev => {
-          const newPreview = { ...prev }
-          delete newPreview[otherPreviewKey as keyof typeof newPreview]
-          return newPreview
-        })
+      // For keamanan role with need_validation: only allow after attachment
+      if (task?.is_need_validation && (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security')) {
+        if (field === 'fileBefore') {
+          toast.error('Untuk role keamanan, hanya boleh mengupload foto After')
+          return
+        }
+        // Clear fileBefore if it exists when uploading after
+        if (field === 'fileAfter') {
+          setFormData(prev => ({
+            ...prev,
+            fileBefore: null,
+            fileAfter: file
+          }))
+          setFilePreview(prev => {
+            const newPreview = { ...prev }
+            delete newPreview.before
+            return newPreview
+          })
+        } else {
+          setFormData(prev => ({ ...prev, [field]: file }))
+        }
       } else {
         setFormData(prev => ({ ...prev, [field]: file }))
       }
@@ -795,14 +843,14 @@ export function CompleteTaskDialog({
       const hasBefore = formData.fileBefore !== null
       const hasAfter = formData.fileAfter !== null
       
-      // For keamanan role: must have exactly one attachment (either before OR after)
+      // For keamanan role: must have after attachment only
       if (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') {
-        if (!hasBefore && !hasAfter) {
-          toast.error('Untuk role keamanan, wajib mengupload satu foto (Before atau After)')
+        if (!hasAfter) {
+          toast.error('Untuk role keamanan, wajib mengupload foto After')
           return
         }
-        if (hasBefore && hasAfter) {
-          toast.error('Untuk role keamanan, hanya boleh mengupload satu foto (Before atau After), tidak keduanya')
+        if (hasBefore) {
+          toast.error('Untuk role keamanan, hanya boleh mengupload foto After')
           return
         }
       }
@@ -1059,7 +1107,7 @@ export function CompleteTaskDialog({
               {(userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security') && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-sm text-blue-800">
-                    <strong>Catatan:</strong> Untuk role keamanan, Anda hanya perlu mengupload satu foto (Before <strong>atau</strong> After)
+                    <strong>Catatan:</strong> Untuk role keamanan, Anda wajib mengupload foto After
                   </p>
                 </div>
               )}
@@ -1070,46 +1118,54 @@ export function CompleteTaskDialog({
                   </p>
                 </div>
               )}
-              <div>
-                <Label>Foto Before {(userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') && <span className="text-red-500">*</span>}</Label>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => captureFromCamera('fileBefore')}
-                    className="flex items-center gap-2"
-                  >
-                    <Camera className="h-4 w-4" />
-                    Ambil Foto
-                  </Button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleFileChange('fileBefore', file)
-                    }}
-                    className="hidden"
-                    id="file-before-input"
-                  />
-                  <label htmlFor="file-before-input">
-                    <Button type="button" variant="outline" asChild>
-                      <span>Pilih File</span>
+              
+              {/* Foto Before - hanya untuk kebersihan */}
+              {(userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') && (
+                <div>
+                  <Label>Foto Before <span className="text-red-500">*</span></Label>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => captureFromCamera('fileBefore')}
+                      className="flex items-center gap-2"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Ambil Foto
                     </Button>
-                  </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleFileChange('fileBefore', file)
+                      }}
+                      className="hidden"
+                      id="file-before-input"
+                    />
+                    <label htmlFor="file-before-input">
+                      <Button type="button" variant="outline" asChild>
+                        <span>Pilih File</span>
+                      </Button>
+                    </label>
+                  </div>
+                  {filePreview.before && (
+                    <img
+                      src={filePreview.before}
+                      alt="Before"
+                      className="mt-2 w-full max-w-xs h-32 object-cover rounded"
+                    />
+                  )}
                 </div>
-                {filePreview.before && (
-                  <img
-                    src={filePreview.before}
-                    alt="Before"
-                    className="mt-2 w-full max-w-xs h-32 object-cover rounded"
-                  />
-                )}
-              </div>
+              )}
 
               <div>
-                <Label>Foto After {userRoleName === 'kebersihan' && <span className="text-red-500">*</span>}</Label>
+                <Label>Foto After {
+                  ((userRoleName?.toLowerCase() === 'kebersihan' || userRoleName?.toLowerCase() === 'cleaning') || 
+                   (userRoleName?.toLowerCase() === 'keamanan' || userRoleName?.toLowerCase() === 'security')) && 
+                  <span className="text-red-500">*</span>
+                }</Label>
                 <div className="flex gap-2 mt-2">
                   <Button
                     type="button"
@@ -1157,48 +1213,49 @@ export function CompleteTaskDialog({
                   type="button"
                   variant="outline"
                   onClick={handleScanBarcode}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 text-xs sm:text-sm"
                 >
-                  <Camera className="h-4 w-4" />
-                  Scan Barcode
+                  <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Scan Barcode</span>
+                  <span className="sm:hidden">Scan</span>
                 </Button>
               </div>
               {filePreview.scan && (
                 <img
                   src={filePreview.scan}
                   alt="Scan"
-                  className="mt-2 w-full max-w-xs h-32 object-cover rounded"
+                  className="mt-2 w-full max-w-xs h-24 sm:h-32 object-cover rounded"
                 />
               )}
               {formData.scanCode && (
                 <div className="mt-2 space-y-2">
-                  <div className="p-2 bg-gray-100 rounded text-sm">
-                    Kode: {formData.scanCode}
+                  <div className="p-2 bg-gray-100 rounded text-xs sm:text-sm break-all">
+                    <span className="font-medium">Kode:</span> {formData.scanCode}
                   </div>
                   {qrLocation && (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {isCheckingLocation && (
-                        <div className="flex items-center gap-2 text-sm text-blue-600">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Memvalidasi lokasi...
+                        <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm text-blue-600">
+                          <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mt-0.5 sm:mt-0 flex-shrink-0" />
+                          <span className="break-words">Memvalidasi lokasi...</span>
                         </div>
                       )}
                       {!isCheckingLocation && isLocationValid === true && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                          <span>✓</span>
-                          Lokasi valid - Anda berada di lokasi yang benar
+                        <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm text-green-600 font-medium">
+                          <span className="text-base sm:text-lg flex-shrink-0">✓</span>
+                          <span className="break-words">Lokasi valid - Anda berada di lokasi yang benar</span>
                         </div>
                       )}
                       {!isCheckingLocation && isLocationValid === false && (
-                        <div className="flex items-center gap-2 text-sm text-red-600 font-medium">
-                          <span>✗</span>
-                          Lokasi tidak valid - Anda terlalu jauh dari lokasi QR code
+                        <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm text-red-600 font-medium">
+                          <span className="text-base sm:text-lg flex-shrink-0">✗</span>
+                          <span className="break-words">Lokasi tidak valid - Anda terlalu jauh dari lokasi QR code</span>
                         </div>
                       )}
                       {!isCheckingLocation && isLocationValid === null && (
-                        <div className="flex items-center gap-2 text-sm text-yellow-600 font-medium">
-                          <span>⚠</span>
-                          Gagal memvalidasi lokasi
+                        <div className="flex items-start sm:items-center gap-2 text-xs sm:text-sm text-yellow-600 font-medium">
+                          <span className="text-base sm:text-lg flex-shrink-0">⚠</span>
+                          <span className="break-words">Gagal memvalidasi lokasi</span>
                         </div>
                       )}
                     </div>

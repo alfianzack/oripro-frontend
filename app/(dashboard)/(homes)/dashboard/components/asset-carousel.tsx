@@ -24,6 +24,17 @@ export default function AssetCarousel() {
     loadAssetsData()
   }, [])
 
+  // Auto-play carousel every 3 seconds
+  useEffect(() => {
+    if (assets.length <= 1) return // Don't auto-play if only 1 or no assets
+    
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % assets.length)
+    }, 3000) // 3 seconds
+
+    return () => clearInterval(interval)
+  }, [assets.length])
+
   const loadAssetsData = async () => {
     try {
       setLoading(true)
@@ -38,6 +49,7 @@ export default function AssetCarousel() {
       const assetsList: Asset[] = Array.isArray(responseData.data) 
         ? responseData.data 
         : (Array.isArray(responseData) ? responseData : [])
+      console.log('Assets List:', assetsList)
 
       // Load all units
       const unitsResponse = await unitsApi.getUnits({ limit: 10000 })
@@ -87,8 +99,33 @@ export default function AssetCarousel() {
         }
       })
 
+      // Load photos for each asset (getAsset returns photos)
+      const assetsWithPhotos = await Promise.all(
+        assetsList.map(async (asset) => {
+          if (!asset || !asset.id) return asset
+          
+          try {
+            const detailResponse = await assetsApi.getAsset(asset.id)
+            if (detailResponse.success && detailResponse.data) {
+              const detailData = detailResponse.data as any
+              const assetDetail = detailData.data || detailData
+              if (assetDetail.photos && assetDetail.photos.length > 0) {
+                return {
+                  ...asset,
+                  photos: assetDetail.photos
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Error loading photo for asset ${asset.id}:`, err)
+          }
+          
+          return asset
+        })
+      )
+
       // Process assets with unit counts
-      const assetsWithUnits: AssetWithUnits[] = assetsList.map(asset => {
+      const assetsWithUnits: AssetWithUnits[] = assetsWithPhotos.map(asset => {
         if (!asset || !asset.id) {
           return {
             ...asset,
@@ -102,7 +139,6 @@ export default function AssetCarousel() {
         const assetIdNormalized = normalizeId(asset.id)
         
         // Filter units for this asset (not deleted)
-        console.log('Units List:', unitsList)
         const assetUnits = unitsList.filter(unit => {
           if (!unit || unit.is_deleted) return false
           if (!unit.asset?.id) return false
@@ -122,10 +158,17 @@ export default function AssetCarousel() {
         
         const availableUnits = Math.max(0, totalUnits - occupiedUnits)
 
-        // Get first photo as background
-        const photoUrl = asset.photos && asset.photos.length > 0 
-          ? asset.photos[0] 
-          : undefined
+        // Get first photo as background (only 1 photo)
+        let photoUrl: string | undefined = undefined
+        if (asset.photos && asset.photos.length > 0) {
+          const firstPhoto = asset.photos[0]
+          // Ensure URL is properly formatted
+          if (firstPhoto) {
+            photoUrl = firstPhoto.startsWith('http') || firstPhoto.startsWith('/') 
+              ? firstPhoto 
+              : `/${firstPhoto}`
+          }
+        }
 
         return {
           ...asset,
@@ -145,7 +188,9 @@ export default function AssetCarousel() {
           name: asset.name,
           totalUnits: asset.totalUnits,
           occupiedUnits: asset.occupiedUnits,
-          availableUnits: asset.availableUnits
+          availableUnits: asset.availableUnits,
+          photoUrl: asset.photoUrl,
+          photos: asset.photos
         }))
       })
 
@@ -197,23 +242,31 @@ export default function AssetCarousel() {
       onClick={() => handleAssetClick(currentAsset.id)}
     >
       {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-gray-300"
-        style={{
-          backgroundImage: currentAsset.photoUrl 
-            ? `url(${currentAsset.photoUrl})` 
-            : undefined
-        }}
-      >
-        {/* Overlay untuk readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+      <div className="absolute inset-0 bg-gray-300 overflow-hidden">
+        {currentAsset.photoUrl ? (
+          <>
+            <img
+              src={currentAsset.photoUrl}
+              alt={currentAsset.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                // Hide image on error, show gray background
+                (e.target as HTMLImageElement).style.display = 'none'
+              }}
+            />
+            {/* Overlay untuk readability */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gray-300" />
+        )}
       </div>
 
       {/* Content */}
       <div className="relative h-full flex flex-col justify-between p-6 text-white">
         {/* Top Section - Asset Name and Location */}
         <div>
-          <h3 className="text-2xl font-bold mb-2">{currentAsset.name}</h3>
+          <h3 className="text-2xl text-white font-bold mb-2">{currentAsset.name}</h3>
           <p className="text-sm text-white/90">{currentAsset.address}</p>
         </div>
 

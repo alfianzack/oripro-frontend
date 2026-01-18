@@ -14,6 +14,10 @@ pnpm dev
 bun dev
 ```
 
+Cron tab 
+0 1 * * * /usr/bin/curl -s -H "Authorization: Basic dXNlcjpwYXNzd29yZA==" https://oneprox.id/api/api/internal/tenant-payments/due-soon >> /home/deployprod/oneprox/log/internal-api-cron.log 2>&1
+
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
