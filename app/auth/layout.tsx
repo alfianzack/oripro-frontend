@@ -8,9 +8,10 @@ export default function AuthLayout({
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="light"
+      enableSystem={false}
       disableTransitionOnChange
+      forcedTheme="light"
     >
       <main className="min-h-screen">{children}</main>
     </ThemeProvider>

@@ -24,13 +24,13 @@ export default function AssetCarousel() {
     loadAssetsData()
   }, [])
 
-  // Auto-play carousel every 3 seconds
+  // Auto-play carousel every 5 seconds
   useEffect(() => {
     if (assets.length <= 1) return // Don't auto-play if only 1 or no assets
     
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % assets.length)
-    }, 3000) // 3 seconds
+    }, 5000) // 5 seconds
 
     return () => clearInterval(interval)
   }, [assets.length])
